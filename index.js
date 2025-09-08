@@ -47,5 +47,9 @@ client.login(process.env.DISCORD_TOKEN);
 const express = require('express');
 const app = express();
 
-app.get('/', (req, res) => res.send('Bot is running!'));
-app.listen(process.env.PORT || 3000, () => console.log('Web server started'));
+const PORT = process.env.PORT || 3000;
+
+// Simple endpoint for UptimeRobot
+app.get('/', (req, res) => res.send('Bot is alive!'));
+
+app.listen(PORT, () => console.log(`Uptime server running on port ${PORT}`));
