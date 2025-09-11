@@ -1,14 +1,16 @@
-"steam": {
-  "apiKey": "8EFD8AB4782033A604619F4C028D31A1",
-  "pollIntervalMs": 60000,
-  "defaultCount": 5,
-  "mappings": [
-    { "appid": "440", "channelId": "1415023634845667560", "count": 3 },
-    { "appid": "570", "channelId": "1415023634845667560" },
-    { "appid": "1938090", "channelId": "1415023634845667560", "count": 5 }
-  ],
-  "enableDocsCheck": false,
-  "docsChannelId": "1415023654521012377",
-  "docsPollIntervalMs": 600000,
-  "adminRoleId": "1415023634845667560"
+{
+  "steam": {
+    "apiKey": "8EFD8AB4782033A604619F4C028D31A1",
+    "pollIntervalMs": 60000,
+    "defaultCount": 5,
+    "mappings": [
+      { "appid": "440", "channelId": "1415023634845667560", "count": 3 },
+      { "appid": "570", "channelId": "1415023634845667560" },
+      { "appid": "1938090", "channelId": "1415023634845667560", "count": 5 }
+    ],
+    "enableDocsCheck": false,
+    "docsChannelId": "1415023654521012377",
+    "docsPollIntervalMs": 600000,
+    "adminRoleId": "1415023634845667560"
+  }
 }

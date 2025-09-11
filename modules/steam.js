@@ -1,13 +1,13 @@
 const axios = require('axios');
 
 module.exports = (client, config) => {
-  async function getAppNews(appId = 1938090, count = 5) {
+  async function getAppNews(appId, count = 5) {
     try {
       const res = await axios.get(`https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/`, {
         params: {
           appid: appId,
           count: count,
-          maxlength: 300, // optional, trims content
+          maxlength: 300
         }
       });
 
@@ -20,23 +20,29 @@ module.exports = (client, config) => {
 
       return newsItems;
     } catch (err) {
-      console.error('Error fetching Steam news:', err);
+      console.error(`Error fetching Steam news for App ID ${appId}:`, err);
       return [];
     }
   }
 
-  // Example: send news to a specific Discord channel every time the bot starts
+  // On bot ready, send news for all mapped apps
   client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}`);
-    const channel = client.channels.cache.get(config.newsChannelId); // set your channel ID in config.json
-    if (!channel) return console.warn('News channel not found');
 
-    const news = await getAppNews();
-    for (const item of news) {
-      channel.send(`**${item.title}**\nBy: ${item.author}\n${item.date}\n${item.url}`);
+    for (const mapping of config.steam.mappings) {
+      const channel = client.channels.cache.get(mapping.channelId);
+      if (!channel) {
+        console.warn(`News channel not found for App ID ${mapping.appid}`);
+        continue;
+      }
+
+      const news = await getAppNews(mapping.appid, mapping.count || config.steam.defaultCount);
+      for (const item of news) {
+        channel.send(`**${item.title}**\nBy: ${item.author}\n${item.date}\n${item.url}`);
+      }
     }
   });
 
-  // Optional: expose function for commands
+  // Expose function for commands or manual calls
   client.getSteamNews = getAppNews;
 };
