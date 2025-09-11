@@ -7,7 +7,7 @@ const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent // needed for reading messages
+    GatewayIntentBits.MessageContent
   ],
 });
 
@@ -41,17 +41,20 @@ for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
   }
 }
 
+// handle crashes gracefully
+process.on('unhandledRejection', err => console.error('Unhandled Rejection:', err));
+process.on('uncaughtException', err => console.error('Uncaught Exception:', err));
+
 client.login(process.env.DISCORD_TOKEN);
 
-// index.js (or at the bottom)
+// --- Uptime server for Render / UptimeRobot ---
 const express = require('express');
 const app = express();
-
 const PORT = process.env.PORT || 3000;
 
-// Simple endpoint for UptimeRobot
 app.get('/', (req, res) => res.send('Bot is alive!'));
 
 app.listen(PORT, () => console.log(`Uptime server running on port ${PORT}`));
 
+// Steam module
 require('./modules/steam')(client, require('./config.json'));
