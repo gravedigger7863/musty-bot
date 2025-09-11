@@ -5,7 +5,7 @@
     "defaultCount": 5,
     "mappings": [
       { "appid": "440", "channelId": "1415023634845667560", "count": 3 },
-      { "appid": "570", "channelId": "1415023654521012377" }
+      { "appid": "570", "channelId": "1415023634845667560" }
     ],
     "enableDocsCheck": true,
     "docsChannelId": "1415023654521012377",
