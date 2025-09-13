@@ -1,5 +1,8 @@
 const { SlashCommandBuilder } = require("discord.js");
 
+// Track play command executions to prevent duplicates
+const playExecutions = new Set();
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("play")
@@ -10,6 +13,20 @@ module.exports = {
         .setRequired(true)
     ),
   async execute(interaction) {
+    // CRITICAL: Check if interaction already processed to prevent duplicate execution
+    if (interaction.deferred || interaction.replied) {
+      console.log(`[Play Command] Interaction already processed, skipping duplicate execution`);
+      return;
+    }
+
+    // Additional check: prevent duplicate play command executions
+    const executionKey = `${interaction.id}-${interaction.user.id}`;
+    if (playExecutions.has(executionKey)) {
+      console.log(`[Play Command] Duplicate play command execution detected, skipping: ${executionKey}`);
+      return;
+    }
+    playExecutions.add(executionKey);
+
     // Defer immediately to prevent interaction timeout - MUST be first!
     try {
       await interaction.deferReply();
@@ -185,6 +202,16 @@ module.exports = {
         }
       } catch (replyError) {
         console.error('Failed to send error message:', replyError);
+      }
+    } finally {
+      // Clean up execution tracking
+      const executionKey = `${interaction.id}-${interaction.user.id}`;
+      playExecutions.delete(executionKey);
+      
+      // Clean up old executions (keep only last 1000)
+      if (playExecutions.size > 1000) {
+        const toDelete = Array.from(playExecutions).slice(0, 100);
+        toDelete.forEach(key => playExecutions.delete(key));
       }
     }
   },

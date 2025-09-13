@@ -1,6 +1,9 @@
 // Track processed interactions to prevent double processing
 const processedInteractions = new Set();
 
+// Track command executions to prevent duplicates
+const commandExecutions = new Set();
+
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
@@ -34,6 +37,17 @@ module.exports = {
         return;
       }
 
+      // CRITICAL: Check for duplicate command execution
+      const executionKey = `${interaction.id}-${interaction.commandName}`;
+      if (commandExecutions.has(executionKey)) {
+        console.log(`[InteractionCreate] Duplicate command execution detected, skipping: ${executionKey}`);
+        processedInteractions.delete(interaction.id);
+        return;
+      }
+      
+      // Mark command as being executed
+      commandExecutions.add(executionKey);
+
       // Defer is now handled in individual commands
 
       try {
@@ -59,6 +73,13 @@ module.exports = {
       } finally {
         // Clean up after processing
         processedInteractions.delete(interaction.id);
+        commandExecutions.delete(executionKey);
+        
+        // Clean up old command executions (keep only last 1000)
+        if (commandExecutions.size > 1000) {
+          const toDelete = Array.from(commandExecutions).slice(0, 100);
+          toDelete.forEach(key => commandExecutions.delete(key));
+        }
       }
     }
     // Handle button interactions
