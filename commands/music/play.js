@@ -10,10 +10,10 @@ module.exports = {
         .setRequired(true)
     ),
   async execute(interaction) {
-    console.log(`[Play Command] Starting play command for query: ${interaction.options.getString("query")}`);
-    
-    // Defer immediately to prevent interaction timeout
+    // Defer immediately to prevent interaction timeout - MUST be first!
     await interaction.deferReply();
+    
+    console.log(`[Play Command] Starting play command for query: ${interaction.options.getString("query")}`);
     
     // Small delay to ensure extractors are loaded
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -132,7 +132,16 @@ module.exports = {
         errorMessage = '❌ Could not find a playable audio stream for this track. Try a different song.';
       }
       
-      await interaction.editReply(errorMessage);
+      // Use fallback if interaction is not replied to
+      try {
+        if (!interaction.replied) {
+          await interaction.editReply(errorMessage);
+        } else {
+          await interaction.followUp({ content: errorMessage, ephemeral: true });
+        }
+      } catch (replyError) {
+        console.error('Failed to send error message:', replyError);
+      }
     }
   },
 };
