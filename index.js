@@ -22,7 +22,13 @@ client.player = new Player(client, {
   skipFFmpeg: false,
   ytdlOptions: {
     quality: 'highestaudio',
-    highWaterMark: 1 << 25
+    highWaterMark: 1 << 25,
+    // Add more robust options
+    requestOptions: {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    }
   },
   // Add better error handling
   connectionTimeout: 30000,
@@ -30,7 +36,11 @@ client.player = new Player(client, {
   // Disable problematic features that might cause stream extraction issues
   disableEqualizer: true,
   disableBiquad: true,
-  disableFilterer: true
+  disableFilterer: true,
+  // Add retry configuration
+  retry: 3,
+  // Enable fallback streaming
+  enableStreamInterceptor: true
 });
 
 // Add comprehensive error event handlers
@@ -94,16 +104,24 @@ client.player.events.on('connection', (queue) => {
   }
 });
 
-// Register YouTube extractor
-client.player.extractors.register(YoutubeiExtractor);
+// Register YouTube extractor with better configuration
+client.player.extractors.register(YoutubeiExtractor, {
+  // Add retry configuration
+  retry: 3,
+  timeout: 30000
+});
 
 // Add these imports if you install the packages
-// const { SpotifyExtractor } = require('discord-player-spotify');
-// const { SoundCloudExtractor } = require('discord-player-soundcloud');
+const { SpotifyExtractor } = require('discord-player-spotify');
+const { SoundCloudExtractor } = require('discord-player-soundcloud');
 
-// Register additional extractors
-// client.player.extractors.register(SpotifyExtractor);
-// client.player.extractors.register(SoundCloudExtractor);
+// Register additional extractors as fallbacks
+client.player.extractors.register(SpotifyExtractor);
+client.player.extractors.register(SoundCloudExtractor);
+
+// Register custom YouTube extractor as fallback
+const CustomYouTubeExtractor = require('./modules/customExtractor');
+client.player.extractors.register(CustomYouTubeExtractor);
 
 // --- Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
@@ -157,8 +175,23 @@ client.on('voiceStateUpdate', (oldState, newState) => {
       // If bot gets deafened, try to undeafen it
       if (newState.deaf && !oldState.deaf) {
         console.log('Bot was deafened! Attempting to undeafen...');
-        newState.setDeaf(false).catch(err => {
-          console.error('Failed to undeafen bot:', err);
+        // Try multiple approaches to undeafen
+        Promise.all([
+          newState.setDeaf(false),
+          newState.setMute(false) // Also ensure not muted
+        ]).catch(err => {
+          console.error('Failed to undeafen/unmute bot:', err);
+          // Try alternative approach - disconnect and reconnect
+          setTimeout(() => {
+            if (newState.channel) {
+              console.log('Attempting to reconnect to fix deaf state...');
+              newState.disconnect().then(() => {
+                setTimeout(() => {
+                  newState.channel.join().catch(console.error);
+                }, 1000);
+              }).catch(console.error);
+            }
+          }, 2000);
         });
       }
       
