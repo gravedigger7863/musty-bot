@@ -7,19 +7,12 @@ const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-
-// Verify FFmpeg paths
-console.log('FFmpeg path (ffmpeg-static):', ffmpeg);
-console.log('FFmpeg path (ffmpeg-installer):', ffmpegInstaller.path);
+const express = require('express');
 
 // Use the more reliable FFmpeg path
 const ffmpegPath = ffmpegInstaller.path || ffmpeg;
 
-// Global interaction lock to prevent Discord retry race conditions
-const activeInteractions = new Set();
-
-// Additional libraries
-const express = require('express');
+console.log('FFmpeg path:', ffmpegPath);
 
 // --- Client Setup ---
 const client = new Client({
@@ -33,14 +26,13 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Initialize player with optimized configuration
+// Initialize player with 2025 optimized configuration
 client.player = new Player(client, {
   ffmpegPath: ffmpegPath,
   selfDeaf: false,
   selfMute: false,
-  bufferingTimeout: 10000,
+  bufferingTimeout: 15000,
   connectionTimeout: 30000,
-  // Enhanced configuration for better stability
   skipOnEmpty: true,
   skipOnEmptyCooldown: 30000,
   leaveOnEnd: true,
@@ -51,35 +43,37 @@ client.player = new Player(client, {
   autoSelfMute: false
 });
 
-// Load default extractors using the new method
+// Load extractors using the latest 2025 method
 (async () => {
   try {
     await client.player.extractors.loadMulti(DefaultExtractors);
     console.log(`✅ Loaded ${client.player.extractors.size} extractors`);
+    global.extractorsLoaded = true;
   } catch (error) {
     console.error('Failed to load extractors:', error);
+    global.extractorsLoaded = false;
   }
 })();
 
-// Enhanced event handlers for better music experience
+// Enhanced event handlers for 2025
 client.player.events.on('error', (queue, error) => {
   console.error(`[Player Error] ${queue.guild.name}:`, error.message);
   if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`❌ Music player error: ${error.message || 'Unknown error'}`).catch(console.error);
+    queue.metadata.channel.send(`❌ Music player error: ${error.message}`).catch(console.error);
   }
 });
 
 client.player.events.on('playerError', (queue, error) => {
   console.error(`[Player Error] ${queue.guild.name}:`, error.message);
   if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`❌ Track playback error: ${error.message || 'Unknown error'}`).catch(console.error);
+    queue.metadata.channel.send(`❌ Track playback error: ${error.message}`).catch(console.error);
   }
 });
 
 client.player.events.on('connectionError', (queue, error) => {
   console.error(`[Connection Error] ${queue.guild.name}:`, error.message);
   if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`❌ Voice connection error: ${error.message || 'Unknown error'}`).catch(console.error);
+    queue.metadata.channel.send(`❌ Voice connection error: ${error.message}`).catch(console.error);
   }
 });
 
@@ -104,7 +98,7 @@ client.player.events.on('trackAdd', (queue, track) => {
 client.player.events.on('trackError', (queue, error) => {
   console.error(`[Track Error] ${queue.guild.name}:`, error.message);
   if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`❌ Track error: ${error.message || 'Unknown error'}`).catch(console.error);
+    queue.metadata.channel.send(`❌ Track error: ${error.message}`).catch(console.error);
   }
 });
 
@@ -133,8 +127,6 @@ client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
 });
 
-console.log('✅ Discord Player configuration complete');
-
 // --- Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
 for (const folder of fs.readdirSync(commandsPath)) {
@@ -148,25 +140,14 @@ for (const folder of fs.readdirSync(commandsPath)) {
       continue;
     }
     client.commands.set(command.data.name, command);
+    console.log(`✅ Loaded command: ${command.data.name}`);
   }
 }
 
 // --- Event Loader ---
 const eventsPath = path.join(__dirname, 'events');
-const loadedEvents = new Set();
-
-// Make activeInteractions available globally for event handlers
-global.activeInteractions = activeInteractions;
-
 for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
   const event = require(path.join(eventsPath, file));
-  
-  // Prevent duplicate event registration
-  if (loadedEvents.has(event.name)) {
-    console.log(`⚠️ Duplicate event detected: ${event.name} - skipping`);
-    continue;
-  }
-  loadedEvents.add(event.name);
   
   if (event.once) {
     client.once(event.name, (...args) => event.execute(...args, client));
@@ -187,7 +168,7 @@ client.login(process.env.DISCORD_TOKEN);
 // --- Uptime server ---
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Musty Bot is alive! 🎵'));
+app.get('/', (req, res) => res.send('Musty Bot 2025 is alive! 🎵'));
 app.listen(PORT, () => console.log(`Uptime server running on port ${PORT}`));
 
 module.exports = client;

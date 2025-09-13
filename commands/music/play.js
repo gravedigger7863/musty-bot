@@ -1,5 +1,4 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { QueryType } = require("discord-player");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -22,12 +21,6 @@ module.exports = {
       console.log(`[Play Command] Interaction deferred successfully`);
     } catch (err) {
       console.warn("Failed to defer interaction:", err.message);
-      // Try to reply instead if defer fails
-      try {
-        await interaction.reply({ content: "❌ Command failed to start. Please try again.", ephemeral: true });
-      } catch (replyErr) {
-        console.error("Failed to reply to interaction:", replyErr.message);
-      }
       return;
     }
     
@@ -48,24 +41,32 @@ module.exports = {
       console.log(`[Play Command] Searching for: ${query}`);
       console.log(`[Play Command] Available extractors: ${interaction.client.player.extractors.size}`);
       
-      // Check if extractors are loaded
+      // Ensure extractors are loaded
       if (interaction.client.player.extractors.size === 0) {
-        console.log(`[Play Command] No extractors available, trying to load them...`);
-        const { DefaultExtractors } = require('@discord-player/extractor');
-        await interaction.client.player.extractors.loadMulti(DefaultExtractors);
-        console.log(`[Play Command] Loaded ${interaction.client.player.extractors.size} extractors`);
+        console.log(`[Play Command] No extractors available, loading them...`);
+        try {
+          const { DefaultExtractors } = require('@discord-player/extractor');
+          await interaction.client.player.extractors.loadMulti(DefaultExtractors);
+          console.log(`[Play Command] Loaded ${interaction.client.player.extractors.size} extractors`);
+        } catch (loadError) {
+          console.error(`[Play Command] Failed to load extractors:`, loadError);
+          return await interaction.editReply('❌ Failed to load music extractors. Please try again.');
+        }
       }
       
-      // Use YouTube as primary source (most reliable)
+      // Search for track using the latest 2025 method
       let searchResult;
       try {
+        // Try YouTube first (most reliable in 2025)
         searchResult = await interaction.client.player.search(query, {
           requestedBy: interaction.user,
           searchEngine: 'youtube',
         });
         
+        console.log(`[Play Command] YouTube search result: ${searchResult ? searchResult.hasTracks() : 'null'}`);
+        
+        // If no results, try other engines
         if (!searchResult || !searchResult.hasTracks()) {
-          // Fallback to other engines
           const fallbackEngines = ['spotify', 'soundcloud'];
           for (const engine of fallbackEngines) {
             try {
@@ -96,7 +97,7 @@ module.exports = {
       const track = searchResult.tracks[0];
       console.log(`[Play Command] Found track: ${track.title} from ${track.source}`);
 
-      // Create or get existing queue
+      // Create or get existing queue using 2025 best practices
       let queue = interaction.client.player.nodes.get(interaction.guild.id);
       
       if (!queue) {
@@ -113,7 +114,7 @@ module.exports = {
           skipOnEmptyCooldown: 30000,
           autoSelfDeaf: false,
           autoSelfMute: false,
-          bufferingTimeout: 10000,
+          bufferingTimeout: 15000,
           connectionTimeout: 30000
         });
       }
@@ -173,4 +174,3 @@ module.exports = {
     }
   },
 };
-

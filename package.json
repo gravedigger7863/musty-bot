@@ -1,15 +1,19 @@
 {
   "name": "musty-bot",
   "version": "1.0.0",
-  "description": "A modern Discord music bot with multi-source support",
+  "description": "A modern Discord music bot with multi-source support - 2025 Edition",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
+    "deploy": "node deploy-commands.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["discord", "music", "bot"],
+  "keywords": ["discord", "music", "bot", "2025"],
   "author": "",
   "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "dependencies": {
     "@discord-player/downloader": "^3.0.2",
     "@discord-player/equalizer": "^7.1.0",

@@ -5,7 +5,6 @@ module.exports = {
     .setName('control')
     .setDescription('Show music control panel in chat'),
   async execute(interaction) {
-    // Defer immediately to prevent interaction timeout
     if (!interaction.deferred && !interaction.replied) {
       await interaction.deferReply();
     }
