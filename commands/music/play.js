@@ -10,32 +10,22 @@ module.exports = {
         .setRequired(true)
     ),
   async execute(interaction) {
-    // Check if interaction already processed
-    if (interaction.deferred || interaction.replied) {
-      console.log(`[Play Command] Interaction already processed, skipping`);
-      return;
-    }
-
-    // Check if interaction is still valid
-    const interactionAge = Date.now() - interaction.createdTimestamp;
-    if (interactionAge > 2500) {
-      console.log(`[Play Command] Interaction too old, skipping: ${interactionAge}ms`);
-      return;
-    }
-
-    // Interaction is already deferred in the event handler
-    console.log(`[Play Command] Processing play command`);
+    console.log(`[Play Command] Processing play command for: ${interaction.id}`);
     
     try {
       const query = interaction.options.getString("query");
       const voiceChannel = interaction.member?.voice?.channel;
 
+      console.log(`[Play Command] Query: ${query}, Voice Channel: ${voiceChannel?.name || 'None'}`);
+
       if (!voiceChannel) {
+        console.log(`[Play Command] No voice channel, sending error`);
         return await interaction.editReply({ 
           content: "⚠️ You need to join a voice channel first!"
         });
       }
       
+      console.log(`[Play Command] Sending search message`);
       await interaction.editReply({ 
         content: "🔍 Searching for your music..." 
       });
@@ -93,6 +83,7 @@ module.exports = {
       }
       
       if (!searchResult || !searchResult.hasTracks()) {
+        console.log(`[Play Command] No tracks found for query: ${query}`);
         return await interaction.editReply('❌ No tracks found. Please try a different search term or check if the URL is valid.');
       }
       
@@ -144,13 +135,16 @@ module.exports = {
       // Start playback if not already playing
       if (!queue.node.isPlaying()) {
         try {
+          console.log(`[Play Command] Starting playback`);
           await queue.node.play();
+          console.log(`[Play Command] Sending now playing message`);
           await interaction.editReply(`🎶 Now playing **${track.title}** by ${track.author || 'Unknown Artist'}`);
         } catch (playError) {
           console.error(`[Play Command] Playback failed:`, playError);
           await interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Unknown error'}`);
         }
       } else {
+        console.log(`[Play Command] Adding to queue`);
         await interaction.editReply(`🎵 **${track.title}** by ${track.author || 'Unknown Artist'} added to queue`);
       }
       
