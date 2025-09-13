@@ -95,21 +95,28 @@ client.player.events.on('emptyChannel', (queue) => {
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
   
-  // Immediately fix voice state after connection
-  const me = queue.guild.members.me;
-  if (me?.voice) {
-    console.log('Bot voice state on connection:', {
-      mute: me.voice.mute,
-      deaf: me.voice.deaf,
-      selfMute: me.voice.selfMute,
-      selfDeaf: me.voice.selfDeaf
-    });
-    
-    // Simple fix - just unmute and undeafen
-    me.voice.setMute(false);
-    me.voice.setDeaf(false);
-    console.log('Bot voice state fixed on connection');
-  }
+  // Wait a moment for voice state to settle, then fix
+  setTimeout(() => {
+    const me = queue.guild.members.me;
+    if (me?.voice) {
+      console.log('Bot voice state on connection:', {
+        mute: me.voice.mute,
+        deaf: me.voice.deaf,
+        selfMute: me.voice.selfMute,
+        selfDeaf: me.voice.selfDeaf
+      });
+      
+      // Try to fix voice state
+      if (me.voice.mute || me.voice.deaf || me.voice.selfMute || me.voice.selfDeaf) {
+        console.log('Fixing bot voice state on connection...');
+        me.voice.setMute(false);
+        me.voice.setDeaf(false);
+        console.log('Bot voice state fixed on connection');
+      } else {
+        console.log('Bot voice state is already correct');
+      }
+    }
+  }, 1000); // Wait 1 second for voice state to settle
 });
 
 // Extractors are now properly loaded with loadDefault()
@@ -156,11 +163,21 @@ client.on('voiceStateUpdate', (oldState, newState) => {
       selfDeaf: newState.selfDeaf
     });
     
-    // Simple fix - if bot is muted/deafened, just fix it
+    // Simple fix - if bot is muted/deafened, just fix it (with cooldown to prevent infinite loop)
     if (newState.channel && (newState.mute || newState.deaf || newState.selfMute || newState.selfDeaf)) {
-      console.log('Bot has voice issues! Fixing...');
-      newState.setMute(false);
-      newState.setDeaf(false);
+      const guildId = newState.guild.id;
+      const currentTime = Date.now();
+      const lastFixAttempt = voiceStateFixAttempts.get(guildId) || 0;
+      
+      // Only try to fix if we haven't tried in the last 3 seconds
+      if (currentTime - lastFixAttempt > 3000) {
+        console.log('Bot has voice issues! Fixing...');
+        voiceStateFixAttempts.set(guildId, currentTime);
+        newState.setMute(false);
+        newState.setDeaf(false);
+      } else {
+        console.log('Skipping voice fix - too recent');
+      }
     }
   }
 });
