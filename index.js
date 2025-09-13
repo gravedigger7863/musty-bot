@@ -67,6 +67,29 @@ client.player.events.on('emptyChannel', (queue) => {
   console.log(`[Player] Channel empty in ${queue.guild.name}`);
 });
 
+// Ensure bot stays unmuted and undeafened when connecting to voice
+client.player.events.on('connection', (queue) => {
+  console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
+  
+  // Ensure bot is not muted or deafened when connecting
+  const me = queue.guild.members.me;
+  if (me?.voice) {
+    if (me.voice.mute) {
+      console.log('Bot is muted on connection, attempting to unmute...');
+      me.voice.setMute(false).catch(err => {
+        console.error('Failed to unmute bot on connection:', err);
+      });
+    }
+    
+    if (me.voice.deaf) {
+      console.log('Bot is deafened on connection, attempting to undeafen...');
+      me.voice.setDeaf(false).catch(err => {
+        console.error('Failed to undeafen bot on connection:', err);
+      });
+    }
+  }
+});
+
 // Register YouTube extractor
 client.player.extractors.register(YoutubeiExtractor);
 
@@ -117,20 +140,38 @@ client.on('voiceStateUpdate', (oldState, newState) => {
       selfDeaf: newState.selfDeaf
     });
     
-    // If bot gets muted, try to unmute it
-    if (newState.mute && !oldState.mute) {
-      console.log('Bot was muted! Attempting to unmute...');
-      newState.setMute(false).catch(err => {
-        console.error('Failed to unmute bot:', err);
-      });
-    }
-    
-    // If bot gets deafened, try to undeafen it
-    if (newState.deaf && !oldState.deaf) {
-      console.log('Bot was deafened! Attempting to undeafen...');
-      newState.setDeaf(false).catch(err => {
-        console.error('Failed to undeafen bot:', err);
-      });
+    // Only try to fix mute/deaf if bot is in a voice channel
+    if (newState.channel) {
+      // If bot gets muted, try to unmute it
+      if (newState.mute && !oldState.mute) {
+        console.log('Bot was muted! Attempting to unmute...');
+        newState.setMute(false).catch(err => {
+          console.error('Failed to unmute bot:', err);
+        });
+      }
+      
+      // If bot gets deafened, try to undeafen it
+      if (newState.deaf && !oldState.deaf) {
+        console.log('Bot was deafened! Attempting to undeafen...');
+        newState.setDeaf(false).catch(err => {
+          console.error('Failed to undeafen bot:', err);
+        });
+      }
+      
+      // Also handle self-mute and self-deaf
+      if (newState.selfMute && !oldState.selfMute) {
+        console.log('Bot was self-muted! Attempting to unmute...');
+        newState.setMute(false).catch(err => {
+          console.error('Failed to unmute bot:', err);
+        });
+      }
+      
+      if (newState.selfDeaf && !oldState.selfDeaf) {
+        console.log('Bot was self-deafened! Attempting to undeafen...');
+        newState.setDeaf(false).catch(err => {
+          console.error('Failed to undeafen bot:', err);
+        });
+      }
     }
   }
 });
