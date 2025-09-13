@@ -22,11 +22,15 @@ client.commands = new Collection();
 client.player = new Player(client, {
   ytdlOptions: { 
     quality: 'highestaudio', 
-    filter: 'audioonly' 
+    filter: 'audioonly',
+    highWaterMark: 1 << 25
   },
   // Ensure bot doesn't get deafened
   selfDeaf: false,
-  selfMute: false
+  selfMute: false,
+  // Add additional options for better compatibility
+  bufferingTimeout: 3000,
+  connectionTimeout: 30000
 });
 
 // Load default extractors (YouTube, SoundCloud, Spotify, etc.)
@@ -60,10 +64,17 @@ client.player.events.on('connectionError', (queue, error) => {
 // Add better error handling for stream extraction
 client.player.events.on('trackStart', (queue, track) => {
   console.log(`[Player] Started playing: ${track.title} in ${queue.guild.name}`);
+  console.log(`[Player] Queue size: ${queue.tracks.size}, Is playing: ${queue.isPlaying()}`);
 });
 
 client.player.events.on('trackEnd', (queue, track) => {
   console.log(`[Player] Finished playing: ${track.title} in ${queue.guild.name}`);
+  console.log(`[Player] Queue size after track end: ${queue.tracks.size}`);
+});
+
+client.player.events.on('trackAdd', (queue, track) => {
+  console.log(`[Player] Track added to queue: ${track.title} in ${queue.guild.name}`);
+  console.log(`[Player] Queue size after add: ${queue.tracks.size}`);
 });
 
 // Add error handling for track errors
