@@ -130,7 +130,13 @@ module.exports = {
           skipOnEmptyCooldown: 300000,
           // Additional stability options
           autoSelfDeaf: false,
-          autoSelfMute: false
+          autoSelfMute: false,
+          // Enhanced stability for race condition prevention
+          bufferingTimeout: 5000,
+          connectionTimeout: 30000,
+          // Prevent immediate destruction
+          destroyOnEmpty: false,
+          destroyOnEnd: false
         });
       }
 
@@ -180,9 +186,26 @@ module.exports = {
         return await interaction.editReply('❌ Failed to add track to queue. Please try again.');
       }
 
-      // Start playing if not already playing
-      if (!queue.node.isPlaying()) {
-        console.log(`[Play Command] Starting playback`);
+      // CRITICAL: Wait for queue to be fully ready before starting playback
+      console.log(`[Play Command] Waiting for queue to be ready...`);
+      
+      // Small delay to ensure track is fully processed and queue is ready
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Additional check using setImmediate for next tick processing
+      await new Promise(resolve => setImmediate(resolve));
+      
+      // Verify queue state before attempting playback
+      console.log(`[Play Command] Pre-playback queue state:`, {
+        tracksSize: queue.tracks.size,
+        isPlaying: queue.node.isPlaying(),
+        connectionExists: !!queue.connection,
+        nodeExists: !!queue.node
+      });
+      
+      // Only start playback if queue has tracks and is not already playing
+      if (queue.tracks.size > 0 && !queue.node.isPlaying()) {
+        console.log(`[Play Command] Starting playback with ${queue.tracks.size} tracks in queue`);
         try {
           // Add more robust error handling around player.play()
           await queue.node.play();
@@ -190,7 +213,12 @@ module.exports = {
           
           // Wait a moment for track to start, then verify
           setTimeout(() => {
-            console.log(`[Play Command] Queue state check - Size: ${queue.tracks.size}, Playing: ${queue.node.isPlaying()}`);
+            console.log(`[Play Command] Post-playback queue state:`, {
+              tracksSize: queue.tracks.size,
+              isPlaying: queue.node.isPlaying(),
+              connectionExists: !!queue.connection,
+              nodeExists: !!queue.node
+            });
             if (queue.tracks.size === 0) {
               console.error(`[Play Command] CRITICAL: Queue was emptied after playback attempt!`);
             }
@@ -213,6 +241,9 @@ module.exports = {
             return await interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Unknown error'}`);
           }
         }
+      } else if (queue.tracks.size === 0) {
+        console.error(`[Play Command] CRITICAL: Queue has no tracks when trying to play!`);
+        return await interaction.editReply('❌ No tracks in queue. Please try again.');
       } else {
         console.log(`[Play Command] Already playing, track added to queue`);
       }
