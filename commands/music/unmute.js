@@ -8,28 +8,19 @@ module.exports = {
     const me = interaction.guild.members.me;
     
     if (!me?.voice?.channel) {
-      return interaction.reply({ 
-        content: '⚠️ Bot is not in a voice channel.', 
-        flags: 64 
-      });
+      return interaction.editReply('⚠️ Bot is not in a voice channel.');
     }
 
     if (!me.voice.mute) {
-      return interaction.reply({ 
-        content: '✅ Bot is not muted.', 
-        flags: 64 
-      });
+      return interaction.editReply('✅ Bot is not muted.');
     }
 
     try {
       await me.voice.setMute(false);
-      return interaction.reply('🔊 Bot unmuted successfully!');
+      return interaction.editReply('🔊 Bot unmuted successfully!');
     } catch (error) {
       console.error('Failed to unmute bot:', error);
-      return interaction.reply({ 
-        content: '❌ Failed to unmute bot. Check permissions.', 
-        flags: 64 
-      });
+      return interaction.editReply('❌ Failed to unmute bot. Check permissions.');
     }
   },
 };

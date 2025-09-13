@@ -8,7 +8,7 @@ module.exports = {
   async execute(interaction) {
     const queue = useQueue(interaction.guild.id);
     if (!queue || !queue.isPlaying()) {
-      return interaction.reply("⚠️ No music is currently playing.");
+      return interaction.editReply("⚠️ No music is currently playing.");
     }
 
     const current = queue.currentTrack;
@@ -29,6 +29,6 @@ module.exports = {
       response += `\n🚫 No more songs in the queue.`;
     }
 
-    await interaction.reply(response);
+    await interaction.editReply(response);
   },
 };

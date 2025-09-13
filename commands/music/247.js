@@ -11,7 +11,7 @@ module.exports = {
   async execute(interaction) {
     const queue = useQueue(interaction.guild.id);
     if (!queue || !queue.channel) {
-      return interaction.reply({ content: '⚠️ The bot must be in a voice channel first.', flags: 64 });
+      return interaction.editReply({ content: '⚠️ The bot must be in a voice channel first.' });
     }
 
     const enabled = stayInVC.get(interaction.guild.id) || false;
@@ -23,6 +23,6 @@ module.exports = {
       queue.node.on('end', () => queue.delete()); 
     }
 
-    return interaction.reply(`🔄 24/7 mode is now **${!enabled ? 'ENABLED ✅' : 'DISABLED ❌'}**`);
+    return interaction.editReply(`🔄 24/7 mode is now **${!enabled ? 'ENABLED ✅' : 'DISABLED ❌'}**`);
   },
 };

@@ -57,7 +57,7 @@ module.exports = {
       const remaining = 24 * 60 * 60 * 1000 - (now - last);
       const hours = Math.floor(remaining / 3600000);
       const minutes = Math.floor((remaining % 3600000) / 60000);
-      return interaction.reply({ content: `❌ You can only play once daily. Try again in ${hours}h ${minutes}m.`, flags: 64 });
+      return interaction.editReply({ content: `❌ You can only play once daily. Try again in ${hours}h ${minutes}m.` });
     }
 
     await interaction.deferReply();

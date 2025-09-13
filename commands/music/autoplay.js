@@ -11,7 +11,7 @@ module.exports = {
   async execute(interaction) {
     const queue = useQueue(interaction.guild.id);
     if (!queue || !queue.channel) {
-      return interaction.reply({ content: '⚠️ The bot must be in a voice channel first.', flags: 64 });
+      return interaction.editReply({ content: '⚠️ The bot must be in a voice channel first.' });
     }
 
     const enabled = autoplayStatus.get(interaction.guild.id) || false;
@@ -20,6 +20,6 @@ module.exports = {
     // enable or disable autoplay
     queue.node.setAutoplay(!enabled);
 
-    return interaction.reply(`🔁 Autoplay is now **${!enabled ? 'ENABLED ✅' : 'DISABLED ❌'}**`);
+    return interaction.editReply(`🔁 Autoplay is now **${!enabled ? 'ENABLED ✅' : 'DISABLED ❌'}**`);
   },
 };

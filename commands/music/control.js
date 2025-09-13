@@ -19,10 +19,9 @@ module.exports = {
       new ButtonBuilder().setCustomId('queue').setLabel('📜 Queue').setStyle(ButtonStyle.Secondary)
     );
 
-    await interaction.reply({
+    await interaction.editReply({
       content: '🎶 **Music Control Panel**',
       components: [row1, row2],
-      ephemeral: false,
     });
   },
 };

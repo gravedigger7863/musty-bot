@@ -8,10 +8,10 @@ module.exports = {
   async execute(interaction) {
     const queue = useQueue(interaction.guild.id);
     if (!queue) {
-      return interaction.reply("⚠️ No music is currently playing.");
+      return interaction.editReply("⚠️ No music is currently playing.");
     }
 
     queue.delete();
-    await interaction.reply("🛑 Music stopped!");
+    await interaction.editReply("🛑 Music stopped!");
   },
 };

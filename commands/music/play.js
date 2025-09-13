@@ -14,19 +14,12 @@ module.exports = {
     const voiceChannel = interaction.member?.voice?.channel;
 
     if (!voiceChannel) {
-      return interaction.reply({ 
-        content: "⚠️ You need to join a voice channel first!", 
-        flags: 64 // Ephemeral flag
+      return interaction.editReply({ 
+        content: "⚠️ You need to join a voice channel first!"
       });
     }
 
-    // Defer reply immediately to prevent timeout
-    try {
-      await interaction.deferReply();
-    } catch (err) {
-      console.error('Failed to defer reply:', err);
-      return; // Exit if we can't defer
-    }
+    // Interaction is already deferred by the event handler
 
     try {
       const queue = interaction.client.player.nodes.create(interaction.guild, {

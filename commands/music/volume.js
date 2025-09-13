@@ -14,15 +14,15 @@ module.exports = {
   async execute(interaction) {
     const queue = useQueue(interaction.guild.id);
     if (!queue || !queue.currentTrack) {
-      return interaction.reply({ content: '⚠️ No music is currently playing.', flags: 64 });
+      return interaction.editReply({ content: '⚠️ No music is currently playing.' });
     }
 
     const amount = interaction.options.getInteger('amount');
     if (amount < 1 || amount > 100) {
-      return interaction.reply({ content: '⚠️ Volume must be between 1 and 100.', flags: 64 });
+      return interaction.editReply({ content: '⚠️ Volume must be between 1 and 100.' });
     }
 
     queue.node.setVolume(amount);
-    return interaction.reply(`🔊 Volume set to **${amount}%**`);
+    return interaction.editReply(`🔊 Volume set to **${amount}%**`);
   },
 };

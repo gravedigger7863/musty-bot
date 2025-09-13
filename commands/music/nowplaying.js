@@ -25,7 +25,7 @@ module.exports = {
   async execute(interaction) {
     const queue = useQueue(interaction.guild.id);
     if (!queue || !queue.currentTrack) {
-      return interaction.reply({ content: '⚠️ No music is currently playing.', flags: 64 });
+      return interaction.editReply({ content: '⚠️ No music is currently playing.' });
     }
 
     const track = queue.currentTrack;
@@ -40,6 +40,6 @@ module.exports = {
       ],
     };
 
-    return interaction.reply({ embeds: [embed] });
+    return interaction.editReply({ embeds: [embed] });
   },
 };
