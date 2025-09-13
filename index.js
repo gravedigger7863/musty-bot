@@ -19,8 +19,9 @@ const client = new Client({
 client.commands = new Collection();
 client.player = new Player(client);
 
-// --- Register extractors for YouTube/Spotify ---
-registerExtractors(client.player);
+// auto-register extractors
+require('@discord-player/extractor');
+
 
 // --- Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
