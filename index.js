@@ -18,11 +18,10 @@ const client = new Client({
 client.commands = new Collection();
 client.player = new Player(client);
 
-const { registerPlayerExtractors } = require("@discord-player/extractor");
+const { ExtractorManager } = require("@discord-player/extractor");
 
-// register all built-in extractors (YouTube, Spotify, SoundCloud, etc.)
-registerPlayerExtractors(client.player);
-
+// register all built-in extractors for your player
+ExtractorManager.registerDefaultExtractors(client.player);
 
 // --- Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
