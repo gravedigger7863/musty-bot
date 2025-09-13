@@ -27,20 +27,32 @@ module.exports = {
         content: "🔍 Searching for your music..." 
       });
 
-      // Search for tracks first
+      // Search for tracks first with multiple fallback engines
       console.log(`[Play Command] Searching for: ${query}`);
-      const searchResult = await interaction.client.player.search(query, {
-        requestedBy: interaction.user,
-        searchEngine: 'auto'
-      });
-
-      console.log(`[Play Command] Search result: ${searchResult.hasTracks() ? 'Found tracks' : 'No tracks found'}`);
-      if (searchResult.hasTracks()) {
-        console.log(`[Play Command] First track: ${searchResult.tracks[0].title}`);
+      let searchResult;
+      
+      // Try different search engines as fallback
+      const searchEngines = ['youtube', 'soundcloud', 'spotify'];
+      for (const engine of searchEngines) {
+        try {
+          console.log(`[Play Command] Trying search engine: ${engine}`);
+          searchResult = await interaction.client.player.search(query, {
+            requestedBy: interaction.user,
+            searchEngine: engine
+          });
+          
+          if (searchResult.hasTracks()) {
+            console.log(`[Play Command] Found tracks with ${engine}: ${searchResult.tracks[0].title}`);
+            break;
+          }
+        } catch (searchError) {
+          console.log(`[Play Command] Search failed with ${engine}:`, searchError.message);
+          continue;
+        }
       }
 
-      if (!searchResult.hasTracks()) {
-        return await interaction.editReply('❌ No results found for your search query.');
+      if (!searchResult || !searchResult.hasTracks()) {
+        return await interaction.editReply('❌ No results found for your search query on any platform.');
       }
 
       // Use the play method directly instead of managing queue manually
@@ -57,7 +69,7 @@ module.exports = {
       });
 
       console.log(`[Play Command] Queue created/updated for guild: ${interaction.guild.id}`);
-      console.log(`[Play Command] Queue is playing: ${queue.isPlaying()}`);
+      console.log(`[Play Command] Queue is playing: ${queue.node.isPlaying()}`);
       console.log(`[Play Command] Current track: ${queue.currentTrack?.title || 'None'}`);
 
       // Send success message
@@ -73,6 +85,10 @@ module.exports = {
         errorMessage = '❌ No audio extractor available for this source.';
       } else if (err.message && err.message.includes('FFmpeg')) {
         errorMessage = '❌ Audio processing error. Please try a different song.';
+      } else if (err.message && err.message.includes('Could not extract stream')) {
+        errorMessage = '❌ Could not extract audio stream. Try a different song or check if the source is available.';
+      } else if (err.code === 'ERR_NO_RESULT') {
+        errorMessage = '❌ Could not find a playable audio stream for this track. Try a different song.';
       }
       
       await interaction.editReply(errorMessage);

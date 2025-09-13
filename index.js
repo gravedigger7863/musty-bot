@@ -23,14 +23,22 @@ client.player = new Player(client, {
   ytdlOptions: { 
     quality: 'highestaudio', 
     filter: 'audioonly',
-    highWaterMark: 1 << 25
+    highWaterMark: 1 << 25,
+    requestOptions: {
+      headers: {
+        cookie: process.env.YOUTUBE_COOKIE || ''
+      }
+    }
   },
   // Ensure bot doesn't get deafened
   selfDeaf: false,
   selfMute: false,
   // Add additional options for better compatibility
-  bufferingTimeout: 3000,
-  connectionTimeout: 30000
+  bufferingTimeout: 5000,
+  connectionTimeout: 30000,
+  // Enable fallback extractors
+  useLegacyFFmpeg: false,
+  skipFFmpeg: false
 });
 
 // Load default extractors (YouTube, SoundCloud, Spotify, etc.)
