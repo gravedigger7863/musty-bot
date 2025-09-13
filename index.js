@@ -18,8 +18,11 @@ const client = new Client({
 client.commands = new Collection();
 client.player = new Player(client);
 
-// --- Load extractors automatically ---
-require('@discord-player/extractor');
+const { registerPlayerExtractors } = require("@discord-player/extractor");
+
+// register all built-in extractors (YouTube, Spotify, SoundCloud, etc.)
+registerPlayerExtractors(client.player);
+
 
 // --- Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
@@ -53,30 +56,30 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
   const queue = client.player.nodes.get(interaction.guild.id);
-  if (!queue) return interaction.reply({ content: '⚠️ No music is playing.', flags: 64 });
+  if (!queue) return interaction.reply({ content: '⚠️ No music is playing.', ephemeral: true });
 
   switch (interaction.customId) {
     case 'pause':
       queue.node.setPaused(!queue.node.isPaused());
-      return interaction.reply({ content: queue.node.isPaused() ? '⏸️ Paused' : '▶️ Resumed', flags: 64 });
+      return interaction.reply({ content: queue.node.isPaused() ? '⏸️ Paused' : '▶️ Resumed', ephemeral: true });
     case 'skip':
       queue.node.skip();
-      return interaction.reply({ content: '⏭️ Skipped', flags: 64 });
+      return interaction.reply({ content: '⏭️ Skipped', ephemeral: true });
     case 'stop':
       queue.delete();
-      return interaction.reply({ content: '🛑 Stopped', flags: 64 });
+      return interaction.reply({ content: '🛑 Stopped', ephemeral: true });
     case 'volup':
       queue.node.setVolume(Math.min(queue.node.volume + 10, 100));
-      return interaction.reply({ content: `🔊 Volume: ${queue.node.volume}%`, flags: 64 });
+      return interaction.reply({ content: `🔊 Volume: ${queue.node.volume}%`, ephemeral: true });
     case 'voldown':
       queue.node.setVolume(Math.max(queue.node.volume - 10, 0));
-      return interaction.reply({ content: `🔉 Volume: ${queue.node.volume}%`, flags: 64 });
+      return interaction.reply({ content: `🔉 Volume: ${queue.node.volume}%`, ephemeral: true });
     case 'loop':
       queue.setRepeatMode(queue.repeatMode === 0 ? 1 : 0);
-      return interaction.reply({ content: queue.repeatMode === 1 ? '🔁 Looping current track' : 'Loop disabled', flags: 64 });
+      return interaction.reply({ content: queue.repeatMode === 1 ? '🔁 Looping current track' : 'Loop disabled', ephemeral: true });
     case 'autoplay':
       queue.node.setAutoplay(!queue.node.isAutoplay);
-      return interaction.reply({ content: queue.node.isAutoplay ? '▶️ Autoplay Enabled' : 'Autoplay Disabled', flags: 64 });
+      return interaction.reply({ content: queue.node.isAutoplay ? '▶️ Autoplay Enabled' : 'Autoplay Disabled', ephemeral: true });
     case 'queue':
       const current = queue.currentTrack;
       const tracks = queue.tracks.toArray();
@@ -88,7 +91,7 @@ client.on('interactionCreate', async interaction => {
       } else {
         text += '\n🚫 No more songs in the queue.';
       }
-      return interaction.reply({ content: text, flags: 64 });
+      return interaction.reply({ content: text, ephemeral: true });
   }
 });
 
