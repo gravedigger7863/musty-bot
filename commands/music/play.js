@@ -77,17 +77,29 @@ module.exports = {
             searchAttempts++;
             console.log(`[Play Command] YouTube search attempt ${searchAttempts}/${maxAttempts}`);
             
+            // Try different search engine parameters based on attempt
+            let searchEngine = 'youtube_search';
+            if (searchAttempts === 2) {
+              searchEngine = 'youtube_video';
+            } else if (searchAttempts === 3) {
+              searchEngine = 'youtube';
+            }
+            
+            console.log(`[Play Command] Using search engine: ${searchEngine}`);
+            
             // Use Promise.race with longer timeout for YouTube-only search
             youtubeResult = await Promise.race([
               interaction.client.player.search(query, {
                 requestedBy: interaction.user,
-                searchEngine: 'youtube',
+                searchEngine: searchEngine, // Try different search engines
                 // Force YouTube-only, disable all other sources
-                fallbackSearchEngine: 'youtube',
+                fallbackSearchEngine: 'youtube_search',
                 // Additional options to ensure YouTube-only
                 useYouTube: true,
                 useSoundCloud: false,
-                useSpotify: false
+                useSpotify: false,
+                // Add play-dl integration for better YouTube results
+                usePlayDL: true
               }),
               new Promise((_, reject) => 
                 setTimeout(() => reject(new Error('YouTube search timeout')), 15000) // 15 seconds
@@ -119,9 +131,46 @@ module.exports = {
             }
           } catch (searchError) {
             console.log(`[Play Command] Search attempt ${searchAttempts} failed:`, searchError.message);
+            
+            // On final attempt, try play-dl direct search as last resort
             if (searchAttempts === maxAttempts) {
-              throw searchError; // Re-throw on final attempt
+              console.log(`[Play Command] Trying play-dl direct search as final fallback...`);
+              try {
+                const play = require('play-dl');
+                const playDLResult = await play.search(query, { limit: 1 });
+                
+                if (playDLResult && playDLResult.length > 0) {
+                  const playDLTrack = playDLResult[0];
+                  console.log(`[Play Command] play-dl found track: ${playDLTrack.title}`);
+                  
+                  // Convert play-dl result to Discord Player format
+                  youtubeResult = {
+                    tracks: [{
+                      title: playDLTrack.title,
+                      url: playDLTrack.url,
+                      duration: playDLTrack.durationInSec * 1000, // Convert to milliseconds
+                      thumbnail: playDLTrack.thumbnails?.[0]?.url,
+                      author: playDLTrack.channel?.name || 'Unknown Artist',
+                      source: 'youtube',
+                      id: playDLTrack.id,
+                      raw: playDLTrack
+                    }],
+                    hasTracks: () => true
+                  };
+                  
+                  if (youtubeResult && youtubeResult.hasTracks()) {
+                    track = youtubeResult.tracks[0];
+                    console.log(`[Play Command] play-dl track converted successfully: ${track.title}`);
+                    break; // Success with play-dl
+                  }
+                }
+              } catch (playDLError) {
+                console.error(`[Play Command] play-dl fallback also failed:`, playDLError.message);
+              }
+              
+              throw searchError; // Re-throw original error if play-dl also fails
             }
+            
             // Wait before retry
             await new Promise(resolve => setTimeout(resolve, 2000));
           }
