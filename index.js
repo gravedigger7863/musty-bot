@@ -7,7 +7,7 @@ const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { Player } = require('discord-player');
-const { SoundCloudExtractor, YouTubeExtractor, SpotifyExtractor } = require('@discord-player/extractor');
+const { DefaultExtractors } = require('@discord-player/extractor');
 
 // Additional libraries
 const express = require('express');
@@ -42,22 +42,8 @@ client.player = new Player(client, {
   connectionTimeout: 30000
 });
 
-// Register extractors individually for better control
-client.player.extractors.register(YouTubeExtractor, {
-  ytdlOptions: { 
-    quality: 'highestaudio', 
-    filter: 'audioonly',
-    highWaterMark: 1 << 25,
-    requestOptions: {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    }
-  }
-});
-
-client.player.extractors.register(SoundCloudExtractor, {});
-client.player.extractors.register(SpotifyExtractor, {});
+// Load default extractors (YouTube, SoundCloud, Spotify, etc.)
+client.player.extractors.loadDefault();
 
 // Add comprehensive error event handlers
 client.player.events.on('error', (queue, error) => {
