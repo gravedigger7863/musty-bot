@@ -8,6 +8,16 @@ process.env.UV_THREADPOOL_SIZE = '16';
 process.env.DP_FORCE_NATIVE_OPUS = 'true';
 process.env.DP_DISABLE_OPUSSCRIPT = 'true';
 
+// Prevent OpusScript from being loaded at runtime
+const originalRequire = require;
+require = function(id) {
+  if (id === 'opusscript' || id.includes('opusscript')) {
+    console.log('Blocked OpusScript from loading, using mediaplex instead');
+    return { encode: () => Buffer.alloc(0) }; // Return dummy encoder
+  }
+  return originalRequire.apply(this, arguments);
+};
+
 // Override setTimeout to prevent negative timeouts
 const originalSetTimeout = global.setTimeout;
 global.setTimeout = (callback, delay, ...args) => {
@@ -50,7 +60,7 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Initialize Discord Player with native Opus encoder
+// Initialize Discord Player with mediaplex Opus encoder
 client.player = new Player(client, {
   ffmpegPath: ffmpegPath,
   selfDeaf: false,
@@ -65,8 +75,9 @@ client.player = new Player(client, {
   leaveOnStop: true,
   autoSelfDeaf: false,
   autoSelfMute: false,
-  // Force use of native Opus encoder
+  // Force use of mediaplex Opus encoder instead of OpusScript
   useLegacyFFmpeg: false,
+  opusEncoder: 'mediaplex',
   ytdlOptions: {
     quality: 'highestaudio',
     highWaterMark: 1 << 25,
