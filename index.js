@@ -8,7 +8,6 @@ const fs = require('fs');
 const path = require('path');
 const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
-const { Downloader } = require('@discord-player/downloader');
 const ffmpeg = require('ffmpeg-static');
 const { Mediaplex } = require('mediaplex');
 

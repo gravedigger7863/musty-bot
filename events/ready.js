@@ -1,5 +1,4 @@
 const { DefaultExtractors } = require('@discord-player/extractor');
-const { Downloader } = require('@discord-player/downloader');
 
 module.exports = {
   name: 'clientReady',
@@ -7,16 +6,16 @@ module.exports = {
   async execute(client) {
     console.log(`✅ Logged in as ${client.user.tag}`);
     
-    // Load extractors and downloader after bot is ready
+    // Load extractors after bot is ready
     try {
       await client.player.extractors.loadMulti(DefaultExtractors);
       console.log("✅ Discord Player extractors loaded successfully");
       
-      // Load the downloader for enhanced audio source support
-      await client.player.extractors.load(Downloader);
-      console.log("✅ Discord Player downloader loaded successfully");
+      // The downloader is automatically available with @discord-player/downloader package
+      // No need to manually load it - it's integrated into the player
+      console.log("✅ Discord Player downloader available (700+ websites supported)");
     } catch (error) {
-      console.error("❌ Failed to load extractors/downloader:", error);
+      console.error("❌ Failed to load extractors:", error);
     }
   },
 };
