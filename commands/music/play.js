@@ -16,11 +16,24 @@ module.exports = {
       return;
     }
 
+    // Check if interaction is still valid
+    const interactionAge = Date.now() - interaction.createdTimestamp;
+    if (interactionAge > 2500) {
+      console.log(`[Play Command] Interaction too old, skipping: ${interactionAge}ms`);
+      return;
+    }
+
     try {
       await interaction.deferReply();
       console.log(`[Play Command] Interaction deferred successfully`);
     } catch (err) {
       console.warn("Failed to defer interaction:", err.message);
+      // Try to reply instead
+      try {
+        await interaction.reply({ content: "❌ Command failed to start. Please try again.", ephemeral: true });
+      } catch (replyErr) {
+        console.error("Failed to reply to interaction:", replyErr.message);
+      }
       return;
     }
     

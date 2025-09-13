@@ -18,7 +18,7 @@ module.exports = {
 
     // Mark interaction as being processed
     processedInteractions.add(interaction.id);
-
+    
     // Clean up old processed interactions (keep only last 1000)
     if (processedInteractions.size > 1000) {
       const toDelete = Array.from(processedInteractions).slice(0, 100);
