@@ -1,4 +1,4 @@
-const { SlashCommandBuilder } = require("discord.js");
+const { SlashCommandBuilder, InteractionResponseFlags } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,7 +14,10 @@ module.exports = {
     const voiceChannel = interaction.member.voice.channel;
 
     if (!voiceChannel) {
-      return interaction.reply({ content: "⚠️ You need to join a voice channel first!", ephemeral: true });
+      return interaction.reply({ 
+        content: "⚠️ You need to join a voice channel first!", 
+        flags: InteractionResponseFlags.Ephemeral 
+      });
     }
 
     await interaction.deferReply();
