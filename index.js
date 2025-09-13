@@ -43,10 +43,7 @@ client.player = new Player(client, {
 });
 
 // Load default extractors (YouTube, SoundCloud, Spotify, etc.) - v7+ method
-(async () => {
-  await client.player.extractors.loadMulti(DefaultExtractors);
-  console.log("✅ Discord Player extractors loaded successfully");
-})();
+// This will be called after the bot is ready
 
 // Add comprehensive error event handlers
 client.player.events.on('error', (queue, error) => {

@@ -15,6 +15,9 @@ module.exports = {
     // Defer immediately to prevent interaction timeout
     await interaction.deferReply();
     
+    // Small delay to ensure extractors are loaded
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
     const query = interaction.options.getString("query");
     const voiceChannel = interaction.member?.voice?.channel;
 
