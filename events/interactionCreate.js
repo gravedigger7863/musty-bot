@@ -212,5 +212,10 @@ module.exports = {
       // CRITICAL: Remove from global interaction lock
       global.activeInteractions.delete(interaction.id);
     }
+    } catch (error) {
+      console.error('Error in interactionCreate:', error);
+      // Ensure cleanup even on error
+      global.activeInteractions.delete(interaction.id);
+    }
   },
 };
