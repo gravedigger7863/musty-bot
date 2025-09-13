@@ -72,7 +72,7 @@ client.player.events.on('connectionError', (queue, error) => {
 
 // Add better error handling for stream extraction
 client.player.events.on('trackStart', (queue, track) => {
-  console.log(`[Player] Started playing: ${track.title} in ${queue.guild.name}`);
+  console.log(`[Player] Now playing: ${track.title} in ${queue.connection?.channel?.name || queue.guild.name}`);
   console.log(`[Player] Queue size: ${queue.tracks.size}, Is playing: ${queue.isPlaying()}`);
 });
 
@@ -82,7 +82,7 @@ client.player.events.on('trackEnd', (queue, track) => {
 });
 
 client.player.events.on('trackAdd', (queue, track) => {
-  console.log(`[Player] Track added to queue: ${track.title} in ${queue.guild.name}`);
+  console.log(`[Player] Added to queue: ${track.title} in ${queue.guild.name}`);
   console.log(`[Player] Queue size after add: ${queue.tracks.size}`);
 });
 
@@ -112,7 +112,7 @@ client.player.events.on('emptyChannel', (queue) => {
 });
 
 client.player.events.on('queueEnd', (queue) => {
-  console.log(`[Player] Queue ended in ${queue.guild.name}`);
+  console.log(`[Player] Queue ended in ${queue.connection?.channel?.name || queue.guild.name}`);
 });
 
 // Bot should connect without being deafened now
