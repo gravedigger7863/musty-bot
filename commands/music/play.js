@@ -65,8 +65,8 @@ module.exports = {
       let track;
       
       try {
-        // First try YouTube with proper await
-        console.log(`[Play Command] Trying YouTube search...`);
+        // YouTube-only search for maximum reliability
+        console.log(`[Play Command] Searching YouTube for: ${query}`);
         const youtubeResult = await interaction.client.player.search(query, {
           requestedBy: interaction.user,
           searchEngine: 'youtube'
@@ -76,21 +76,8 @@ module.exports = {
           track = youtubeResult.tracks[0];
           console.log(`[Play Command] Found YouTube track: ${track.title}`);
         } else {
-          // Fallback to SoundCloud with proper await
-          console.log(`[Play Command] YouTube failed, trying SoundCloud...`);
-          const soundcloudResult = await interaction.client.player.search(query, {
-            requestedBy: interaction.user,
-            searchEngine: 'soundcloud'
-          });
-          
-          if (soundcloudResult && soundcloudResult.hasTracks()) {
-            track = soundcloudResult.tracks[0];
-            console.log(`[Play Command] Found SoundCloud track: ${track.title}`);
-          }
-        }
-        
-        if (!track) {
-          return await interaction.editReply('❌ No tracks found. Please try a different search term.');
+          console.log(`[Play Command] No YouTube results found for: ${query}`);
+          return await interaction.editReply('❌ No tracks found on YouTube. Please try a different search term.');
         }
         
         // Verify track is fully resolved
@@ -101,64 +88,25 @@ module.exports = {
         
         console.log(`[Play Command] Track resolved successfully: ${track.title} (${track.source})`);
         
-        // CRITICAL: Resolve track to proper playable stream URL using play-dl
-        console.log(`[Play Command] Resolving track to playable stream using play-dl...`);
+        // YOUTUBE-ONLY: Create track object for Discord Player (no stream resolution needed)
+        console.log(`[Play Command] Creating YouTube track object...`);
         try {
-          // Use play-dl for SoundCloud stream resolution
-          if (track.source === 'soundcloud') {
-            console.log(`[Play Command] Resolving SoundCloud track with play-dl...`);
-            const play = require('play-dl');
-            
-            const streamInfo = await play.stream(track.url);
-            if (!streamInfo || !streamInfo.url) {
-              console.error(`[Play Command] play-dl failed to resolve SoundCloud stream:`, {
-                originalUrl: track.url,
-                streamInfo: streamInfo
-              });
-              return await interaction.editReply('❌ Could not resolve SoundCloud track to playable stream. Please try again.');
-            }
-            
-            console.log(`[Play Command] SoundCloud stream resolved successfully:`, {
-              title: track.title,
-              streamURL: streamInfo.url ? 'Present' : 'Missing',
-              duration: streamInfo.durationInSec,
-              source: 'soundcloud'
-            });
-            
-            // Create properly resolved track for Discord Player
-            track = {
-              title: track.title,
-              url: streamInfo.url, // Direct audio stream URL from play-dl
-              duration: streamInfo.durationInSec * 1000, // Convert seconds to milliseconds
-              requestedBy: interaction.user,
-              thumbnail: track.thumbnail,
-              source: 'soundcloud',
-              author: track.author || 'Unknown Artist',
-              description: track.description || '',
-              views: track.views || 0,
-              id: track.id || streamInfo.url,
-              raw: track.raw || track
-            };
-            
-          } else {
-            // For YouTube and other sources, use the original track
-            console.log(`[Play Command] Using original track for ${track.source}`);
-            track = {
-              title: track.title,
-              url: track.url,
-              duration: Number(track.duration) || 0, // Ensure duration is a number
-              requestedBy: interaction.user,
-              thumbnail: track.thumbnail,
-              source: track.source || 'unknown',
-              author: track.author || 'Unknown Artist',
-              description: track.description || '',
-              views: track.views || 0,
-              id: track.id || track.url,
-              raw: track.raw || track
-            };
-          }
+          // YouTube tracks are already properly formatted for Discord Player
+          track = {
+            title: track.title,
+            url: track.url,
+            duration: Number(track.duration) || 0, // Ensure duration is a number
+            requestedBy: interaction.user,
+            thumbnail: track.thumbnail,
+            source: 'youtube',
+            author: track.author || 'Unknown Artist',
+            description: track.description || '',
+            views: track.views || 0,
+            id: track.id || track.url,
+            raw: track.raw || track
+          };
           
-          console.log(`[Play Command] Final track object:`, {
+          console.log(`[Play Command] YouTube track object created:`, {
             title: track.title,
             url: track.url ? 'Present' : 'Missing',
             duration: track.duration,
@@ -166,17 +114,9 @@ module.exports = {
             source: track.source
           });
           
-        } catch (resolveError) {
-          console.error(`[Play Command] Track resolution failed:`, resolveError);
-          
-          // Provide specific error messages based on the error type
-          if (resolveError.message && resolveError.message.includes('play-dl')) {
-            return await interaction.editReply('❌ SoundCloud track resolution failed. Please try a different song or use YouTube.');
-          } else if (resolveError.message && resolveError.message.includes('stream')) {
-            return await interaction.editReply('❌ Could not get audio stream. The track might be unavailable or blocked.');
-          } else {
-            return await interaction.editReply('❌ Could not resolve track to playable stream. Please try again.');
-          }
+        } catch (trackError) {
+          console.error(`[Play Command] Track object creation failed:`, trackError);
+          return await interaction.editReply('❌ Could not create track object. Please try again.');
         }
         
       } catch (searchError) {
@@ -246,8 +186,8 @@ module.exports = {
         }
       }
 
-      // RACE-PROOF TRACK ADDITION: Add safe track to queue
-      console.log(`[Play Command] Adding safe track to queue...`);
+      // RACE-PROOF TRACK ADDITION: Add YouTube track to queue
+      console.log(`[Play Command] Adding YouTube track to queue...`);
       
       // Final safety check before adding to queue
       if (!track.title || !track.url) {
@@ -259,16 +199,16 @@ module.exports = {
         return await interaction.editReply('❌ Track is missing required properties. Please try again.');
       }
       
-      // Validate that URL is a proper stream URL
+      // Validate that URL is a proper YouTube URL
       if (!track.url.includes('http')) {
-        console.error(`[Play Command] CRITICAL: Track URL is not a proper stream URL:`, track.url);
+        console.error(`[Play Command] CRITICAL: Track URL is not a proper URL:`, track.url);
         return await interaction.editReply('❌ Track URL is not playable. Please try again.');
       }
       
-      // For SoundCloud, ensure it's a direct stream URL (not page URL)
-      if (track.source === 'soundcloud' && track.url.includes('soundcloud.com/') && !track.url.includes('stream')) {
-        console.error(`[Play Command] CRITICAL: SoundCloud URL is not a direct stream:`, track.url);
-        return await interaction.editReply('❌ SoundCloud track could not be resolved to playable stream. Please try again.');
+      // Ensure it's a YouTube URL
+      if (!track.url.includes('youtube.com') && !track.url.includes('youtu.be')) {
+        console.error(`[Play Command] CRITICAL: Track URL is not a YouTube URL:`, track.url);
+        return await interaction.editReply('❌ Track is not from YouTube. Please try a different search.');
       }
       
       // Validate duration is a number
