@@ -15,6 +15,12 @@ module.exports = {
       return;
     }
 
+    // Check if interaction is currently being processed
+    if (interactionTimestamps.has(interactionId)) {
+      console.log(`[Interaction] Currently being processed, skipping: ${interactionId}`);
+      return;
+    }
+
     // Check if interaction is still valid (within 2.5 seconds for safety)
     const interactionAge = startTime - interaction.createdTimestamp;
     if (interactionAge > 2500) {

@@ -5,11 +5,11 @@ module.exports = {
     .setName('ping')
     .setDescription('Shows bot latency and other stats'),
   async execute(interaction) {
-    // Send a temporary reply to measure latency
-    const sent = await interaction.reply({ content: '🏓 Pinging...', fetchReply: true });
-
+    // Interaction is already deferred, so we need to edit the reply
+    const startTime = Date.now();
+    
     // Calculate latency
-    const latency = sent.createdTimestamp - interaction.createdTimestamp;
+    const latency = startTime - interaction.createdTimestamp;
     const apiLatency = Math.round(interaction.client.ws.ping);
 
     // Build embed
