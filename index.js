@@ -1,4 +1,8 @@
 require('dotenv').config();
+
+// Force discord-player to use play-dl for better stream extraction
+process.env.DP_FORCE_YTDL_MOD = 'play-dl';
+
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
@@ -20,13 +24,16 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Initialize player first
+// Initialize player first with play-dl configuration
 client.player = new Player(client, {
   ytdlOptions: { 
     quality: 'highestaudio', 
     filter: 'audioonly',
     highWaterMark: 1 << 25
   },
+  // Force use of play-dl for better stream extraction
+  useLegacyFFmpeg: false,
+  skipFFmpeg: false,
   // Ensure bot doesn't get deafened
   selfDeaf: false,
   selfMute: false,
@@ -40,7 +47,12 @@ client.player.extractors.register(YouTubeExtractor, {
   ytdlOptions: { 
     quality: 'highestaudio', 
     filter: 'audioonly',
-    highWaterMark: 1 << 25
+    highWaterMark: 1 << 25,
+    requestOptions: {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    }
   }
 });
 
