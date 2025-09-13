@@ -18,7 +18,6 @@ const client = new Client({
 client.commands = new Collection();
 client.player = new Player(client);
 
-const { ExtractorManager } = require("@discord-player/extractor");
 const { 
   SoundCloudExtractor, 
   SpotifyExtractor, 
@@ -35,9 +34,6 @@ client.player.extractors.register(VimeoExtractor);
 client.player.extractors.register(BandcampExtractor);
 client.player.extractors.register(AppleMusicExtractor);
 client.player.extractors.register(ReverbNationExtractor);
-
-// Also register default extractors (YouTube, etc.)
-ExtractorManager.registerDefaultExtractors();
 
 // --- Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
