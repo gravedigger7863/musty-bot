@@ -58,26 +58,51 @@ module.exports = {
         return await interaction.editReply('❌ No results found for your search query on any platform.');
       }
 
-      // Use the play method directly instead of managing queue manually
-      console.log(`[Play Command] Playing track: ${searchResult.tracks[0].title}`);
-      const queue = await interaction.client.player.play(voiceChannel, searchResult.tracks[0], {
-        nodeOptions: {
+      // Create or get existing queue
+      console.log(`[Play Command] Creating/getting queue for guild: ${interaction.guild.id}`);
+      let queue = interaction.client.player.nodes.get(interaction.guild.id);
+      
+      if (!queue) {
+        console.log(`[Play Command] Creating new queue`);
+        queue = interaction.client.player.nodes.create(interaction.guild, {
           metadata: { channel: interaction.channel },
           leaveOnEnd: false,
           leaveOnEmpty: false,
           leaveOnEmptyCooldown: 300000,
           selfDeaf: false,
           selfMute: false
-        }
-      });
-
-      console.log(`[Play Command] Queue created/updated for guild: ${interaction.guild.id}`);
-      if (queue && queue.node) {
-        console.log(`[Play Command] Queue is playing: ${queue.node.isPlaying()}`);
-        console.log(`[Play Command] Current track: ${queue.currentTrack?.title || 'None'}`);
-      } else {
-        console.log(`[Play Command] Queue or node is undefined`);
+        });
       }
+
+      // Connect to voice channel if not already connected
+      if (!queue.connection) {
+        console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
+        try {
+          await queue.connect(voiceChannel);
+          console.log(`[Play Command] Connected to voice channel successfully`);
+        } catch (connectError) {
+          console.error(`[Play Command] Failed to connect:`, connectError);
+          queue.delete();
+          return await interaction.editReply('❌ Could not join voice channel!');
+        }
+      } else {
+        console.log(`[Play Command] Already connected to voice channel`);
+      }
+
+      // Add track to queue
+      console.log(`[Play Command] Adding track to queue: ${searchResult.tracks[0].title}`);
+      queue.addTrack(searchResult.tracks[0]);
+
+      // Start playing if not already playing
+      if (!queue.node.isPlaying()) {
+        console.log(`[Play Command] Starting playback`);
+        await queue.node.play();
+        console.log(`[Play Command] Playback started`);
+      } else {
+        console.log(`[Play Command] Already playing, track added to queue`);
+      }
+
+      console.log(`[Play Command] Queue status - Playing: ${queue.node.isPlaying()}, Track: ${queue.currentTrack?.title || 'None'}`);
 
       // Send success message
       await interaction.editReply(`🎶 Now playing **${searchResult.tracks[0].title}**`);
