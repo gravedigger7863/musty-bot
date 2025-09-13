@@ -31,17 +31,36 @@ module.exports = {
 
       if (!queue.connection) await queue.connect(voiceChannel);
 
-      const result = await queue.play(query, { nodeOptions: { metadata: { channel: interaction.channel } } });
+      const result = await queue.play(query, { 
+        nodeOptions: { 
+          metadata: { channel: interaction.channel } 
+        },
+        // Add fallback options for better compatibility
+        fallbackSearchEngine: 'youtube',
+        searchEngine: 'youtube'
+      });
       await interaction.editReply(`🎶 Now playing **${result.track.title}**`);
     } catch (err) {
-      console.error(err);
+      console.error('Play command error:', err);
+      
+      let errorMessage = '❌ No results found for that query or the source is unsupported.';
+      
+      // Provide more specific error messages
+      if (err.message && err.message.includes('Could not extract stream')) {
+        errorMessage = '❌ Could not extract audio stream. The video might be unavailable or restricted.';
+      } else if (err.message && err.message.includes('NoResultError')) {
+        errorMessage = '❌ No results found for your search query.';
+      } else if (err.message && err.message.includes('timeout')) {
+        errorMessage = '❌ Request timed out. Please try again.';
+      }
+      
       try {
-        await interaction.editReply('❌ No results found for that query or the source is unsupported.');
+        await interaction.editReply(errorMessage);
       } catch (editErr) {
         console.error('Failed to edit reply:', editErr);
         // Try to send a follow-up if edit fails
         try {
-          await interaction.followUp({ content: '❌ No results found for that query or the source is unsupported.', flags: 64 });
+          await interaction.followUp({ content: errorMessage, flags: 64 });
         } catch (followUpErr) {
           console.error('Failed to send follow-up:', followUpErr);
         }

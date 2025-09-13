@@ -23,7 +23,23 @@ client.player = new Player(client, {
   ytdlOptions: {
     quality: 'highestaudio',
     highWaterMark: 1 << 25
-  }
+  },
+  // Add better error handling
+  connectionTimeout: 30000,
+  lagMonitor: 30000
+});
+
+// Add error event handlers
+client.player.events.on('error', (queue, error) => {
+  console.error(`Player error in ${queue.guild.name}:`, error);
+});
+
+client.player.events.on('playerError', (queue, error) => {
+  console.error(`Player error in ${queue.guild.name}:`, error);
+});
+
+client.player.events.on('connectionError', (queue, error) => {
+  console.error(`Connection error in ${queue.guild.name}:`, error);
 });
 
 // Register YouTube extractor
