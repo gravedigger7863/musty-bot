@@ -74,6 +74,12 @@ module.exports = {
         });
       }
 
+      // Ensure queue and node exist
+      if (!queue || !queue.node) {
+        console.error(`[Play Command] Queue or node is undefined after creation`);
+        return await interaction.editReply('❌ Failed to create music queue. Please try again.');
+      }
+
       // Connect to voice channel if not already connected
       if (!queue.connection) {
         console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
