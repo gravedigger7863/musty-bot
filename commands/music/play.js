@@ -66,20 +66,53 @@ module.exports = {
       let searchResult;
       
       try {
-        // Use Discord Player's search with YouTube extractor using QueryType
+        // Try Discord Player's search with YouTube extractor first
         searchResult = await interaction.client.player.search(query, {
           requestedBy: interaction.user,
           searchEngine: QueryType.YOUTUBE_SEARCH, // Use built-in YouTube search type
         });
         
+        // If Discord Player search fails, try play-dl fallback
         if (!searchResult || !searchResult.hasTracks()) {
-          return await interaction.editReply('❌ No tracks found. Please try a different search term.');
+          console.log(`[Play Command] Discord Player search failed, trying play-dl fallback...`);
+          
+          try {
+            const playdl = require('play-dl');
+            const playdlResults = await playdl.search(query, { limit: 1 });
+            
+            if (playdlResults && playdlResults.length > 0) {
+              const playdlTrack = playdlResults[0];
+              console.log(`[Play Command] play-dl found track: ${playdlTrack.title}`);
+              
+              // Convert play-dl result to Discord Player format
+              searchResult = {
+                tracks: [{
+                  title: playdlTrack.title,
+                  url: playdlTrack.url,
+                  duration: playdlTrack.durationInSec * 1000, // Convert to milliseconds
+                  thumbnail: playdlTrack.thumbnails?.[0]?.url,
+                  author: playdlTrack.channel?.name || 'Unknown Artist',
+                  source: 'youtube',
+                  id: playdlTrack.id,
+                  raw: playdlTrack
+                }],
+                hasTracks: () => true
+              };
+              
+              console.log(`[Play Command] play-dl fallback successful`);
+            } else {
+              return await interaction.editReply('❌ No tracks found. Please try a different search term.');
+            }
+          } catch (playdlError) {
+            console.error(`[Play Command] play-dl fallback also failed:`, playdlError);
+            return await interaction.editReply('❌ No tracks found. Please try a different search term.');
+          }
         }
         
         const track = searchResult.tracks[0];
         console.log(`[Play Command] Found track: ${track.title} from ${track.source}`);
         
-        // Verify it's from YouTube (Discord Player should handle this automatically)
+        // Verify it's from YouTube
         if (track.source !== 'youtube') {
           console.warn(`[Play Command] Non-YouTube track detected: ${track.source}`);
           return await interaction.editReply('❌ Only YouTube tracks are supported. Please try a different search.');

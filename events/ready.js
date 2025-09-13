@@ -5,13 +5,17 @@ module.exports = {
     console.log(`✅ Logged in as ${client.user.tag}`);
 
     // Register YouTube extractor for Discord Player v7+ (using community package)
+    // Note: youtubei.js currently has parser issues with YouTube's latest changes
+    // We have a play-dl fallback in the play command as a workaround
     try {
       const { YoutubeiExtractor } = require('discord-player-youtubei');
       await client.player.extractors.register(YoutubeiExtractor, {});
       console.log('✅ YouTube extractor (youtubei) registered successfully');
+      console.log('ℹ️ Note: If YouTube search fails, play-dl fallback will be used');
     } catch (error) {
       console.error('❌ Failed to register YouTube extractor:', error);
       console.error('Error details:', error.message);
+      console.log('ℹ️ play-dl fallback will be used for YouTube searches');
     }
 
     console.log("✅ Discord Player extractors are ready");
