@@ -28,8 +28,13 @@ module.exports = {
         leaveOnEmptyCooldown: 300000,
       });
 
-      // Ensure bot joins the voice channel
-      if (!queue.connection) await queue.connect(voiceChannel);
+      // Ensure bot joins the voice channel and is unmuted
+      if (!queue.connection) {
+        await queue.connect(voiceChannel, {
+          selfDeaf: false, // allow bot to hear itself if needed
+          selfMute: false, // make sure bot is not muted
+        });
+      }
 
       // Play the track
       const result = await queue.play(query, { nodeOptions: { metadata: { channel: interaction.channel } } });
