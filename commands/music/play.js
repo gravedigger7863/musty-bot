@@ -1,4 +1,5 @@
 const { SlashCommandBuilder } = require("discord.js");
+const { useMainPlayer } = require('discord-player');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -30,57 +31,18 @@ module.exports = {
         content: "🔍 Searching for your music..." 
       });
 
+      // Use modern Discord Player v7 API
+      const player = useMainPlayer(interaction.client);
+      
       console.log(`[Play Command] Searching for: ${query}`);
-      console.log(`[Play Command] Available extractors: ${interaction.client.player.extractors.size}`);
       
-      // Ensure extractors are loaded
-      if (interaction.client.player.extractors.size === 0) {
-        console.log(`[Play Command] No extractors available, loading them...`);
-        try {
-          const { DefaultExtractors } = require('@discord-player/extractor');
-          await interaction.client.player.extractors.loadMulti(DefaultExtractors);
-          console.log(`[Play Command] Loaded ${interaction.client.player.extractors.size} extractors`);
-        } catch (loadError) {
-          console.error(`[Play Command] Failed to load extractors:`, loadError);
-          return await interaction.editReply('❌ Failed to load music extractors. Please try again.');
-        }
-      }
+      // Search for track using modern API
+      const searchResult = await player.search(query, {
+        requestedBy: interaction.user,
+        searchEngine: 'youtube',
+      });
       
-      // Search for track using the latest 2025 method
-      let searchResult;
-      try {
-        // Try YouTube first (most reliable in 2025)
-        searchResult = await interaction.client.player.search(query, {
-          requestedBy: interaction.user,
-          searchEngine: 'youtube',
-        });
-        
-        console.log(`[Play Command] YouTube search result: ${searchResult ? searchResult.hasTracks() : 'null'}`);
-        
-        // If no results, try other engines
-        if (!searchResult || !searchResult.hasTracks()) {
-          const fallbackEngines = ['spotify', 'soundcloud'];
-          for (const engine of fallbackEngines) {
-            try {
-              console.log(`[Play Command] Trying fallback engine: ${engine}`);
-              searchResult = await interaction.client.player.search(query, {
-                requestedBy: interaction.user,
-                searchEngine: engine,
-              });
-              if (searchResult && searchResult.hasTracks()) {
-                console.log(`[Play Command] Found results with ${engine}`);
-                break;
-              }
-            } catch (engineError) {
-              console.log(`[Play Command] ${engine} search failed:`, engineError.message);
-              continue;
-            }
-          }
-        }
-      } catch (searchError) {
-        console.error(`[Play Command] Search failed:`, searchError);
-        return await interaction.editReply('❌ Search failed. Please try a different search term.');
-      }
+      console.log(`[Play Command] Search result: ${searchResult ? searchResult.hasTracks() : 'null'}`);
       
       if (!searchResult || !searchResult.hasTracks()) {
         console.log(`[Play Command] No tracks found for query: ${query}`);
@@ -90,34 +52,22 @@ module.exports = {
       const track = searchResult.tracks[0];
       console.log(`[Play Command] Found track: ${track.title} from ${track.source}`);
 
-      // Create or get existing queue using 2025 best practices
-      let queue = interaction.client.player.nodes.get(interaction.guild.id);
-      
-      if (!queue) {
-        console.log(`[Play Command] Creating new queue`);
-        queue = interaction.client.player.nodes.create(interaction.guild, {
-          metadata: { channel: interaction.channel },
-          leaveOnEnd: true,
-          leaveOnEmpty: true,
-          leaveOnEmptyCooldown: 30000,
-          leaveOnStop: true,
-          selfDeaf: false,
-          selfMute: false,
-          skipOnEmpty: true,
-          skipOnEmptyCooldown: 30000,
-          autoSelfDeaf: false,
-          autoSelfMute: false,
-          bufferingTimeout: 10000,
-          connectionTimeout: 20000,
-          // Add timeout configuration to prevent negative timeout warnings
-          ytdlOptions: {
-            timeout: 20000,
-            requestOptions: {
-              timeout: 20000
-            }
-          }
-        });
-      }
+      // Use modern queue management
+      const queue = player.nodes.create(interaction.guild, {
+        metadata: { channel: interaction.channel },
+        leaveOnEnd: true,
+        leaveOnEmpty: true,
+        leaveOnEmptyCooldown: 30000,
+        leaveOnStop: true,
+        selfDeaf: false,
+        selfMute: false,
+        skipOnEmpty: true,
+        skipOnEmptyCooldown: 30000,
+        autoSelfDeaf: false,
+        autoSelfMute: false,
+        bufferingTimeout: 10000,
+        connectionTimeout: 20000,
+      });
 
       // Connect to voice channel
       try {
@@ -129,10 +79,9 @@ module.exports = {
         return await interaction.editReply('❌ Could not join voice channel!');
       }
 
-      // Add track to queue
+      // Add track to queue and start playing
       queue.addTrack(track);
       
-      // Start playback if not already playing
       if (!queue.node.isPlaying()) {
         try {
           console.log(`[Play Command] Starting playback`);

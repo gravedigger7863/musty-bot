@@ -4,6 +4,10 @@ require('dotenv').config();
 process.env.NODE_OPTIONS = '--max-old-space-size=4096';
 process.env.UV_THREADPOOL_SIZE = '16';
 
+// Force use of native Opus encoder instead of OpusScript
+process.env.DP_FORCE_NATIVE_OPUS = 'true';
+process.env.DP_DISABLE_OPUSSCRIPT = 'true';
+
 // Override setTimeout to prevent negative timeouts
 const originalSetTimeout = global.setTimeout;
 global.setTimeout = (callback, delay, ...args) => {
@@ -17,7 +21,7 @@ global.setTimeout = (callback, delay, ...args) => {
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { Player } = require('discord-player');
+const { useMainPlayer, useQueue } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
@@ -46,8 +50,8 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Initialize player with 2025 optimized configuration
-client.player = new Player(client, {
+// Initialize modern Discord Player v7
+const player = useMainPlayer(client, {
   ffmpegPath: ffmpegPath,
   selfDeaf: false,
   selfMute: false,
@@ -61,8 +65,14 @@ client.player = new Player(client, {
   leaveOnStop: true,
   autoSelfDeaf: false,
   autoSelfMute: false,
-  // Use native Opus encoder instead of OpusScript
+  // Force use of native Opus encoder
   useLegacyFFmpeg: false,
+  // Force native Opus encoder configuration
+  opusEncoder: {
+    rate: 48000,
+    channels: 2,
+    frameSize: 960
+  },
   ytdlOptions: {
     quality: 'highestaudio',
     highWaterMark: 1 << 25,
@@ -74,6 +84,9 @@ client.player = new Player(client, {
     }
   }
 });
+
+// Make player available globally
+client.player = player;
 
 // Load extractors using the latest 2025 method
 (async () => {
