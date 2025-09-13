@@ -165,20 +165,27 @@ client.player.events.on('connection', (queue) => {
 });
 
 // Register YouTube extractors with proper error handling
-try {
-  // Register the primary YouTube extractor
-  client.player.extractors.register(YoutubeiExtractor);
-  console.log('✅ Registered YoutubeiExtractor');
-} catch (error) {
-  console.error('❌ Failed to register YoutubeiExtractor:', error);
+// Only register extractors if they exist and are valid
+if (YoutubeiExtractor && typeof YoutubeiExtractor === 'function') {
+  try {
+    client.player.extractors.register(YoutubeiExtractor);
+    console.log('✅ Registered YoutubeiExtractor');
+  } catch (error) {
+    console.error('❌ Failed to register YoutubeiExtractor:', error);
+  }
+} else {
+  console.warn('⚠️ YoutubeiExtractor not available or invalid');
 }
 
-try {
-  // Register the alternative YouTube extractor as fallback
-  client.player.extractors.register(YouTubeExtractor);
-  console.log('✅ Registered alternative YouTubeExtractor');
-} catch (error) {
-  console.error('❌ Failed to register alternative YouTubeExtractor:', error);
+if (YouTubeExtractor && typeof YouTubeExtractor === 'function') {
+  try {
+    client.player.extractors.register(YouTubeExtractor);
+    console.log('✅ Registered alternative YouTubeExtractor');
+  } catch (error) {
+    console.error('❌ Failed to register alternative YouTubeExtractor:', error);
+  }
+} else {
+  console.warn('⚠️ YouTubeExtractor not available or invalid');
 }
 
 // Add custom stream interceptor for better YouTube handling
@@ -222,6 +229,41 @@ client.player.events.on('beforeCreateStream', async (track, source, _queue) => {
   }
   
   return undefined;
+});
+
+// Add a fallback for when extractors fail
+client.player.events.on('error', (queue, error) => {
+  if (error.message && error.message.includes('Could not extract stream')) {
+    console.log('[Player] Stream extraction failed, trying ytdl-core fallback...');
+    
+    // Try to use ytdl-core directly
+    try {
+      const ytdl = require('ytdl-core');
+      const currentTrack = queue.currentTrack;
+      
+      if (currentTrack && ytdl.validateURL(currentTrack.url)) {
+        console.log('[Player] Using ytdl-core fallback for current track');
+        
+        const stream = ytdl(currentTrack.url, {
+          quality: 'highestaudio',
+          filter: 'audioonly',
+          highWaterMark: 1 << 25,
+          requestOptions: {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          }
+        });
+        
+        // Replace the current track's stream
+        if (queue.node && queue.node.player) {
+          queue.node.player.play(stream);
+        }
+      }
+    } catch (fallbackError) {
+      console.error('[Player] ytdl-core fallback failed:', fallbackError);
+    }
+  }
 });
 
 // Additional extractors are available but not registered to avoid errors
