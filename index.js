@@ -95,25 +95,41 @@ client.player.events.on('emptyChannel', (queue) => {
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
   
-  // Always try to fix voice state when connecting
+  // Only try to fix voice state when connecting if there are actual issues
   const me = queue.guild.members.me;
   if (me?.voice) {
-    const fixVoiceState = async () => {
-      try {
-        // Force unmute and undeafen
-        await Promise.all([
-          me.voice.setMute(false),
-          me.voice.setDeaf(false)
-        ]);
-        console.log('Successfully fixed bot voice state on connection');
-      } catch (err) {
-        console.error('Failed to fix bot voice state on connection:', err);
-      }
-    };
+    const hasVoiceIssues = me.voice.mute || me.voice.deaf || me.voice.selfMute || me.voice.selfDeaf;
     
-    // Always try to fix voice state, regardless of current state
-    console.log('Ensuring bot voice state is correct on connection...');
-    fixVoiceState();
+    if (hasVoiceIssues) {
+      const guildId = queue.guild.id;
+      const currentTime = Date.now();
+      
+      // Check if we've already tried to fix this recently (within 10 seconds)
+      const lastFixAttempt = voiceStateFixAttempts.get(guildId) || 0;
+      if (currentTime - lastFixAttempt < 10000) {
+        console.log('Skipping voice state fix on connection - already attempted recently');
+        return;
+      }
+      
+      const fixVoiceState = async () => {
+        try {
+          // Force unmute and undeafen
+          await Promise.all([
+            me.voice.setMute(false),
+            me.voice.setDeaf(false)
+          ]);
+          console.log('Successfully fixed bot voice state on connection');
+        } catch (err) {
+          console.error('Failed to fix bot voice state on connection:', err);
+        }
+      };
+      
+      console.log('Ensuring bot voice state is correct on connection...');
+      voiceStateFixAttempts.set(guildId, currentTime);
+      fixVoiceState();
+    } else {
+      console.log('Bot voice state is already correct on connection');
+    }
   }
 });
 
@@ -148,9 +164,14 @@ for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
 }
 
 // --- Voice State Monitoring ---
+let voiceStateFixAttempts = new Map(); // Track fix attempts per guild
+
 client.on('voiceStateUpdate', (oldState, newState) => {
   // Only monitor the bot's own voice state
   if (newState.member.id === client.user.id) {
+    const guildId = newState.guild.id;
+    const currentTime = Date.now();
+    
     console.log(`Bot voice state changed:`, {
       channel: newState.channel?.name || 'None',
       mute: newState.mute,
@@ -166,7 +187,15 @@ client.on('voiceStateUpdate', (oldState, newState) => {
       const hadVoiceIssues = oldState.mute || oldState.deaf || oldState.selfMute || oldState.selfDeaf;
       
       if (hasVoiceIssues && !hadVoiceIssues) {
+        // Check if we've already tried to fix this recently (within 5 seconds)
+        const lastFixAttempt = voiceStateFixAttempts.get(guildId) || 0;
+        if (currentTime - lastFixAttempt < 5000) {
+          console.log('Skipping voice state fix - already attempted recently');
+          return;
+        }
+        
         console.log('Bot has voice issues! Attempting to fix...');
+        voiceStateFixAttempts.set(guildId, currentTime);
         
         // Use a more robust approach to fix voice state
         const fixVoiceState = async () => {
@@ -281,7 +310,17 @@ setInterval(() => {
   client.guilds.cache.forEach(guild => {
     const me = guild.members.me;
     if (me?.voice?.channel && (me.voice.deaf || me.voice.mute || me.voice.selfDeaf || me.voice.selfMute)) {
+      const guildId = guild.id;
+      const currentTime = Date.now();
+      
+      // Check if we've already tried to fix this recently (within 30 seconds)
+      const lastFixAttempt = voiceStateFixAttempts.get(guildId) || 0;
+      if (currentTime - lastFixAttempt < 30000) {
+        return; // Skip if we tried recently
+      }
+      
       console.log(`[Periodic Check] Bot has voice issues in ${guild.name}, attempting to fix...`);
+      voiceStateFixAttempts.set(guildId, currentTime);
       
       // Use a more robust approach to fix voice state
       const fixVoiceState = async () => {
