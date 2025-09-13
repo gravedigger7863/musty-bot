@@ -1,5 +1,19 @@
 require('dotenv').config();
 
+// Set timeout environment variables to prevent negative timeouts
+process.env.NODE_OPTIONS = '--max-old-space-size=4096';
+process.env.UV_THREADPOOL_SIZE = '16';
+
+// Override setTimeout to prevent negative timeouts
+const originalSetTimeout = global.setTimeout;
+global.setTimeout = (callback, delay, ...args) => {
+  if (typeof delay === 'number' && delay < 0) {
+    console.log('Preventing negative timeout, using 1000ms instead');
+    delay = 1000;
+  }
+  return originalSetTimeout(callback, delay, ...args);
+};
+
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
@@ -31,8 +45,8 @@ client.player = new Player(client, {
   ffmpegPath: ffmpegPath,
   selfDeaf: false,
   selfMute: false,
-  bufferingTimeout: 15000,
-  connectionTimeout: 30000,
+  bufferingTimeout: 10000,
+  connectionTimeout: 20000,
   skipOnEmpty: true,
   skipOnEmptyCooldown: 30000,
   leaveOnEnd: true,
@@ -41,25 +55,17 @@ client.player = new Player(client, {
   leaveOnStop: true,
   autoSelfDeaf: false,
   autoSelfMute: false,
-  // Fix Opus encoder issues
+  // Use native Opus encoder instead of OpusScript
   useLegacyFFmpeg: false,
   ytdlOptions: {
     quality: 'highestaudio',
     highWaterMark: 1 << 25,
-    // Add audio format validation
     filter: 'audioonly',
     format: 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
-    // Fix timeout issues
-    timeout: 30000,
+    timeout: 20000,
     requestOptions: {
-      timeout: 30000
+      timeout: 20000
     }
-  },
-  // Add Opus encoder configuration
-  opusEncoder: {
-    rate: 48000,
-    channels: 2,
-    frameSize: 960
   }
 });
 
@@ -80,7 +86,7 @@ client.player.events.on('error', (queue, error) => {
   console.error(`[Player Error] ${queue.guild.name}:`, error.message);
   
   // Handle Opus encoder errors gracefully
-  if (error.message && error.message.includes('Cannot convert "undefined" to int')) {
+  if (error.message && (error.message.includes('Cannot convert "undefined" to int') || error.message.includes('OpusScript'))) {
     console.log(`[Player Error] Opus encoder error detected, skipping track...`);
     if (queue.node.isPlaying()) {
       queue.node.skip();
@@ -97,7 +103,7 @@ client.player.events.on('playerError', (queue, error) => {
   console.error(`[Player Error] ${queue.guild.name}:`, error.message);
   
   // Handle Opus encoder errors gracefully
-  if (error.message && error.message.includes('Cannot convert "undefined" to int')) {
+  if (error.message && (error.message.includes('Cannot convert "undefined" to int') || error.message.includes('OpusScript'))) {
     console.log(`[Player Error] Opus encoder error detected, skipping track...`);
     if (queue.node.isPlaying()) {
       queue.node.skip();
@@ -207,13 +213,18 @@ process.on('unhandledRejection', err => {
 process.on('uncaughtException', err => {
   console.error('Uncaught Exception:', err);
   // Handle Opus encoder errors gracefully
-  if (err.message && err.message.includes('Cannot convert "undefined" to int')) {
+  if (err.message && (err.message.includes('Cannot convert "undefined" to int') || err.message.includes('OpusScript') || err.message.includes('opusscript'))) {
     console.log('Opus encoder error detected, continuing...');
     return;
   }
   // Handle timeout warnings
   if (err.message && err.message.includes('TimeoutNegativeWarning')) {
     console.log('Timeout warning detected, continuing...');
+    return;
+  }
+  // Handle other common music bot errors
+  if (err.message && (err.message.includes('ENOTFOUND') || err.message.includes('ECONNRESET') || err.message.includes('ETIMEDOUT'))) {
+    console.log('Network error detected, continuing...');
     return;
   }
   // For other critical errors, exit

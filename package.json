@@ -37,7 +37,6 @@
     "shoukaku": "^4.1.1",
     "youtube-ext": "^1.1.0",
     "ytdl-core": "^4.11.5",
-    "yt-search": "^2.10.4",
-    "opusscript": "^0.0.8"
+    "yt-search": "^2.10.4"
   }
 }

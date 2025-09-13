@@ -127,13 +127,13 @@ module.exports = {
           skipOnEmptyCooldown: 30000,
           autoSelfDeaf: false,
           autoSelfMute: false,
-          bufferingTimeout: 15000,
-          connectionTimeout: 30000,
+          bufferingTimeout: 10000,
+          connectionTimeout: 20000,
           // Add timeout configuration to prevent negative timeout warnings
           ytdlOptions: {
-            timeout: 30000,
+            timeout: 20000,
             requestOptions: {
-              timeout: 30000
+              timeout: 20000
             }
           }
         });
