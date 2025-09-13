@@ -91,54 +91,9 @@ client.player.events.on('emptyChannel', (queue) => {
   console.log(`[Player] Channel empty in ${queue.guild.name}`);
 });
 
-// Ensure bot stays unmuted and undeafened when connecting to voice
+// Bot should connect without being deafened now
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
-  
-  // Try multiple approaches to fix voice state
-  const fixVoiceState = async () => {
-    const me = queue.guild.members.me;
-    if (me?.voice) {
-      console.log('Bot voice state on connection:', {
-        mute: me.voice.mute,
-        deaf: me.voice.deaf,
-        selfMute: me.voice.selfMute,
-        selfDeaf: me.voice.selfDeaf
-      });
-      
-      // Try different approaches
-      try {
-        // Approach 1: Direct fix
-        await me.voice.setMute(false);
-        await me.voice.setDeaf(false);
-        console.log('Voice state fix attempt 1 completed');
-        
-        // Wait and try again
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await me.voice.setMute(false);
-        await me.voice.setDeaf(false);
-        console.log('Voice state fix attempt 2 completed');
-        
-        // Wait and try one more time
-        await new Promise(resolve => setTimeout(resolve, 500));
-        await me.voice.setMute(false);
-        await me.voice.setDeaf(false);
-        console.log('Voice state fix attempt 3 completed');
-        
-      } catch (err) {
-        console.log('Voice state fix failed:', err.message);
-      }
-    }
-  };
-  
-  // Try immediately
-  fixVoiceState();
-  
-  // Try again after 2 seconds
-  setTimeout(fixVoiceState, 2000);
-  
-  // Try one more time after 5 seconds
-  setTimeout(fixVoiceState, 5000);
 });
 
 // Extractors are now properly loaded with loadDefault()

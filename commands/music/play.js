@@ -39,7 +39,10 @@ module.exports = {
       // Connect to voice channel if not already connected
       if (!queue.connection) {
         console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
-        await queue.connect(voiceChannel);
+        await queue.connect(voiceChannel, {
+          selfDeaf: false,
+          selfMute: false
+        });
         console.log(`[Play Command] Connected to voice channel successfully`);
       } else {
         console.log(`[Play Command] Already connected to voice channel`);
