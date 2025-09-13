@@ -23,7 +23,10 @@ client.player = new Player(client, {
   ytdlOptions: { 
     quality: 'highestaudio', 
     filter: 'audioonly' 
-  }
+  },
+  // Ensure bot doesn't get deafened
+  selfDeaf: false,
+  selfMute: false
 });
 
 // Load default extractors (YouTube, SoundCloud, Spotify, etc.)
@@ -92,37 +95,25 @@ client.player.events.on('emptyChannel', (queue) => {
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
   
-  // Ensure bot is not muted or deafened when connecting
+  // Always try to fix voice state when connecting
   const me = queue.guild.members.me;
   if (me?.voice) {
-    // Use a more robust approach to fix voice state
     const fixVoiceState = async () => {
       try {
-        // First, try to set both mute and deaf to false
+        // Force unmute and undeafen
         await Promise.all([
           me.voice.setMute(false),
           me.voice.setDeaf(false)
         ]);
-        console.log('Successfully fixed bot voice state');
+        console.log('Successfully fixed bot voice state on connection');
       } catch (err) {
-        console.error('Failed to fix bot voice state:', err);
-        
-        // If that fails, try a more aggressive approach
-        try {
-          // Disconnect and reconnect to reset voice state
-          await me.voice.disconnect();
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          await queue.connect(queue.connection.channel);
-        } catch (reconnectErr) {
-          console.error('Failed to reconnect bot:', reconnectErr);
-        }
+        console.error('Failed to fix bot voice state on connection:', err);
       }
     };
     
-    if (me.voice.mute || me.voice.deaf) {
-      console.log('Bot has voice issues on connection, attempting to fix...');
-      fixVoiceState();
-    }
+    // Always try to fix voice state, regardless of current state
+    console.log('Ensuring bot voice state is correct on connection...');
+    fixVoiceState();
   }
 });
 
