@@ -63,6 +63,15 @@ client.player = new Player(client, {
   connectionTimeout: 30000
 });
 
+// Register YouTube extractor for Discord Player v7+
+try {
+  const { YouTubeExtractor } = require('@discord-player/extractor');
+  client.player.extractors.register(YouTubeExtractor, {});
+  console.log('✅ YouTube extractor registered successfully');
+} catch (error) {
+  console.error('❌ Failed to register YouTube extractor:', error);
+}
+
 // Load default extractors (YouTube, SoundCloud, Spotify, etc.) and downloader - v7+ method
 // This will be called after the bot is ready in events/ready.js
 
@@ -116,12 +125,10 @@ client.player.events.on('trackError', (queue, error) => {
   }
 });
 
-// Add additional player events for better monitoring (reduced logging)
+// Add comprehensive debug logging for troubleshooting
 client.player.events.on('debug', (queue, message) => {
-  // Only log important debug messages
-  if (message.includes('error') || message.includes('failed') || message.includes('Error')) {
-    console.log(`[Player Debug] ${queue.guild.name}: ${message}`);
-  }
+  // Log all debug messages for troubleshooting
+  console.log(`[Player Debug] ${queue?.guild?.name || 'No Guild'}: ${message}`);
 });
 
 client.player.events.on('emptyQueue', (queue) => {

@@ -4,9 +4,8 @@ module.exports = {
   async execute(client) {
     console.log(`✅ Logged in as ${client.user.tag}`);
 
-    // Discord Player v7+ auto-loads extractors on initialization
-    // No need to manually load extractors - they're ready to use
-    console.log("✅ Discord Player extractors are ready (auto-loaded in this version)");
+    // Discord Player v7+ extractors are registered in index.js
+    console.log("✅ Discord Player extractors are ready (registered in index.js)");
     console.log("✅ Discord Player downloader available (700+ websites supported)");
     
     // Verify ytdl-core is working
@@ -24,5 +23,8 @@ module.exports = {
     } catch (playdlError) {
       console.warn("⚠️ play-dl not available:", playdlError.message);
     }
+    
+    // Test extractor registration
+    console.log(`✅ Registered extractors: ${client.player.extractors.size}`);
   },
 };

@@ -68,7 +68,7 @@ module.exports = {
         // Use Discord Player's built-in search with YouTube preference
         searchResult = await interaction.client.player.search(query, {
           requestedBy: interaction.user,
-          searchEngine: 'youtube', // Use YouTube as primary source
+          searchEngine: 'youtube_search', // Use YouTube search engine
         });
         
         if (!searchResult || !searchResult.hasTracks()) {
