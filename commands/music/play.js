@@ -11,23 +11,25 @@ module.exports = {
     ),
   async execute(interaction) {
     // Defer immediately to prevent interaction timeout - MUST be first!
-    await interaction.deferReply();
-    
-    console.log(`[Play Command] Starting play command for query: ${interaction.options.getString("query")}`);
-    
-    // Small delay to ensure extractors are loaded
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    const query = interaction.options.getString("query");
-    const voiceChannel = interaction.member?.voice?.channel;
-
-    if (!voiceChannel) {
-      return await interaction.editReply({ 
-        content: "⚠️ You need to join a voice channel first!"
-      });
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply();
     }
-
+    
     try {
+      console.log(`[Play Command] Starting play command for query: ${interaction.options.getString("query")}`);
+      
+      // Small delay to ensure extractors are loaded
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      const query = interaction.options.getString("query");
+      const voiceChannel = interaction.member?.voice?.channel;
+
+      if (!voiceChannel) {
+        return await interaction.editReply({ 
+          content: "⚠️ You need to join a voice channel first!"
+        });
+      }
+      
       // Send initial processing message
       await interaction.editReply({ 
         content: "🔍 Searching for your music..." 
@@ -106,14 +108,12 @@ module.exports = {
       if (!queue.node.isPlaying()) {
         console.log(`[Play Command] Starting playback`);
         await queue.node.play();
-        console.log(`[Play Command] Playback started`);
+        console.log(`[Play Command] Playback started - waiting for trackStart event`);
       } else {
         console.log(`[Play Command] Already playing, track added to queue`);
       }
 
-      console.log(`[Play Command] Queue status - Playing: ${queue.node.isPlaying()}, Track: ${queue.currentTrack?.title || 'None'}`);
-
-      // Send success message
+      // Send success message - don't check queue state immediately as it may not be updated yet
       await interaction.editReply(`🎶 Now playing **${searchResult.tracks[0].title}**`);
     } catch (err) {
       console.error('Play command error:', err);
