@@ -15,9 +15,9 @@ module.exports = {
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
 
-    // Check if interaction is still valid (within 3 seconds)
+    // Check if interaction is still valid (within 2.5 seconds)
     const interactionAge = Date.now() - interaction.createdTimestamp;
-    if (interactionAge > 2500) { // 2.5 seconds safety margin
+    if (interactionAge > 2000) { // 2 seconds safety margin
       console.log('Interaction too old, skipping:', interaction.id, 'age:', interactionAge + 'ms');
       return;
     }
@@ -37,17 +37,9 @@ module.exports = {
     } catch (deferError) {
       console.error('Failed to defer interaction:', deferError);
       
-      // If defer fails, try to respond immediately
-      try {
-        await interaction.reply({ 
-          content: '⏳ Processing your request...', 
-          flags: 64 // Use flags instead of ephemeral
-        });
-      } catch (replyError) {
-        console.error('Failed to reply to interaction:', replyError);
-        processedInteractions.delete(interaction.id);
-        return;
-      }
+      // If defer fails, the interaction is likely expired, so skip processing
+      processedInteractions.delete(interaction.id);
+      return;
     }
 
     try {

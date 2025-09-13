@@ -22,11 +22,7 @@ module.exports = {
     }
 
     try {
-      // Send initial processing message
-      await interaction.editReply({ 
-        content: "🔍 Searching for your music..." 
-      });
-      // Get or create the queue
+      // Get or create the queue first (faster)
       console.log(`[Play Command] Getting or creating queue for guild: ${interaction.guild.id}`);
       const queue = interaction.client.player.nodes.get(interaction.guild.id) || 
         interaction.client.player.nodes.create(interaction.guild, {
@@ -34,6 +30,11 @@ module.exports = {
         leaveOnEnd: false,
         leaveOnEmpty: false,
         leaveOnEmptyCooldown: 300000
+      });
+
+      // Send initial processing message
+      await interaction.editReply({ 
+        content: "🔍 Searching for your music..." 
       });
 
       // Connect to voice channel if not already connected
