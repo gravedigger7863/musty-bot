@@ -95,80 +95,20 @@ client.player.events.on('emptyChannel', (queue) => {
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
   
-  // Always try to fix voice state when connecting to ensure bot is not deafened
+  // Immediately fix voice state after connection
   const me = queue.guild.members.me;
   if (me?.voice) {
-    const guildId = queue.guild.id;
-    const currentTime = Date.now();
-    
-    // Check if we've already tried to fix this recently (within 5 seconds)
-    const lastFixAttempt = voiceStateFixAttempts.get(guildId) || 0;
-    if (currentTime - lastFixAttempt < 5000) {
-      console.log('Skipping voice state fix on connection - already attempted recently');
-      return;
-    }
-    
-    const hasVoiceIssues = me.voice.mute || me.voice.deaf || me.voice.selfMute || me.voice.selfDeaf;
     console.log('Bot voice state on connection:', {
       mute: me.voice.mute,
       deaf: me.voice.deaf,
       selfMute: me.voice.selfMute,
-      selfDeaf: me.voice.selfDeaf,
-      hasIssues: hasVoiceIssues
+      selfDeaf: me.voice.selfDeaf
     });
     
-    // Check bot permissions and server settings
-    const botMember = queue.guild.members.me;
-    const permissions = botMember.permissions;
-    console.log('Bot permissions check:', {
-      hasDeafenMembers: permissions.has('DeafenMembers'),
-      hasMuteMembers: permissions.has('MuteMembers'),
-      hasConnect: permissions.has('Connect'),
-      hasSpeak: permissions.has('Speak')
-    });
-    
-    const fixVoiceState = async () => {
-      try {
-        console.log('Fixing bot voice state on connection...');
-        
-        // Force unmute and undeafen with proper error handling
-        const results = await Promise.allSettled([
-          me.voice.setMute(false),
-          me.voice.setDeaf(false)
-        ]);
-        
-        console.log('Voice state fix results on connection:', results.map((r, i) => ({
-          operation: i === 0 ? 'setMute(false)' : 'setDeaf(false)',
-          status: r.status,
-          reason: r.status === 'rejected' ? r.reason?.message : 'success'
-        })));
-        
-        // If the fix failed, try again after a short delay
-        if (results.some(r => r.status === 'rejected')) {
-          console.log('Initial fix failed, retrying after delay...');
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          const retryResults = await Promise.allSettled([
-            me.voice.setMute(false),
-            me.voice.setDeaf(false)
-          ]);
-          
-          console.log('Retry results:', retryResults.map((r, i) => ({
-            operation: i === 0 ? 'setMute(false)' : 'setDeaf(false)',
-            status: r.status,
-            reason: r.status === 'rejected' ? r.reason?.message : 'success'
-          })));
-        }
-        
-        voiceStateFixAttempts.set(guildId, currentTime);
-        console.log('Voice state fix on connection completed');
-      } catch (err) {
-        console.error('Failed to fix bot voice state on connection:', err);
-      }
-    };
-    
-    // Always try to fix voice state when connecting
-    fixVoiceState();
+    // Simple fix - just unmute and undeafen
+    me.voice.setMute(false);
+    me.voice.setDeaf(false);
+    console.log('Bot voice state fixed on connection');
   }
 });
 
@@ -208,9 +148,6 @@ let voiceStateFixAttempts = new Map(); // Track fix attempts per guild
 client.on('voiceStateUpdate', (oldState, newState) => {
   // Only monitor the bot's own voice state
   if (newState.member.id === client.user.id) {
-    const guildId = newState.guild.id;
-    const currentTime = Date.now();
-    
     console.log(`Bot voice state changed:`, {
       channel: newState.channel?.name || 'None',
       mute: newState.mute,
@@ -219,100 +156,11 @@ client.on('voiceStateUpdate', (oldState, newState) => {
       selfDeaf: newState.selfDeaf
     });
     
-    // Only try to fix mute/deaf if bot is in a voice channel
-    if (newState.channel) {
-      // Check if bot has any voice issues
-      const hasVoiceIssues = newState.mute || newState.deaf || newState.selfMute || newState.selfDeaf;
-      const hadVoiceIssues = oldState.mute || oldState.deaf || oldState.selfMute || oldState.selfDeaf;
-      
-      if (hasVoiceIssues && !hadVoiceIssues) {
-        // Check if we've already tried to fix this recently (within 5 seconds)
-        const lastFixAttempt = voiceStateFixAttempts.get(guildId) || 0;
-        if (currentTime - lastFixAttempt < 5000) {
-          console.log('Skipping voice state fix - already attempted recently');
-          return;
-        }
-        
-        console.log('Bot has voice issues! Attempting to fix...');
-        voiceStateFixAttempts.set(guildId, currentTime);
-        
-        // Use a more robust approach to fix voice state
-        const fixVoiceState = async () => {
-          try {
-            console.log('Attempting to fix voice state...');
-            console.log('Current voice state before fix:', {
-              mute: newState.mute,
-              deaf: newState.deaf,
-              selfMute: newState.selfMute,
-              selfDeaf: newState.selfDeaf
-            });
-            
-            // Check bot permissions first
-            const botMember = newState.guild.members.me;
-            const permissions = botMember.permissions;
-            console.log('Bot permissions for voice state fix:', {
-              hasDeafenMembers: permissions.has('DeafenMembers'),
-              hasMuteMembers: permissions.has('MuteMembers'),
-              hasConnect: permissions.has('Connect'),
-              hasSpeak: permissions.has('Speak')
-            });
-            
-            // Try to fix voice state with proper error handling
-            const results = await Promise.allSettled([
-              newState.setMute(false).catch(err => {
-                console.log('setMute failed:', err.message);
-                throw err;
-              }),
-              newState.setDeaf(false).catch(err => {
-                console.log('setDeaf failed:', err.message);
-                throw err;
-              })
-            ]);
-            
-            console.log(`Voice state fix attempt:`, results.map((r, i) => ({
-              operation: i === 0 ? 'setMute(false)' : 'setDeaf(false)',
-              status: r.status,
-              reason: r.status === 'rejected' ? r.reason?.message : 'success'
-            })));
-            
-            // If the fix didn't work, try a different approach
-            if (results.some(r => r.status === 'rejected')) {
-              console.log('Standard fix failed, trying alternative approach...');
-              
-              // Try to disconnect and reconnect to force a fresh voice state
-              const queue = client.player.nodes.get(newState.guild.id);
-              if (queue && queue.connection) {
-                console.log('Attempting to reconnect to fix voice state...');
-                await queue.disconnect();
-                await new Promise(resolve => setTimeout(resolve, 1000));
-                await queue.connect(newState.channel);
-              }
-            }
-            
-            console.log('Voice state fix attempt completed');
-          } catch (err) {
-            console.error('Failed to fix bot voice state:', err);
-          }
-        };
-        
-        // Fix voice state with a single attempt
-        fixVoiceState();
-      }
-    } else {
-      // Bot is not in a voice channel, but if it was deafened, try to fix it
-      if (newState.deaf && !oldState.deaf) {
-        console.log('Bot was deafened outside voice channel! Attempting to undeafen...');
-        newState.setDeaf(false).catch(err => {
-          console.error('Failed to undeafen bot:', err);
-        });
-      }
-      
-      if (newState.selfDeaf && !oldState.selfDeaf) {
-        console.log('Bot was self-deafened outside voice channel! Attempting to undeafen...');
-        newState.setDeaf(false).catch(err => {
-          console.error('Failed to undeafen bot:', err);
-        });
-      }
+    // Simple fix - if bot is muted/deafened, just fix it
+    if (newState.channel && (newState.mute || newState.deaf || newState.selfMute || newState.selfDeaf)) {
+      console.log('Bot has voice issues! Fixing...');
+      newState.setMute(false);
+      newState.setDeaf(false);
     }
   }
 });
@@ -389,75 +237,6 @@ client.on('interactionCreate', async interaction => {
 process.on('unhandledRejection', err => console.error('Unhandled Rejection:', err));
 process.on('uncaughtException', err => console.error('Uncaught Exception:', err));
 
-// --- Aggressive Voice State Monitoring ---
-setInterval(() => {
-  client.guilds.cache.forEach(guild => {
-    const me = guild.members.me;
-    if (me?.voice?.channel && (me.voice.deaf || me.voice.mute || me.voice.selfDeaf || me.voice.selfMute)) {
-      const guildId = guild.id;
-      const currentTime = Date.now();
-      
-      // Check if we've already tried to fix this recently (within 30 seconds for aggressive fixing)
-      const lastFixAttempt = voiceStateFixAttempts.get(guildId) || 0;
-      if (currentTime - lastFixAttempt < 30000) {
-        return; // Skip if we tried recently
-      }
-      
-      console.log(`[AGGRESSIVE FIX] Bot has voice issues in ${guild.name}, attempting to fix...`);
-      voiceStateFixAttempts.set(guildId, currentTime);
-      
-      // Use a more robust approach to fix voice state
-      const fixVoiceState = async () => {
-        try {
-          console.log(`[AGGRESSIVE FIX] Current voice state:`, {
-            mute: me.voice.mute,
-            deaf: me.voice.deaf,
-            selfMute: me.voice.selfMute,
-            selfDeaf: me.voice.selfDeaf
-          });
-          
-          // Check permissions
-          const permissions = me.permissions;
-          console.log(`[AGGRESSIVE FIX] Bot permissions:`, {
-            hasDeafenMembers: permissions.has('DeafenMembers'),
-            hasMuteMembers: permissions.has('MuteMembers'),
-            hasConnect: permissions.has('Connect'),
-            hasSpeak: permissions.has('Speak')
-          });
-          
-          // Try to fix voice state
-          const results = await Promise.allSettled([
-            me.voice.setMute(false),
-            me.voice.setDeaf(false)
-          ]);
-          
-          console.log(`[AGGRESSIVE FIX] Fix results:`, results.map((r, i) => ({
-            operation: i === 0 ? 'setMute(false)' : 'setDeaf(false)',
-            status: r.status,
-            reason: r.status === 'rejected' ? r.reason?.message : 'success'
-          })));
-          
-          // If standard fix fails, try reconnecting
-          if (results.some(r => r.status === 'rejected')) {
-            console.log(`[AGGRESSIVE FIX] Standard fix failed, trying reconnection...`);
-            const queue = client.player.nodes.get(guild.id);
-            if (queue && queue.connection) {
-              await queue.disconnect();
-              await new Promise(resolve => setTimeout(resolve, 2000));
-              await queue.connect(me.voice.channel);
-            }
-          }
-          
-          console.log(`[AGGRESSIVE FIX] Fix attempt completed in ${guild.name}`);
-        } catch (err) {
-          console.error(`[AGGRESSIVE FIX] Failed to fix bot voice state in ${guild.name}:`, err);
-        }
-      };
-      
-      fixVoiceState();
-    }
-  });
-}, 30000); // Check every 30 seconds for aggressive fixing
 
 // --- Login ---
 client.login(process.env.DISCORD_TOKEN);
