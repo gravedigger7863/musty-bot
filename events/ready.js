@@ -23,14 +23,6 @@ module.exports = {
       console.error('❌ Failed to register Spotify extractor:', error);
     }
 
-    try {
-      // Register Deezer extractor (reliable alternative to YouTube)
-      const { DeezerExtractor } = require('discord-player-deezer');
-      await client.player.extractors.register(DeezerExtractor, {});
-      console.log('✅ Deezer extractor registered successfully');
-    } catch (error) {
-      console.error('❌ Failed to register Deezer extractor:', error);
-    }
 
     console.log("✅ Discord Player extractors are ready");
     console.log("✅ Discord Player downloader available (700+ websites supported)");

@@ -7,10 +7,10 @@ const playExecutions = new Set();
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("play")
-    .setDescription("Play music from Apple Music, Spotify, and Deezer with automatic fallback")
+    .setDescription("Play music from Apple Music and Spotify with automatic fallback")
     .addStringOption(option =>
       option.setName("query")
-        .setDescription("Song name, artist, or music service URL (Apple Music, Spotify, Deezer)")
+        .setDescription("Song name, artist, or music service URL (Apple Music, Spotify)")
         .setRequired(true)
     ),
   async execute(interaction) {
@@ -66,11 +66,10 @@ module.exports = {
       let searchResult;
       
       try {
-        // Try reliable music sources only (NO YOUTUBE - it's broken)
+        // Try only the most reliable music sources
         const searchEngines = [
           QueryType.APPLE_MUSIC_SEARCH,  // Most reliable
-          QueryType.SPOTIFY_SEARCH,      // Very reliable
-          QueryType.DEEZER_SEARCH        // Reliable alternative
+          QueryType.SPOTIFY_SEARCH       // Very reliable
         ];
         
         for (const searchEngine of searchEngines) {
@@ -93,14 +92,14 @@ module.exports = {
         
         // If all reliable sources fail, return error
         if (!searchResult || !searchResult.hasTracks()) {
-          return await interaction.editReply('❌ No tracks found on Apple Music, Spotify, or Deezer. Please try a different search term.');
+          return await interaction.editReply('❌ No tracks found on Apple Music or Spotify. Please try a different search term.');
         }
         
         const track = searchResult.tracks[0];
         console.log(`[Play Command] Found track: ${track.title} from ${track.source}`);
         
-        // Accept reliable music sources only (NO YOUTUBE)
-        const supportedSources = ['apple_music', 'spotify', 'deezer'];
+        // Accept only the most reliable music sources
+        const supportedSources = ['apple_music', 'spotify'];
         if (!supportedSources.includes(track.source)) {
           console.warn(`[Play Command] Unsupported track source: ${track.source}`);
           return await interaction.editReply('❌ Unsupported music source. Please try a different search.');
