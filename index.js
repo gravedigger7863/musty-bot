@@ -17,7 +17,14 @@ const client = new Client({
 });
 
 client.commands = new Collection();
-client.player = new Player(client);
+client.player = new Player(client, {
+  // Disable any automatic muting behavior
+  skipFFmpeg: false,
+  ytdlOptions: {
+    quality: 'highestaudio',
+    highWaterMark: 1 << 25
+  }
+});
 
 // Register YouTube extractor
 client.player.extractors.register(YoutubeiExtractor);
@@ -56,6 +63,36 @@ for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
     client.on(event.name, (...args) => event.execute(...args, client));
   }
 }
+
+// --- Voice State Monitoring ---
+client.on('voiceStateUpdate', (oldState, newState) => {
+  // Only monitor the bot's own voice state
+  if (newState.member.id === client.user.id) {
+    console.log(`Bot voice state changed:`, {
+      channel: newState.channel?.name || 'None',
+      mute: newState.mute,
+      deaf: newState.deaf,
+      selfMute: newState.selfMute,
+      selfDeaf: newState.selfDeaf
+    });
+    
+    // If bot gets muted, try to unmute it
+    if (newState.mute && !oldState.mute) {
+      console.log('Bot was muted! Attempting to unmute...');
+      newState.setMute(false).catch(err => {
+        console.error('Failed to unmute bot:', err);
+      });
+    }
+    
+    // If bot gets deafened, try to undeafen it
+    if (newState.deaf && !oldState.deaf) {
+      console.log('Bot was deafened! Attempting to undeafen...');
+      newState.setDeaf(false).catch(err => {
+        console.error('Failed to undeafen bot:', err);
+      });
+    }
+  }
+});
 
 // --- Button Interaction Handler ---
 client.on('interactionCreate', async interaction => {

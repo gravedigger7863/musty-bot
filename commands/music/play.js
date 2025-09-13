@@ -31,17 +31,6 @@ module.exports = {
 
       if (!queue.connection) await queue.connect(voiceChannel);
 
-      // Ensure bot is not muted
-      const me = voiceChannel.guild.members.me;
-      if (me?.voice?.mute) {
-        try {
-          await me.voice.setMute(false);
-          console.log('Bot unmuted successfully');
-        } catch (muteErr) {
-          console.error('Failed to unmute bot:', muteErr);
-        }
-      }
-
       const result = await queue.play(query, { nodeOptions: { metadata: { channel: interaction.channel } } });
       await interaction.editReply(`🎶 Now playing **${result.track.title}**`);
     } catch (err) {
