@@ -3,6 +3,7 @@ const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { Player } = require('discord-player');
+const { YoutubeiExtractor } = require('discord-player-youtubei');
 const express = require('express');
 
 // --- Client Setup ---
@@ -17,7 +18,17 @@ const client = new Client({
 
 client.commands = new Collection();
 client.player = new Player(client);
-require('@discord-player/extractor'); // Auto-registers all extractors
+
+// Register YouTube extractor
+client.player.extractors.register(YoutubeiExtractor);
+
+// Add these imports if you install the packages
+// const { SpotifyExtractor } = require('discord-player-spotify');
+// const { SoundCloudExtractor } = require('discord-player-soundcloud');
+
+// Register additional extractors
+// client.player.extractors.register(SpotifyExtractor);
+// client.player.extractors.register(SoundCloudExtractor);
 
 // --- Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
