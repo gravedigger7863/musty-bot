@@ -4,16 +4,11 @@ const processedInteractions = new Set();
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
-    if (!interaction.isChatInputCommand()) return;
-
     // Check if this interaction was already processed
     if (processedInteractions.has(interaction.id)) {
       console.log('Interaction already processed, skipping:', interaction.id);
       return;
     }
-
-    const command = client.commands.get(interaction.commandName);
-    if (!command) return;
 
     // Check if interaction is still valid (within 2.5 seconds)
     const interactionAge = Date.now() - interaction.createdTimestamp;
@@ -31,35 +26,142 @@ module.exports = {
       toDelete.forEach(id => processedInteractions.delete(id));
     }
 
-    // Immediately defer reply to prevent timeout with better error handling
-    try {
-      await interaction.deferReply({ flags: 0 });
-    } catch (deferError) {
-      console.error('Failed to defer interaction:', deferError);
-      
-      // If defer fails, the interaction is likely expired, so skip processing
-      processedInteractions.delete(interaction.id);
-      return;
-    }
-
-    try {
-      await command.execute(interaction);
-    } catch (error) {
-      console.error('Command execution error:', error);
-      
-      try {
-        await interaction.editReply({ content: '❌ Error while executing command!' });
-      } catch (editError) {
-        console.error('Failed to edit reply:', editError);
-        // Try follow-up as last resort
-        try {
-          await interaction.followUp({ content: '❌ Error while executing command!', flags: 64 });
-        } catch (followUpError) {
-          console.error('Failed to send follow-up:', followUpError);
-        }
+    // Handle slash commands
+    if (interaction.isChatInputCommand()) {
+      const command = client.commands.get(interaction.commandName);
+      if (!command) {
+        processedInteractions.delete(interaction.id);
+        return;
       }
-    } finally {
-      // Clean up after processing
+
+      // Immediately defer reply to prevent timeout with better error handling
+      try {
+        await interaction.deferReply({ flags: 0 });
+      } catch (deferError) {
+        console.error('Failed to defer interaction:', deferError);
+        
+        // If defer fails, the interaction is likely expired, so skip processing
+        processedInteractions.delete(interaction.id);
+        return;
+      }
+
+      try {
+        await command.execute(interaction);
+      } catch (error) {
+        console.error('Command execution error:', error);
+        
+        try {
+          await interaction.editReply({ content: '❌ Error while executing command!' });
+        } catch (editError) {
+          console.error('Failed to edit reply:', editError);
+          // Try follow-up as last resort
+          try {
+            await interaction.followUp({ content: '❌ Error while executing command!', flags: 64 });
+          } catch (followUpError) {
+            console.error('Failed to send follow-up:', followUpError);
+          }
+        }
+      } finally {
+        // Clean up after processing
+        processedInteractions.delete(interaction.id);
+      }
+    }
+    // Handle button interactions
+    else if (interaction.isButton()) {
+      const queue = client.player.nodes.get(interaction.guild.id);
+      if (!queue) {
+        try {
+          await interaction.reply({ content: '⚠️ No music is playing.', flags: 64 });
+        } catch (error) {
+          console.error('Failed to reply to button interaction:', error);
+        }
+        processedInteractions.delete(interaction.id);
+        return;
+      }
+
+      try {
+        switch (interaction.customId) {
+          case 'pause':
+            queue.node.setPaused(!queue.node.isPaused());
+            await interaction.reply({
+              content: queue.node.isPaused() ? '⏸️ Paused' : '▶️ Resumed',
+              flags: 64
+            });
+            break;
+          case 'skip':
+            queue.node.skip();
+            await interaction.reply({
+              content: '⏭️ Skipped',
+              flags: 64
+            });
+            break;
+          case 'stop':
+            queue.delete();
+            await interaction.reply({
+              content: '🛑 Stopped',
+              flags: 64
+            });
+            break;
+          case 'volup':
+            queue.node.setVolume(Math.min(queue.node.volume + 10, 100));
+            await interaction.reply({
+              content: `🔊 Volume: ${queue.node.volume}%`,
+              flags: 64
+            });
+            break;
+          case 'voldown':
+            queue.node.setVolume(Math.max(queue.node.volume - 10, 0));
+            await interaction.reply({
+              content: `🔉 Volume: ${queue.node.volume}%`,
+              flags: 64
+            });
+            break;
+          case 'loop':
+            queue.setRepeatMode(queue.repeatMode === 0 ? 1 : 0);
+            await interaction.reply({
+              content: queue.repeatMode === 1 ? '🔁 Looping current track' : 'Loop disabled',
+              flags: 64
+            });
+            break;
+          case 'autoplay':
+            queue.node.setAutoplay(!queue.node.isAutoplay);
+            await interaction.reply({
+              content: queue.node.isAutoplay ? '▶️ Autoplay Enabled' : 'Autoplay Disabled',
+              flags: 64
+            });
+            break;
+          case 'queue':
+            const current = queue.currentTrack;
+            const tracks = queue.tracks.toArray();
+            let text = `🎶 **Now Playing:** ${current.title}\n`;
+            if (tracks.length > 0) {
+              text += '\n📜 **Up Next:**\n';
+              tracks.slice(0, 10).forEach((t, i) => text += `${i + 1}. ${t.title}\n`);
+              if (tracks.length > 10) text += `...and ${tracks.length - 10} more`;
+            } else {
+              text += '\n🚫 No more songs in the queue.';
+            }
+            await interaction.reply({
+              content: text,
+              flags: 64
+            });
+            break;
+          default:
+            await interaction.reply({ content: '❌ Unknown button interaction', flags: 64 });
+        }
+      } catch (error) {
+        console.error('Button interaction error:', error);
+        try {
+          await interaction.reply({ content: '❌ Error processing button interaction', flags: 64 });
+        } catch (replyError) {
+          console.error('Failed to reply to button error:', replyError);
+        }
+      } finally {
+        // Clean up after processing
+        processedInteractions.delete(interaction.id);
+      }
+    } else {
+      // Unknown interaction type, clean up
       processedInteractions.delete(interaction.id);
     }
   },
