@@ -1,5 +1,4 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { useMainPlayer } = require("discord-player");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -12,18 +11,24 @@ module.exports = {
     const query = interaction.options.getString("query");
     const voiceChannel = interaction.member.voice.channel;
     if (!voiceChannel) {
-      return interaction.reply("⚠️ You need to join a voice channel first!");
+      return interaction.reply({ content: "⚠️ You need to join a voice channel first!", flags: 64 });
     }
 
-    const player = useMainPlayer();
-    const { track } = await player.play(voiceChannel, query, {
-      nodeOptions: {
-        metadata: {
-          channel: interaction.channel,
-        },
-      },
-    });
+    await interaction.deferReply(); // defer for async operation
 
-    await interaction.reply(`🎶 Now playing **${track.title}**`);
+    try {
+      const queue = interaction.client.player.nodes.create(interaction.guild, {
+        metadata: { channel: interaction.channel },
+        leaveOnEnd: false,
+        leaveOnEmpty: false,
+        leaveOnEmptyCooldown: 300000,
+      });
+
+      const result = await queue.play(query, { nodeOptions: { metadata: { channel: interaction.channel } } });
+      await interaction.editReply(`🎶 Now playing **${result.track.title}**`);
+    } catch (error) {
+      console.error(error);
+      await interaction.editReply('❌ Could not find any results for that query.');
+    }
   },
 };
