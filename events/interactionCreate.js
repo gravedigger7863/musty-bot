@@ -32,13 +32,23 @@ module.exports = {
       return;
     }
 
-    // Immediately defer reply to prevent timeout
+    // Immediately defer reply to prevent timeout with better error handling
     try {
-      await interaction.deferReply();
+      await interaction.deferReply({ ephemeral: false });
     } catch (deferError) {
       console.error('Failed to defer interaction:', deferError);
-      processedInteractions.delete(interaction.id);
-      return; // Exit if we can't defer
+      
+      // If defer fails, try to respond immediately
+      try {
+        await interaction.reply({ 
+          content: '⏳ Processing your request...', 
+          ephemeral: true 
+        });
+      } catch (replyError) {
+        console.error('Failed to reply to interaction:', replyError);
+        processedInteractions.delete(interaction.id);
+        return;
+      }
     }
 
     try {

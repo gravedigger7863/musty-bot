@@ -4,6 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const { Player } = require('discord-player');
 const { YoutubeiExtractor } = require('discord-player-youtubei');
+const { YouTubeExtractor } = require('@discord-player/extractor');
 const express = require('express');
 
 // --- Client Setup ---
@@ -26,9 +27,16 @@ client.player = new Player(client, {
     // Add more robust options
     requestOptions: {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
-    }
+    },
+    // Add additional options for better compatibility
+    filter: 'audioonly',
+    format: 'mp4',
+    liveBuffer: 20000,
+    highWaterMark: 1 << 25,
+    dlChunkSize: 0,
+    bitrate: 128
   },
   // Add better error handling
   connectionTimeout: 30000,
@@ -40,7 +48,17 @@ client.player = new Player(client, {
   // Add retry configuration
   retry: 3,
   // Enable fallback streaming
-  enableStreamInterceptor: true
+  enableStreamInterceptor: true,
+  // Add better stream handling
+  bufferingTimeout: 3000,
+  leaveOnEnd: false,
+  leaveOnEmpty: false,
+  leaveOnEmptyCooldown: 300000,
+  // Add better extractor configuration
+  useLegacyFFmpeg: false,
+  // Add better error recovery
+  selfDeaf: false,
+  selfMute: false
 });
 
 // Add comprehensive error event handlers
@@ -68,6 +86,24 @@ client.player.events.on('connectionError', (queue, error) => {
   }
 });
 
+// Add better error handling for stream extraction
+client.player.events.on('trackStart', (queue, track) => {
+  console.log(`[Player] Started playing: ${track.title} in ${queue.guild.name}`);
+});
+
+client.player.events.on('trackEnd', (queue, track) => {
+  console.log(`[Player] Finished playing: ${track.title} in ${queue.guild.name}`);
+});
+
+// Add error handling for track errors
+client.player.events.on('trackError', (queue, error) => {
+  console.error(`[Track Error] ${queue.guild.name}:`, error);
+  // Try to notify the channel about the error
+  if (queue.metadata?.channel) {
+    queue.metadata.channel.send(`❌ Track error: ${error.message || 'Unknown error'}`).catch(console.error);
+  }
+});
+
 // Add additional player events for better monitoring
 client.player.events.on('debug', (queue, message) => {
   console.log(`[Player Debug] ${queue.guild.name}: ${message}`);
@@ -88,24 +124,118 @@ client.player.events.on('connection', (queue) => {
   // Ensure bot is not muted or deafened when connecting
   const me = queue.guild.members.me;
   if (me?.voice) {
-    if (me.voice.mute) {
-      console.log('Bot is muted on connection, attempting to unmute...');
-      me.voice.setMute(false).catch(err => {
-        console.error('Failed to unmute bot on connection:', err);
-      });
-    }
+    // Use a more robust approach to fix voice state
+    const fixVoiceState = async () => {
+      try {
+        // First, try to set both mute and deaf to false
+        await Promise.all([
+          me.voice.setMute(false),
+          me.voice.setDeaf(false)
+        ]);
+        console.log('Successfully fixed bot voice state');
+      } catch (err) {
+        console.error('Failed to fix bot voice state:', err);
+        
+        // If that fails, try a more aggressive approach
+        try {
+          // Disconnect and reconnect to reset voice state
+          await me.voice.disconnect();
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          await queue.connect(queue.connection.channel);
+        } catch (reconnectErr) {
+          console.error('Failed to reconnect bot:', reconnectErr);
+        }
+      }
+    };
     
-    if (me.voice.deaf) {
-      console.log('Bot is deafened on connection, attempting to undeafen...');
-      me.voice.setDeaf(false).catch(err => {
-        console.error('Failed to undeafen bot on connection:', err);
-      });
+    if (me.voice.mute || me.voice.deaf) {
+      console.log('Bot has voice issues on connection, attempting to fix...');
+      fixVoiceState();
     }
   }
 });
 
-// Register YouTube extractor with better configuration
-client.player.extractors.register(YoutubeiExtractor);
+// Register multiple YouTube extractors for better compatibility
+try {
+  // Register the primary YouTube extractor
+  client.player.extractors.register(YoutubeiExtractor, {
+    // Add better configuration for YouTube extractor
+    useISODuration: true,
+    useISODurationLive: true,
+    useISODurationVOD: true,
+    // Add better error handling
+    onError: (error) => {
+      console.error('[YouTube Extractor Error]:', error);
+    },
+    // Add better configuration to reduce warnings
+    cookie: process.env.YOUTUBE_COOKIE || '',
+    // Add better request options
+    requestOptions: {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    }
+  });
+  console.log('✅ Registered YoutubeiExtractor');
+} catch (error) {
+  console.error('❌ Failed to register YoutubeiExtractor:', error);
+}
+
+try {
+  // Register the alternative YouTube extractor as fallback
+  client.player.extractors.register(YouTubeExtractor, {
+    // Add better configuration
+    useISODuration: true,
+    // Add better error handling
+    onError: (error) => {
+      console.error('[Alternative YouTube Extractor Error]:', error);
+    }
+  });
+  console.log('✅ Registered alternative YouTubeExtractor');
+} catch (error) {
+  console.error('❌ Failed to register alternative YouTubeExtractor:', error);
+}
+
+// Add custom stream interceptor for better YouTube handling
+client.player.events.on('beforeCreateStream', async (track, source, _queue) => {
+  // Only handle YouTube tracks
+  if (source === 'youtube') {
+    console.log(`[Stream Interceptor] Processing YouTube track: ${track.title}`);
+    
+    try {
+      // Add a small delay to ensure proper initialization
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Try to use ytdl-core directly as a fallback
+      const ytdl = require('ytdl-core');
+      
+      if (ytdl.validateURL(track.url)) {
+        console.log(`[Stream Interceptor] Using ytdl-core fallback for: ${track.title}`);
+        
+        const stream = ytdl(track.url, {
+          quality: 'highestaudio',
+          filter: 'audioonly',
+          highWaterMark: 1 << 25,
+          requestOptions: {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            }
+          }
+        });
+        
+        return stream;
+      }
+      
+      // Return undefined to let the default extractor handle it
+      return undefined;
+    } catch (error) {
+      console.error('[Stream Interceptor Error]:', error);
+      return undefined;
+    }
+  }
+  
+  return undefined;
+});
 
 // Additional extractors are available but not registered to avoid errors
 // Uncomment these if you want to use them:
@@ -155,50 +285,56 @@ client.on('voiceStateUpdate', (oldState, newState) => {
     
     // Only try to fix mute/deaf if bot is in a voice channel
     if (newState.channel) {
-      // If bot gets muted, try to unmute it
-      if (newState.mute && !oldState.mute) {
-        console.log('Bot was muted! Attempting to unmute...');
-        newState.setMute(false).catch(err => {
-          console.error('Failed to unmute bot:', err);
-        });
-      }
+      // Check if bot has any voice issues
+      const hasVoiceIssues = newState.mute || newState.deaf || newState.selfMute || newState.selfDeaf;
+      const hadVoiceIssues = oldState.mute || oldState.deaf || oldState.selfMute || oldState.selfDeaf;
       
-      // If bot gets deafened, try to undeafen it
-      if (newState.deaf && !oldState.deaf) {
-        console.log('Bot was deafened! Attempting to undeafen...');
-        // Try multiple approaches to undeafen
-        Promise.all([
-          newState.setDeaf(false),
-          newState.setMute(false) // Also ensure not muted
-        ]).catch(err => {
-          console.error('Failed to undeafen/unmute bot:', err);
-          // Try alternative approach - disconnect and reconnect
-          setTimeout(() => {
-            if (newState.channel) {
-              console.log('Attempting to reconnect to fix deaf state...');
-              newState.disconnect().then(() => {
-                setTimeout(() => {
-                  newState.channel.join().catch(console.error);
-                }, 1000);
-              }).catch(console.error);
+      if (hasVoiceIssues && !hadVoiceIssues) {
+        console.log('Bot has voice issues! Attempting to fix...');
+        
+        // Use a more robust approach to fix voice state
+        const fixVoiceState = async () => {
+          try {
+            // Try to fix all voice state issues at once
+            await Promise.all([
+              newState.setMute(false),
+              newState.setDeaf(false)
+            ]);
+            console.log('Successfully fixed bot voice state');
+          } catch (err) {
+            console.error('Failed to fix bot voice state:', err);
+            
+            // If that fails, try a more aggressive approach
+            try {
+              // Disconnect and reconnect to reset voice state
+              await newState.disconnect();
+              await new Promise(resolve => setTimeout(resolve, 1000));
+              
+              // Reconnect to the same channel
+              const queue = client.player.nodes.get(newState.guild.id);
+              if (queue) {
+                await queue.connect(newState.channel);
+              } else {
+                await newState.channel.join();
+              }
+            } catch (reconnectErr) {
+              console.error('Failed to reconnect bot:', reconnectErr);
             }
-          }, 2000);
-        });
+          }
+        };
+        
+        // Fix voice state immediately and also with a delay
+        fixVoiceState();
+        setTimeout(fixVoiceState, 500);
+        setTimeout(fixVoiceState, 1000);
+        setTimeout(fixVoiceState, 2000);
       }
       
-      // Also handle self-mute and self-deaf
-      if (newState.selfMute && !oldState.selfMute) {
-        console.log('Bot was self-muted! Attempting to unmute...');
-        newState.setMute(false).catch(err => {
-          console.error('Failed to unmute bot:', err);
-        });
-      }
-      
-      if (newState.selfDeaf && !oldState.selfDeaf) {
-        console.log('Bot was self-deafened! Attempting to undeafen...');
-        newState.setDeaf(false).catch(err => {
-          console.error('Failed to undeafen bot:', err);
-        });
+      // Also force fix voice state every time there are issues
+      if (hasVoiceIssues) {
+        console.log('Bot still has voice issues, forcing fix...');
+        newState.setMute(false).catch(console.error);
+        newState.setDeaf(false).catch(console.error);
       }
     } else {
       // Bot is not in a voice channel, but if it was deafened, try to fix it
@@ -295,23 +431,68 @@ process.on('uncaughtException', err => console.error('Uncaught Exception:', err)
 setInterval(() => {
   client.guilds.cache.forEach(guild => {
     const me = guild.members.me;
-    if (me?.voice?.channel && (me.voice.deaf || me.voice.mute)) {
-      console.log(`[Periodic Check] Bot is ${me.voice.deaf ? 'deafened' : ''} ${me.voice.mute ? 'muted' : ''} in ${guild.name}, attempting to fix...`);
+    if (me?.voice?.channel && (me.voice.deaf || me.voice.mute || me.voice.selfDeaf || me.voice.selfMute)) {
+      console.log(`[Periodic Check] Bot has voice issues in ${guild.name}, attempting to fix...`);
       
-      if (me.voice.deaf) {
+      // Use a more robust approach to fix voice state
+      const fixVoiceState = async () => {
+        try {
+          // Try to fix all voice state issues at once
+          await Promise.all([
+            me.voice.setMute(false),
+            me.voice.setDeaf(false)
+          ]);
+          console.log(`[Periodic Check] Successfully fixed bot voice state in ${guild.name}`);
+        } catch (err) {
+          console.error(`[Periodic Check] Failed to fix bot voice state in ${guild.name}:`, err);
+          
+          // If that fails, try a more aggressive approach
+          try {
+            // Disconnect and reconnect to reset voice state
+            await me.voice.disconnect();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Reconnect to the same channel
+            const queue = client.player.nodes.get(guild.id);
+            if (queue) {
+              await queue.connect(me.voice.channel);
+            } else {
+              await me.voice.channel.join();
+            }
+          } catch (reconnectErr) {
+            console.error(`[Periodic Check] Failed to reconnect bot in ${guild.name}:`, reconnectErr);
+          }
+        }
+      };
+      
+      fixVoiceState();
+    }
+  });
+}, 15000); // Check every 15 seconds for more aggressive monitoring
+
+// Add additional voice state monitoring
+setInterval(() => {
+  client.guilds.cache.forEach(guild => {
+    const me = guild.members.me;
+    if (me?.voice?.channel) {
+      // Force undeafen every 5 seconds if bot is deafened
+      if (me.voice.deaf || me.voice.selfDeaf) {
+        console.log(`[Force Undeafen] Bot is deafened in ${guild.name}, forcing undeafen...`);
         me.voice.setDeaf(false).catch(err => {
-          console.error('Failed to undeafen bot in periodic check:', err);
+          console.error(`[Force Undeafen] Failed to undeafen bot in ${guild.name}:`, err);
         });
       }
       
-      if (me.voice.mute) {
+      // Force unmute every 5 seconds if bot is muted
+      if (me.voice.mute || me.voice.selfMute) {
+        console.log(`[Force Unmute] Bot is muted in ${guild.name}, forcing unmute...`);
         me.voice.setMute(false).catch(err => {
-          console.error('Failed to unmute bot in periodic check:', err);
+          console.error(`[Force Unmute] Failed to unmute bot in ${guild.name}:`, err);
         });
       }
     }
   });
-}, 30000); // Check every 30 seconds
+}, 5000); // Check every 5 seconds for aggressive voice state fixing
 
 // --- Login ---
 client.login(process.env.DISCORD_TOKEN);
