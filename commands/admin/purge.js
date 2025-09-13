@@ -13,8 +13,7 @@ module.exports = {
   async execute(interaction) {
     const amount = interaction.options.getInteger('amount');
 
-    // Defer reply immediately
-    await interaction.deferReply({ flags: 64 });
+    // Interaction is already deferred by event handler
 
     // Check if channel is text-based
     if (!interaction.channel || !interaction.channel.isTextBased()) {

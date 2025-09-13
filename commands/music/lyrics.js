@@ -13,7 +13,7 @@ module.exports = {
         .setRequired(false)
     ),
   async execute(interaction) {
-    await interaction.deferReply(); // allows time for lookup
+    // Interaction is already deferred by event handler
 
     let query = interaction.options.getString('song');
 

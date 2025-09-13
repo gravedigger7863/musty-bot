@@ -60,8 +60,6 @@ module.exports = {
       return interaction.editReply({ content: `❌ You can only play once daily. Try again in ${hours}h ${minutes}m.` });
     }
 
-    await interaction.deferReply();
-
     if (games.has(interaction.user.id)) {
       return interaction.editReply('❌ You already have a Wordle game in progress!');
     }

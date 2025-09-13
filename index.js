@@ -29,17 +29,42 @@ client.player = new Player(client, {
   lagMonitor: 30000
 });
 
-// Add error event handlers
+// Add comprehensive error event handlers
 client.player.events.on('error', (queue, error) => {
-  console.error(`Player error in ${queue.guild.name}:`, error);
+  console.error(`[Player Error] ${queue.guild.name}:`, error);
+  // Try to notify the channel about the error
+  if (queue.metadata?.channel) {
+    queue.metadata.channel.send(`❌ Music player error: ${error.message || 'Unknown error'}`).catch(console.error);
+  }
 });
 
 client.player.events.on('playerError', (queue, error) => {
-  console.error(`Player error in ${queue.guild.name}:`, error);
+  console.error(`[Player Error] ${queue.guild.name}:`, error);
+  // Try to notify the channel about the error
+  if (queue.metadata?.channel) {
+    queue.metadata.channel.send(`❌ Music player error: ${error.message || 'Unknown error'}`).catch(console.error);
+  }
 });
 
 client.player.events.on('connectionError', (queue, error) => {
-  console.error(`Connection error in ${queue.guild.name}:`, error);
+  console.error(`[Connection Error] ${queue.guild.name}:`, error);
+  // Try to notify the channel about the error
+  if (queue.metadata?.channel) {
+    queue.metadata.channel.send(`❌ Voice connection error: ${error.message || 'Unknown error'}`).catch(console.error);
+  }
+});
+
+// Add additional player events for better monitoring
+client.player.events.on('debug', (queue, message) => {
+  console.log(`[Player Debug] ${queue.guild.name}: ${message}`);
+});
+
+client.player.events.on('emptyQueue', (queue) => {
+  console.log(`[Player] Queue empty in ${queue.guild.name}`);
+});
+
+client.player.events.on('emptyChannel', (queue) => {
+  console.log(`[Player] Channel empty in ${queue.guild.name}`);
 });
 
 // Register YouTube extractor
