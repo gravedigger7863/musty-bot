@@ -21,7 +21,7 @@ global.setTimeout = (callback, delay, ...args) => {
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { useMainPlayer, useQueue } = require('discord-player');
+const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
@@ -50,8 +50,8 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Initialize modern Discord Player v7
-const player = useMainPlayer(client, {
+// Initialize Discord Player with native Opus encoder
+client.player = new Player(client, {
   ffmpegPath: ffmpegPath,
   selfDeaf: false,
   selfMute: false,
@@ -67,12 +67,6 @@ const player = useMainPlayer(client, {
   autoSelfMute: false,
   // Force use of native Opus encoder
   useLegacyFFmpeg: false,
-  // Force native Opus encoder configuration
-  opusEncoder: {
-    rate: 48000,
-    channels: 2,
-    frameSize: 960
-  },
   ytdlOptions: {
     quality: 'highestaudio',
     highWaterMark: 1 << 25,
@@ -84,9 +78,6 @@ const player = useMainPlayer(client, {
     }
   }
 });
-
-// Make player available globally
-client.player = player;
 
 // Load extractors using the latest 2025 method
 (async () => {

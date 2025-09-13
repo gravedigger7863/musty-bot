@@ -1,5 +1,4 @@
 const { SlashCommandBuilder } = require("discord.js");
-const { useMainPlayer } = require('discord-player');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -31,13 +30,11 @@ module.exports = {
         content: "🔍 Searching for your music..." 
       });
 
-      // Use modern Discord Player v7 API
-      const player = useMainPlayer(interaction.client);
-      
       console.log(`[Play Command] Searching for: ${query}`);
+      console.log(`[Play Command] Available extractors: ${interaction.client.player.extractors.size}`);
       
-      // Search for track using modern API
-      const searchResult = await player.search(query, {
+      // Search for track using traditional API
+      const searchResult = await interaction.client.player.search(query, {
         requestedBy: interaction.user,
         searchEngine: 'youtube',
       });
@@ -52,22 +49,27 @@ module.exports = {
       const track = searchResult.tracks[0];
       console.log(`[Play Command] Found track: ${track.title} from ${track.source}`);
 
-      // Use modern queue management
-      const queue = player.nodes.create(interaction.guild, {
-        metadata: { channel: interaction.channel },
-        leaveOnEnd: true,
-        leaveOnEmpty: true,
-        leaveOnEmptyCooldown: 30000,
-        leaveOnStop: true,
-        selfDeaf: false,
-        selfMute: false,
-        skipOnEmpty: true,
-        skipOnEmptyCooldown: 30000,
-        autoSelfDeaf: false,
-        autoSelfMute: false,
-        bufferingTimeout: 10000,
-        connectionTimeout: 20000,
-      });
+      // Create or get existing queue
+      let queue = interaction.client.player.nodes.get(interaction.guild.id);
+      
+      if (!queue) {
+        console.log(`[Play Command] Creating new queue`);
+        queue = interaction.client.player.nodes.create(interaction.guild, {
+          metadata: { channel: interaction.channel },
+          leaveOnEnd: true,
+          leaveOnEmpty: true,
+          leaveOnEmptyCooldown: 30000,
+          leaveOnStop: true,
+          selfDeaf: false,
+          selfMute: false,
+          skipOnEmpty: true,
+          skipOnEmptyCooldown: 30000,
+          autoSelfDeaf: false,
+          autoSelfMute: false,
+          bufferingTimeout: 10000,
+          connectionTimeout: 20000,
+        });
+      }
 
       // Connect to voice channel
       try {

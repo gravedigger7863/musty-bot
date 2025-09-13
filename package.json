@@ -4,7 +4,7 @@
   "description": "A modern Discord music bot with multi-source support - 2025 Edition",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "DP_FORCE_NATIVE_OPUS=true DP_DISABLE_OPUSSCRIPT=true node index.js",
     "deploy": "node deploy-commands.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
