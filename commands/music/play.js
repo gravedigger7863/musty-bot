@@ -101,32 +101,55 @@ module.exports = {
         
         console.log(`[Play Command] Track resolved successfully: ${track.title} (${track.source})`);
         
-        // Create safe track wrapper for Discord Player compatibility
-        const safeTrack = {
-          title: track.title,
-          url: track.url,
-          duration: track.duration,
-          requestedBy: interaction.user,
-          thumbnail: track.thumbnail,
-          source: track.source || 'unknown',
-          // Additional properties for better compatibility
-          author: track.author || 'Unknown Artist',
-          description: track.description || '',
-          views: track.views || 0,
-          // Ensure all required properties are present
-          id: track.id || track.url,
-          raw: track.raw || track
-        };
-        
-        console.log(`[Play Command] Safe track created:`, {
-          title: safeTrack.title,
-          url: safeTrack.url ? 'Present' : 'Missing',
-          duration: safeTrack.duration,
-          source: safeTrack.source
-        });
-        
-        // Replace original track with safe track
-        track = safeTrack;
+        // CRITICAL: Resolve track to proper playable stream URL
+        console.log(`[Play Command] Resolving track to playable stream...`);
+        try {
+          const resolvedTrack = await interaction.client.player.extractors.resolve(track.url, {
+            requestedBy: interaction.user
+          });
+          
+          if (!resolvedTrack || !resolvedTrack.streamURL) {
+            console.error(`[Play Command] Failed to resolve track to playable stream:`, {
+              originalUrl: track.url,
+              resolvedTrack: resolvedTrack
+            });
+            return await interaction.editReply('❌ Could not resolve track to playable stream. Please try again.');
+          }
+          
+          console.log(`[Play Command] Track stream resolved successfully:`, {
+            title: resolvedTrack.title,
+            streamURL: resolvedTrack.streamURL ? 'Present' : 'Missing',
+            duration: resolvedTrack.duration,
+            source: resolvedTrack.source
+          });
+          
+          // Create properly resolved track for Discord Player
+          track = {
+            title: resolvedTrack.title,
+            url: resolvedTrack.streamURL, // Direct audio stream URL
+            duration: resolvedTrack.duration, // Should be number in milliseconds
+            requestedBy: interaction.user,
+            thumbnail: resolvedTrack.thumbnail,
+            source: resolvedTrack.source || 'unknown',
+            author: resolvedTrack.author || 'Unknown Artist',
+            description: resolvedTrack.description || '',
+            views: resolvedTrack.views || 0,
+            id: resolvedTrack.id || resolvedTrack.streamURL,
+            raw: resolvedTrack.raw || resolvedTrack
+          };
+          
+          console.log(`[Play Command] Final track object:`, {
+            title: track.title,
+            url: track.url ? 'Present' : 'Missing',
+            duration: track.duration,
+            durationType: typeof track.duration,
+            source: track.source
+          });
+          
+        } catch (resolveError) {
+          console.error(`[Play Command] Track resolution failed:`, resolveError);
+          return await interaction.editReply('❌ Could not resolve track to playable stream. Please try a different song.');
+        }
         
       } catch (searchError) {
         console.error(`[Play Command] Search failed:`, searchError);
@@ -200,12 +223,27 @@ module.exports = {
       
       // Final safety check before adding to queue
       if (!track.title || !track.url) {
-        console.error(`[Play Command] CRITICAL: Safe track is missing required properties:`, {
+        console.error(`[Play Command] CRITICAL: Resolved track is missing required properties:`, {
           title: track.title,
           url: track.url,
           source: track.source
         });
         return await interaction.editReply('❌ Track is missing required properties. Please try again.');
+      }
+      
+      // Validate that URL is a proper stream URL
+      if (!track.url.includes('http') || track.url.includes('soundcloud.com/') && !track.url.includes('stream')) {
+        console.error(`[Play Command] CRITICAL: Track URL is not a proper stream URL:`, track.url);
+        return await interaction.editReply('❌ Track URL is not playable. Please try again.');
+      }
+      
+      // Validate duration is a number
+      if (typeof track.duration !== 'number') {
+        console.error(`[Play Command] CRITICAL: Track duration is not a number:`, {
+          duration: track.duration,
+          type: typeof track.duration
+        });
+        return await interaction.editReply('❌ Track duration is invalid. Please try again.');
       }
       
       // Add the safe track to queue
