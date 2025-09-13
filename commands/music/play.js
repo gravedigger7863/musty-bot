@@ -101,6 +101,33 @@ module.exports = {
         
         console.log(`[Play Command] Track resolved successfully: ${track.title} (${track.source})`);
         
+        // Create safe track wrapper for Discord Player compatibility
+        const safeTrack = {
+          title: track.title,
+          url: track.url,
+          duration: track.duration,
+          requestedBy: interaction.user,
+          thumbnail: track.thumbnail,
+          source: track.source || 'unknown',
+          // Additional properties for better compatibility
+          author: track.author || 'Unknown Artist',
+          description: track.description || '',
+          views: track.views || 0,
+          // Ensure all required properties are present
+          id: track.id || track.url,
+          raw: track.raw || track
+        };
+        
+        console.log(`[Play Command] Safe track created:`, {
+          title: safeTrack.title,
+          url: safeTrack.url ? 'Present' : 'Missing',
+          duration: safeTrack.duration,
+          source: safeTrack.source
+        });
+        
+        // Replace original track with safe track
+        track = safeTrack;
+        
       } catch (searchError) {
         console.error(`[Play Command] Search failed:`, searchError);
         return await interaction.editReply('❌ Search failed. Please try again.');
@@ -168,10 +195,20 @@ module.exports = {
         }
       }
 
-      // RACE-PROOF TRACK ADDITION: Add fully resolved track to queue
-      console.log(`[Play Command] Adding resolved track to queue...`);
+      // RACE-PROOF TRACK ADDITION: Add safe track to queue
+      console.log(`[Play Command] Adding safe track to queue...`);
       
-      // Add the fully resolved track to queue
+      // Final safety check before adding to queue
+      if (!track.title || !track.url) {
+        console.error(`[Play Command] CRITICAL: Safe track is missing required properties:`, {
+          title: track.title,
+          url: track.url,
+          source: track.source
+        });
+        return await interaction.editReply('❌ Track is missing required properties. Please try again.');
+      }
+      
+      // Add the safe track to queue
       queue.addTrack(track);
       
       // Verify track was added
@@ -186,8 +223,8 @@ module.exports = {
       // RACE-PROOF PLAYBACK: Wait for track to be fully registered
       console.log(`[Play Command] Waiting for track to be fully registered...`);
       
-      // Wait until the track is fully added (as recommended by ChatGPT/Gemini)
-      await new Promise(resolve => setTimeout(resolve, 100));
+      // Wait until the track is fully added (as recommended by GPT)
+      await new Promise(resolve => setTimeout(resolve, 50));
       
       // Verify queue state before playback
       console.log(`[Play Command] Pre-playback queue state:`, {
@@ -200,6 +237,12 @@ module.exports = {
       // Only start playback if queue has tracks and is not already playing (recommended pattern)
       if (queue.tracks.size > 0 && !queue.node.isPlaying()) {
         console.log(`[Play Command] Starting playback with ${queue.tracks.size} tracks in queue`);
+        console.log(`[Play Command] Track details:`, {
+          title: track.title,
+          source: track.source,
+          url: track.url ? 'Present' : 'Missing',
+          duration: track.duration
+        });
         
         try {
           await queue.node.play();
