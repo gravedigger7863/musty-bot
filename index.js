@@ -107,13 +107,12 @@ client.player.events.on('connection', (queue) => {
 // Register YouTube extractor with better configuration
 client.player.extractors.register(YoutubeiExtractor);
 
-// Add these imports if you install the packages
-const { SpotifyExtractor } = require('discord-player-spotify');
-const { SoundCloudExtractor } = require('discord-player-soundcloud');
-
-// Register additional extractors as fallbacks
-client.player.extractors.register(SpotifyExtractor);
-client.player.extractors.register(SoundCloudExtractor);
+// Additional extractors are available but not registered to avoid errors
+// Uncomment these if you want to use them:
+// const { SpotifyExtractor } = require('discord-player-spotify');
+// const { SoundCloudExtractor } = require('discord-player-soundcloud');
+// client.player.extractors.register(SpotifyExtractor);
+// client.player.extractors.register(SoundCloudExtractor);
 
 // --- Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
