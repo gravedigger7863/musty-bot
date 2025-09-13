@@ -1,8 +1,5 @@
 require('dotenv').config();
 
-// Force discord-player to use play-dl for better stream extraction
-process.env.DP_FORCE_YTDL_MOD = 'play-dl';
-
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
@@ -10,7 +7,6 @@ const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
-const { Mediaplex } = require('mediaplex');
 
 // Verify FFmpeg paths
 console.log('FFmpeg path (ffmpeg-static):', ffmpeg);
@@ -37,106 +33,104 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Initialize player with simple configuration
+// Initialize player with optimized configuration
 client.player = new Player(client, {
-  // Use enhanced FFmpeg for better audio processing
   ffmpegPath: ffmpegPath,
-  // Ensure bot doesn't get deafened
   selfDeaf: false,
   selfMute: false,
-  // Add additional options for better compatibility
-  bufferingTimeout: 5000,
-  connectionTimeout: 30000
+  bufferingTimeout: 10000,
+  connectionTimeout: 30000,
+  // Enhanced configuration for better stability
+  skipOnEmpty: true,
+  skipOnEmptyCooldown: 30000,
+  leaveOnEnd: true,
+  leaveOnEmpty: true,
+  leaveOnEmptyCooldown: 30000,
+  leaveOnStop: true,
+  autoSelfDeaf: false,
+  autoSelfMute: false
 });
 
-// Extractors will be registered in the ready event
+// Register extractors immediately
+DefaultExtractors.forEach(extractor => {
+  client.player.extractors.register(extractor, {});
+});
 
-// Load default extractors (YouTube, SoundCloud, Spotify, etc.) and downloader - v7+ method
-// This will be called after the bot is ready in events/ready.js
+console.log(`✅ Registered ${client.player.extractors.size} extractors`);
 
-// Add comprehensive error event handlers
+// Enhanced event handlers for better music experience
 client.player.events.on('error', (queue, error) => {
-  console.error(`[Player Error] ${queue.guild.name}:`, error);
-  // Try to notify the channel about the error
+  console.error(`[Player Error] ${queue.guild.name}:`, error.message);
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`❌ Music player error: ${error.message || 'Unknown error'}`).catch(console.error);
   }
 });
 
 client.player.events.on('playerError', (queue, error) => {
-  console.log(`Player error in ${queue.guild.name}:`, error);
-  // Try to notify the channel about the error
+  console.error(`[Player Error] ${queue.guild.name}:`, error.message);
   if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`❌ Music player error: ${error.message || 'Unknown error'}`).catch(console.error);
+    queue.metadata.channel.send(`❌ Track playback error: ${error.message || 'Unknown error'}`).catch(console.error);
   }
 });
 
 client.player.events.on('connectionError', (queue, error) => {
-  console.error(`[Connection Error] ${queue.guild.name}:`, error);
-  // Try to notify the channel about the error
+  console.error(`[Connection Error] ${queue.guild.name}:`, error.message);
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`❌ Voice connection error: ${error.message || 'Unknown error'}`).catch(console.error);
   }
 });
 
-// Add better error handling for stream extraction
 client.player.events.on('trackStart', (queue, track) => {
-  console.log(`[Player] Now playing: ${track.title} in ${queue.connection?.channel?.name || queue.guild.name}`);
-  console.log(`[Player] Queue size: ${queue.tracks.size}, Is playing: ${queue.isPlaying()}`);
+  console.log(`[Player] Now playing: ${track.title} by ${track.author} in ${queue.guild.name}`);
+  if (queue.metadata?.channel) {
+    queue.metadata.channel.send(`🎶 Now playing: **${track.title}** by ${track.author}`).catch(console.error);
+  }
 });
 
 client.player.events.on('trackEnd', (queue, track) => {
-  console.log(`[Player] Finished playing: ${track.title} in ${queue.guild.name}`);
-  console.log(`[Player] Queue size after track end: ${queue.tracks.size}`);
+  console.log(`[Player] Finished: ${track.title} in ${queue.guild.name}`);
 });
 
 client.player.events.on('trackAdd', (queue, track) => {
   console.log(`[Player] Added to queue: ${track.title} in ${queue.guild.name}`);
-  console.log(`[Player] Queue size after add: ${queue.tracks.size}`);
+  if (queue.metadata?.channel && queue.tracks.size > 1) {
+    queue.metadata.channel.send(`🎵 Added to queue: **${track.title}** by ${track.author}`).catch(console.error);
+  }
 });
 
-// Add error handling for track errors
 client.player.events.on('trackError', (queue, error) => {
-  console.error(`[Track Error] ${queue.guild.name}:`, error);
-  // Try to notify the channel about the error
+  console.error(`[Track Error] ${queue.guild.name}:`, error.message);
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`❌ Track error: ${error.message || 'Unknown error'}`).catch(console.error);
   }
 });
 
-// Add comprehensive debug logging for troubleshooting
-client.player.events.on('debug', (queue, message) => {
-  // Log all debug messages for troubleshooting
-  console.log(`[Player Debug] ${queue?.guild?.name || 'No Guild'}: ${message}`);
-});
-
 client.player.events.on('emptyQueue', (queue) => {
   console.log(`[Player] Queue empty in ${queue.guild.name}`);
-  console.log(`[Player] Empty queue details:`, {
-    guildId: queue.guild.id,
-    guildName: queue.guild.name,
-    connectionExists: !!queue.connection,
-    nodeExists: !!queue.node,
-    tracksSize: queue.tracks.size,
-    isPlaying: queue.node?.isPlaying?.() || false
-  });
+  if (queue.metadata?.channel) {
+    queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
+  }
 });
 
 client.player.events.on('emptyChannel', (queue) => {
   console.log(`[Player] Channel empty in ${queue.guild.name}`);
+  if (queue.metadata?.channel) {
+    queue.metadata.channel.send(`👋 Left voice channel - no one is listening!`).catch(console.error);
+  }
 });
 
 client.player.events.on('queueEnd', (queue) => {
-  console.log(`[Player] Queue ended in ${queue.connection?.channel?.name || queue.guild.name}`);
+  console.log(`[Player] Queue ended in ${queue.guild.name}`);
+  if (queue.metadata?.channel) {
+    queue.metadata.channel.send(`🎵 Queue finished! Thanks for listening!`).catch(console.error);
+  }
 });
 
-// Bot should connect without being deafened now
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
 });
 
-// Extractors and downloader are now properly loaded in events/ready.js
-console.log('✅ Discord Player configuration complete - extractors and downloader will load on ready');
+console.log('✅ Discord Player configuration complete');
 
 // --- Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
@@ -180,20 +174,9 @@ for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
   }
 }
 
-// --- Voice State Monitoring ---
-let voiceStateFixAttempts = new Map(); // Track fix attempts per guild
-
-// Disabled voice state monitoring - let Discord handle it naturally
-// client.on('voiceStateUpdate', (oldState, newState) => {
-//   // Voice state monitoring disabled to prevent infinite loops
-// });
-
-// Button interactions are now handled in events/interactionCreate.js
-
 // --- Crash Handling ---
 process.on('unhandledRejection', err => console.error('Unhandled Rejection:', err));
 process.on('uncaughtException', err => console.error('Uncaught Exception:', err));
-
 
 // --- Login ---
 client.login(process.env.DISCORD_TOKEN);
@@ -201,7 +184,7 @@ client.login(process.env.DISCORD_TOKEN);
 // --- Uptime server ---
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Bot is alive!'));
+app.get('/', (req, res) => res.send('Musty Bot is alive! 🎵'));
 app.listen(PORT, () => console.log(`Uptime server running on port ${PORT}`));
 
 module.exports = client;

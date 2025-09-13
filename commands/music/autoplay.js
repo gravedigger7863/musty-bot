@@ -1,5 +1,4 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { useQueue } = require('discord-player');
 
 // store autoplay status per guild
 const autoplayStatus = new Map();
@@ -9,13 +8,12 @@ module.exports = {
     .setName('autoplay')
     .setDescription('Toggle autoplay for related tracks'),
   async execute(interaction) {
-    // Defer immediately to prevent interaction timeout
     if (!interaction.deferred && !interaction.replied) {
       await interaction.deferReply();
     }
 
-    const queue = useQueue(interaction.guild.id);
-    if (!queue || !queue.channel) {
+    const queue = interaction.client.player.nodes.get(interaction.guild.id);
+    if (!queue || !queue.connection) {
       return interaction.editReply({ content: '⚠️ The bot must be in a voice channel first.' });
     }
 

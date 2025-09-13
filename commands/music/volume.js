@@ -1,5 +1,4 @@
 const { SlashCommandBuilder } = require('discord.js');
-const { useQueue } = require('discord-player');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -12,12 +11,11 @@ module.exports = {
         .setRequired(true)
     ),
   async execute(interaction) {
-    // Defer immediately to prevent interaction timeout
     if (!interaction.deferred && !interaction.replied) {
       await interaction.deferReply();
     }
 
-    const queue = useQueue(interaction.guild.id);
+    const queue = interaction.client.player.nodes.get(interaction.guild.id);
     if (!queue || !queue.currentTrack) {
       return interaction.editReply({ content: '⚠️ No music is currently playing.' });
     }

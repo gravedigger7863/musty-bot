@@ -1,6 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
 const lyricsFinder = require('lyrics-finder');
-const { useQueue } = require('discord-player');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -13,18 +12,16 @@ module.exports = {
         .setRequired(false)
     ),
   async execute(interaction) {
-    // Defer immediately to prevent interaction timeout
     if (!interaction.deferred && !interaction.replied) {
       await interaction.deferReply();
     }
 
     let query = interaction.options.getString('song');
 
-    // if no song provided, use current playing track
     if (!query) {
-      const queue = useQueue(interaction.guild.id);
+      const queue = interaction.client.player.nodes.get(interaction.guild.id);
       if (!queue || !queue.currentTrack) {
-        return interaction.editReply('⚠️ No song is playing, and you didn’t provide one.');
+        return interaction.editReply('⚠️ No song is playing, and you didn't provide one.');
       }
       query = queue.currentTrack.title;
     }

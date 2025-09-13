@@ -1,12 +1,13 @@
 {
   "name": "musty-bot",
   "version": "1.0.0",
-  "description": "",
+  "description": "A modern Discord music bot with multi-source support",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["discord", "music", "bot"],
   "author": "",
   "license": "ISC",
   "dependencies": {
@@ -28,6 +29,8 @@
     "libsodium-wrappers": "^0.7.15",
     "lyrics-finder": "^21.7.0",
     "magmastream": "^2.9.0",
-    "shoukaku": "^4.1.1"
+    "play-dl": "^1.9.7",
+    "shoukaku": "^4.1.1",
+    "youtube-ext": "^1.1.0"
   }
 }

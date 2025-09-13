@@ -1,52 +1,29 @@
 const { SlashCommandBuilder } = require("discord.js");
 const { QueryType } = require("discord-player");
 
-// Track play command executions to prevent duplicates
-const playExecutions = new Set();
-
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("play")
-    .setDescription("Play music from Apple Music and Spotify with automatic fallback")
+    .setDescription("Play music from YouTube, Spotify, SoundCloud, and more!")
     .addStringOption(option =>
       option.setName("query")
-        .setDescription("Song name, artist, or music service URL (Apple Music, Spotify)")
+        .setDescription("Song name, artist, or URL (YouTube, Spotify, SoundCloud, etc.)")
         .setRequired(true)
     ),
   async execute(interaction) {
-    // CRITICAL: Check if interaction already processed to prevent duplicate execution
+    // Check if interaction already processed
     if (interaction.deferred || interaction.replied) {
-      console.log(`[Play Command] Interaction already processed, skipping duplicate execution`);
       return;
     }
 
-    // Additional check: prevent duplicate play command executions
-    const executionKey = `${interaction.id}-${interaction.user.id}`;
-    if (playExecutions.has(executionKey)) {
-      console.log(`[Play Command] Duplicate play command execution detected, skipping: ${executionKey}`);
+    try {
+      await interaction.deferReply();
+    } catch (err) {
+      console.warn("Failed to defer interaction:", err.message);
       return;
-    }
-    playExecutions.add(executionKey);
-
-    // Defer interaction to prevent timeout (only if not already handled)
-    if (!interaction.deferred && !interaction.replied) {
-      try {
-        await interaction.deferReply();
-        console.log(`[Play Command] Interaction deferred successfully`);
-      } catch (err) {
-        console.warn("Failed to defer interaction:", err.message);
-        return; // Exit if we can't defer - interaction is likely expired
-      }
-    } else {
-      console.log(`[Play Command] Interaction already handled, continuing...`);
     }
     
     try {
-      console.log(`[Play Command] Starting play command for query: ${interaction.options.getString("query")}`);
-      
-      // Small delay to ensure extractors are loaded
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       const query = interaction.options.getString("query");
       const voiceChannel = interaction.member?.voice?.channel;
 
@@ -56,49 +33,42 @@ module.exports = {
         });
       }
       
-      // Send initial processing message
       await interaction.editReply({ 
         content: "🔍 Searching for your music..." 
       });
 
-      // Search for track using Discord Player's built-in search
       console.log(`[Play Command] Searching for: ${query}`);
-      let searchResult;
       
-      try {
-        // Use simple search without specific extractors
-        console.log(`[Play Command] Searching for: ${query}`);
-        searchResult = await interaction.client.player.search(query, {
-          requestedBy: interaction.user,
-        });
-        
-        if (!searchResult || !searchResult.hasTracks()) {
-          return await interaction.editReply('❌ No tracks found. Please try a different search term.');
-        }
-        
-        const track = searchResult.tracks[0];
-        console.log(`[Play Command] Found track: ${track.title} from ${track.source}`);
-        
-        // Accept any music source that Discord Player finds
-        console.log(`[Play Command] Track source: ${track.source}`);
-        
-      } catch (searchError) {
-        console.error(`[Play Command] Search failed:`, searchError);
-        
-        // Provide specific error messages based on the error type
-        if (searchError.message && searchError.message.includes('timeout')) {
-          return await interaction.editReply('❌ Search timed out. Please try again with a shorter search term.');
-        } else if (searchError.message && searchError.message.includes('rate limit')) {
-          return await interaction.editReply('❌ Search rate limited. Please wait a moment and try again.');
-        } else if (searchError.message && searchError.message.includes('network')) {
-          return await interaction.editReply('❌ Network error during search. Please check your connection and try again.');
-        } else {
-          return await interaction.editReply('❌ Search failed. Please try a different search term.');
+      // Search for track with multiple fallback strategies
+      let searchResult;
+      const searchEngines = ['youtube', 'spotify', 'soundcloud'];
+      
+      for (const engine of searchEngines) {
+        try {
+          console.log(`[Play Command] Trying search engine: ${engine}`);
+          searchResult = await interaction.client.player.search(query, {
+            requestedBy: interaction.user,
+            searchEngine: engine,
+          });
+          
+          if (searchResult && searchResult.hasTracks()) {
+            console.log(`[Play Command] Found results with ${engine}`);
+            break;
+          }
+        } catch (engineError) {
+          console.log(`[Play Command] ${engine} search failed:`, engineError.message);
+          continue;
         }
       }
+      
+      if (!searchResult || !searchResult.hasTracks()) {
+        return await interaction.editReply('❌ No tracks found. Please try a different search term or check if the URL is valid.');
+      }
+      
+      const track = searchResult.tracks[0];
+      console.log(`[Play Command] Found track: ${track.title} from ${track.source}`);
 
       // Create or get existing queue
-      console.log(`[Play Command] Creating/getting queue for guild: ${interaction.guild.id}`);
       let queue = interaction.client.player.nodes.get(interaction.guild.id);
       
       if (!queue) {
@@ -111,7 +81,6 @@ module.exports = {
           leaveOnStop: true,
           selfDeaf: false,
           selfMute: false,
-          // Simple, stable configuration
           skipOnEmpty: true,
           skipOnEmptyCooldown: 30000,
           autoSelfDeaf: false,
@@ -121,73 +90,32 @@ module.exports = {
         });
       }
 
-      // Ensure queue and node exist
-      if (!queue || !queue.node) {
-        console.error(`[Play Command] Queue or node is undefined after creation`);
-        return await interaction.editReply('❌ Failed to create music queue. Please try again.');
-      }
-
       // Connect to voice channel
-        console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
-        try {
-          await queue.connect(voiceChannel);
-          console.log(`[Play Command] Connected to voice channel successfully`);
-        } catch (connectError) {
-          console.error(`[Play Command] Failed to connect:`, connectError);
-          queue.delete();
-          return await interaction.editReply('❌ Could not join voice channel!');
+      try {
+        await queue.connect(voiceChannel);
+        console.log(`[Play Command] Connected to voice channel successfully`);
+      } catch (connectError) {
+        console.error(`[Play Command] Failed to connect:`, connectError);
+        queue.delete();
+        return await interaction.editReply('❌ Could not join voice channel!');
       }
 
       // Add track to queue
-      console.log(`[Play Command] Adding track to queue...`);
-      const track = searchResult.tracks[0];
       queue.addTrack(track);
       
       // Start playback if not already playing
       if (!queue.node.isPlaying()) {
         try {
           await queue.node.play();
-          await interaction.editReply(`🎶 Now playing **${track.title}**`);
+          await interaction.editReply(`🎶 Now playing **${track.title}** by ${track.author || 'Unknown Artist'}`);
         } catch (playError) {
           console.error(`[Play Command] Playback failed:`, playError);
-          
-          // If stream extraction fails, try a simple fallback
-          if (playError.message && playError.message.includes('extract')) {
-            console.log(`[Play Command] Stream extraction failed, trying simple fallback...`);
-            
-            try {
-              // Create a simple track with basic info for fallback
-              const fallbackTrack = {
-                title: track.title,
-                url: track.url,
-                duration: track.duration || 180000, // 3 minutes default
-                thumbnail: track.thumbnail,
-                author: track.author || 'Unknown Artist',
-                source: 'http', // Use HTTP source for fallback
-                requestedBy: interaction.user,
-                // Use a simple test audio file that should work
-                streamURL: `https://www.soundjay.com/misc/sounds/bell-ringing-05.wav`
-              };
-              
-              // Replace the track in queue
-              queue.tracks.clear();
-              queue.addTrack(fallbackTrack);
-              
-              // Try playback with the fallback track
-              await queue.node.play();
-              await interaction.editReply(`🎶 Now playing **${track.title}** (fallback mode - stream extraction may be limited)`);
-              
-            } catch (fallbackError) {
-              console.error(`[Play Command] Fallback also failed:`, fallbackError);
-              await interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Stream extraction failed'}`);
-            }
-          } else {
           await interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Unknown error'}`);
-          }
         }
       } else {
-        await interaction.editReply(`🎶 **${track.title}** added to queue`);
+        await interaction.editReply(`🎵 **${track.title}** by ${track.author || 'Unknown Artist'} added to queue`);
       }
+      
     } catch (err) {
       console.error('Play command error:', err);
       
@@ -205,25 +133,10 @@ module.exports = {
         errorMessage = '❌ Could not find a playable audio stream for this track. Try a different song.';
       }
       
-      // Use fallback if interaction is not replied to
       try {
-        if (!interaction.replied) {
-          await interaction.editReply(errorMessage);
-        } else {
-          await interaction.followUp({ content: errorMessage, ephemeral: true });
-        }
+        await interaction.editReply(errorMessage);
       } catch (replyError) {
         console.error('Failed to send error message:', replyError);
-      }
-    } finally {
-      // Clean up execution tracking
-      const executionKey = `${interaction.id}-${interaction.user.id}`;
-      playExecutions.delete(executionKey);
-      
-      // Clean up old executions (keep only last 1000)
-      if (playExecutions.size > 1000) {
-        const toDelete = Array.from(playExecutions).slice(0, 100);
-        toDelete.forEach(key => playExecutions.delete(key));
       }
     }
   },

@@ -115,7 +115,7 @@ module.exports = {
       const queue = client.player.nodes.get(interaction.guild.id);
       if (!queue) {
         try {
-          await interaction.reply({ content: '⚠️ No music is playing.', flags: 64 });
+          await interaction.reply({ content: '⚠️ No music is playing.', ephemeral: true });
         } catch (error) {
           console.error('Failed to reply to button interaction:', error);
         }
@@ -129,49 +129,49 @@ module.exports = {
             queue.node.setPaused(!queue.node.isPaused());
             await interaction.reply({
               content: queue.node.isPaused() ? '⏸️ Paused' : '▶️ Resumed',
-              flags: 64
+              ephemeral: true
             });
             break;
           case 'skip':
             queue.node.skip();
             await interaction.reply({
               content: '⏭️ Skipped',
-              flags: 64
+              ephemeral: true
             });
             break;
           case 'stop':
             queue.delete();
             await interaction.reply({
               content: '🛑 Stopped',
-              flags: 64
+              ephemeral: true
             });
             break;
           case 'volup':
             queue.node.setVolume(Math.min(queue.node.volume + 10, 100));
             await interaction.reply({
               content: `🔊 Volume: ${queue.node.volume}%`,
-              flags: 64
+              ephemeral: true
             });
             break;
           case 'voldown':
             queue.node.setVolume(Math.max(queue.node.volume - 10, 0));
             await interaction.reply({
               content: `🔉 Volume: ${queue.node.volume}%`,
-              flags: 64
+              ephemeral: true
             });
             break;
           case 'loop':
             queue.setRepeatMode(queue.repeatMode === 0 ? 1 : 0);
             await interaction.reply({
               content: queue.repeatMode === 1 ? '🔁 Looping current track' : 'Loop disabled',
-              flags: 64
+              ephemeral: true
             });
             break;
           case 'autoplay':
             queue.node.setAutoplay(!queue.node.isAutoplay);
             await interaction.reply({
               content: queue.node.isAutoplay ? '▶️ Autoplay Enabled' : 'Autoplay Disabled',
-              flags: 64
+              ephemeral: true
             });
             break;
           case 'queue':
@@ -187,16 +187,16 @@ module.exports = {
             }
             await interaction.reply({
               content: text,
-              flags: 64
+              ephemeral: true
             });
             break;
           default:
-            await interaction.reply({ content: '❌ Unknown button interaction', flags: 64 });
+            await interaction.reply({ content: '❌ Unknown button interaction', ephemeral: true });
         }
       } catch (error) {
         console.error('Button interaction error:', error);
         try {
-          await interaction.reply({ content: '❌ Error processing button interaction', flags: 64 });
+          await interaction.reply({ content: '❌ Error processing button interaction', ephemeral: true });
         } catch (replyError) {
           console.error('Failed to reply to button error:', replyError);
         }
