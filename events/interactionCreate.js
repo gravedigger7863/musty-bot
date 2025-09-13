@@ -8,11 +8,21 @@ module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
     console.log('interactionCreate listener loaded and executing');
+    
+    // CRITICAL: Check if interaction already handled to prevent race conditions
+    if (interaction.handled) {
+      console.log('Interaction already handled, skipping:', interaction.id);
+      return;
+    }
+    
     // Check if this interaction was already processed
     if (processedInteractions.has(interaction.id)) {
       console.log('Interaction already processed, skipping:', interaction.id);
       return;
     }
+    
+    // Mark interaction as being handled immediately
+    interaction.handled = true;
 
     // Check if interaction is still valid (within 2.5 seconds)
     const interactionAge = Date.now() - interaction.createdTimestamp;

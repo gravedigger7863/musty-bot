@@ -28,12 +28,16 @@ module.exports = {
     playExecutions.add(executionKey);
 
     // Defer immediately to prevent interaction timeout - MUST be first!
-    try {
-      await interaction.deferReply();
-      console.log(`[Play Command] Interaction deferred successfully`);
-    } catch (err) {
-      console.warn("Failed to defer interaction:", err.message);
-      return; // Exit if we can't defer - interaction is likely expired
+    if (!interaction.deferred && !interaction.replied) {
+      try {
+        await interaction.deferReply();
+        console.log(`[Play Command] Interaction deferred successfully`);
+      } catch (err) {
+        console.warn("Failed to defer interaction:", err.message);
+        return; // Exit if we can't defer - interaction is likely expired
+      }
+    } else {
+      console.log(`[Play Command] Interaction already deferred or replied, continuing...`);
     }
     
     try {
@@ -148,7 +152,19 @@ module.exports = {
           return await interaction.editReply('❌ Could not join voice channel!');
         }
       } else {
-        console.log(`[Play Command] Already connected to voice channel`);
+        console.log(`[Play Command] Already connected to voice channel - skipping connect() to prevent queue reset`);
+        // Verify the connection is still valid
+        if (!queue.connection.voice) {
+          console.log(`[Play Command] Connection exists but voice is null, reconnecting...`);
+          try {
+            await queue.connect(voiceChannel);
+            console.log(`[Play Command] Reconnected to voice channel successfully`);
+          } catch (connectError) {
+            console.error(`[Play Command] Failed to reconnect:`, connectError);
+            queue.delete();
+            return await interaction.editReply('❌ Voice connection lost and could not reconnect!');
+          }
+        }
       }
 
       // Add track to queue
@@ -157,6 +173,12 @@ module.exports = {
       
       // Verify track was added to queue
       console.log(`[Play Command] Queue size after adding track: ${queue.tracks.size}`);
+      
+      // Additional queue stability check
+      if (queue.tracks.size === 0) {
+        console.error(`[Play Command] CRITICAL: Track was not added to queue!`);
+        return await interaction.editReply('❌ Failed to add track to queue. Please try again.');
+      }
 
       // Start playing if not already playing
       if (!queue.node.isPlaying()) {
