@@ -8,6 +8,8 @@ const fs = require('fs');
 const path = require('path');
 const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
+const ffmpeg = require('ffmpeg-static');
+const { Mediaplex } = require('mediaplex');
 
 // Additional libraries
 const express = require('express');
@@ -24,13 +26,15 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Initialize player first with play-dl configuration
+// Initialize player first with ffmpeg-static and play-dl configuration
 client.player = new Player(client, {
   ytdlOptions: { 
     quality: 'highestaudio', 
     filter: 'audioonly',
     highWaterMark: 1 << 25
   },
+  // Use ffmpeg-static for better audio processing
+  ffmpegPath: ffmpeg,
   // Force use of play-dl for better stream extraction
   useLegacyFFmpeg: false,
   skipFFmpeg: false,
