@@ -20,8 +20,8 @@ client.player = new Player(client);
 
 const { ExtractorManager } = require("@discord-player/extractor");
 
-// register all built-in extractors for your player
-ExtractorManager.registerDefaultExtractors();
+// register default extractors to the player
+ExtractorManager.registerDefaultExtractors?.(client.player); // optional chaining to avoid errors
 
 // --- Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
