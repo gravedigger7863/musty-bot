@@ -128,24 +128,19 @@ module.exports = {
         console.log(`[Play Command] Creating new queue`);
         queue = interaction.client.player.nodes.create(interaction.guild, {
           metadata: { channel: interaction.channel },
-          leaveOnEnd: false,
-          leaveOnEmpty: false,
-          leaveOnEmptyCooldown: 300000,
-          leaveOnStop: false,
+          leaveOnEnd: true,
+          leaveOnEmpty: true,
+          leaveOnEmptyCooldown: 30000,
+          leaveOnStop: true,
           selfDeaf: false,
           selfMute: false,
-          // Prevent queue from being auto-destroyed
-          skipOnEmpty: false,
-          skipOnEmptyCooldown: 300000,
-          // Additional stability options
+          // Simple, stable configuration
+          skipOnEmpty: true,
+          skipOnEmptyCooldown: 30000,
           autoSelfDeaf: false,
           autoSelfMute: false,
-          // Enhanced stability for race condition prevention
-          bufferingTimeout: 5000,
-          connectionTimeout: 30000,
-          // Prevent immediate destruction
-          destroyOnEmpty: false,
-          destroyOnEnd: false
+          bufferingTimeout: 10000,
+          connectionTimeout: 30000
         });
       }
 
@@ -155,31 +150,15 @@ module.exports = {
         return await interaction.editReply('❌ Failed to create music queue. Please try again.');
       }
 
-      // Connect to voice channel if not already connected
-      if (!queue.connection) {
-        console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
-        try {
-          await queue.connect(voiceChannel);
-          console.log(`[Play Command] Connected to voice channel successfully`);
-        } catch (connectError) {
-          console.error(`[Play Command] Failed to connect:`, connectError);
-          queue.delete();
-          return await interaction.editReply('❌ Could not join voice channel!');
-        }
-      } else {
-        console.log(`[Play Command] Already connected to voice channel - skipping connect() to prevent queue reset`);
-        // Verify the connection is still valid
-        if (!queue.connection.voice) {
-          console.log(`[Play Command] Connection exists but voice is null, reconnecting...`);
-          try {
-            await queue.connect(voiceChannel);
-            console.log(`[Play Command] Reconnected to voice channel successfully`);
-          } catch (connectError) {
-            console.error(`[Play Command] Failed to reconnect:`, connectError);
-            queue.delete();
-            return await interaction.editReply('❌ Voice connection lost and could not reconnect!');
-          }
-        }
+      // Connect to voice channel
+      console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
+      try {
+        await queue.connect(voiceChannel);
+        console.log(`[Play Command] Connected to voice channel successfully`);
+      } catch (connectError) {
+        console.error(`[Play Command] Failed to connect:`, connectError);
+        queue.delete();
+        return await interaction.editReply('❌ Could not join voice channel!');
       }
 
       // Add track to queue
