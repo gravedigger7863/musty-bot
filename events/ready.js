@@ -6,10 +6,12 @@ module.exports = {
   async execute(client) {
     console.log(`✅ Logged in as ${client.user.tag}`);
 
-    // Load extractors after bot is ready
+    // Load only YouTube extractor to prevent SoundCloud usage
     try {
-      await client.player.extractors.loadMulti(DefaultExtractors);
-      console.log("✅ Discord Player extractors loaded successfully");
+      // Load only YouTube extractor, skip SoundCloud and others
+      const { YouTubeExtractor } = require('@discord-player/extractor');
+      await client.player.extractors.load(YouTubeExtractor);
+      console.log("✅ YouTube extractor loaded successfully (SoundCloud disabled)");
 
       // The downloader is automatically available with @discord-player/downloader package
       // No need to manually load it - it's integrated into the player

@@ -77,11 +77,17 @@ module.exports = {
             searchAttempts++;
             console.log(`[Play Command] YouTube search attempt ${searchAttempts}/${maxAttempts}`);
             
-            // Use Promise.race with longer timeout for YouTube search
+            // Use Promise.race with longer timeout for YouTube-only search
             youtubeResult = await Promise.race([
               interaction.client.player.search(query, {
                 requestedBy: interaction.user,
-                searchEngine: 'youtube'
+                searchEngine: 'youtube',
+                // Force YouTube-only, disable all other sources
+                fallbackSearchEngine: 'youtube',
+                // Additional options to ensure YouTube-only
+                useYouTube: true,
+                useSoundCloud: false,
+                useSpotify: false
               }),
               new Promise((_, reject) => 
                 setTimeout(() => reject(new Error('YouTube search timeout')), 15000) // 15 seconds
@@ -91,6 +97,11 @@ module.exports = {
             if (youtubeResult && youtubeResult.hasTracks()) {
               track = youtubeResult.tracks[0];
               console.log(`[Play Command] Found YouTube track: ${track.title}`);
+              console.log(`[Play Command] Track source verification:`, {
+                source: track.source,
+                url: track.url,
+                isYouTube: track.url.includes('youtube.com') || track.url.includes('youtu.be')
+              });
               break; // Success, exit retry loop
             } else {
               console.log(`[Play Command] No results in attempt ${searchAttempts}`);
@@ -116,10 +127,26 @@ module.exports = {
           }
         }
         
-        // Verify track is fully resolved
+        // Verify track is fully resolved and from YouTube only
         if (!track.url && !track.id) {
           console.error(`[Play Command] Track not properly resolved:`, track);
           return await interaction.editReply('❌ Track could not be properly resolved. Please try again.');
+        }
+        
+        // CRITICAL: Ensure track is from YouTube only (reject SoundCloud/other sources)
+        if (track.source && track.source !== 'youtube') {
+          console.error(`[Play Command] CRITICAL: Non-YouTube track detected:`, {
+            source: track.source,
+            title: track.title,
+            url: track.url
+          });
+          return await interaction.editReply('❌ Only YouTube tracks are supported. Please try a different search.');
+        }
+        
+        // Additional URL validation to ensure it's YouTube
+        if (track.url && !track.url.includes('youtube.com') && !track.url.includes('youtu.be')) {
+          console.error(`[Play Command] CRITICAL: Non-YouTube URL detected:`, track.url);
+          return await interaction.editReply('❌ Only YouTube tracks are supported. Please try a different search.');
         }
         
         console.log(`[Play Command] Track resolved successfully: ${track.title} (${track.source})`);
