@@ -58,7 +58,13 @@ client.player = new Player(client, {
   useLegacyFFmpeg: false,
   // Add better error recovery
   selfDeaf: false,
-  selfMute: false
+  selfMute: false,
+  // Add better stream handling
+  useLegacySearch: false,
+  // Add better error handling
+  onError: (error) => {
+    console.error('[Player] Global error:', error);
+  }
 });
 
 // Add comprehensive error event handlers
@@ -155,27 +161,10 @@ client.player.events.on('connection', (queue) => {
   }
 });
 
-// Register multiple YouTube extractors for better compatibility
+// Register YouTube extractors with proper error handling
 try {
   // Register the primary YouTube extractor
-  client.player.extractors.register(YoutubeiExtractor, {
-    // Add better configuration for YouTube extractor
-    useISODuration: true,
-    useISODurationLive: true,
-    useISODurationVOD: true,
-    // Add better error handling
-    onError: (error) => {
-      console.error('[YouTube Extractor Error]:', error);
-    },
-    // Add better configuration to reduce warnings
-    cookie: process.env.YOUTUBE_COOKIE || '',
-    // Add better request options
-    requestOptions: {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
-    }
-  });
+  client.player.extractors.register(YoutubeiExtractor);
   console.log('✅ Registered YoutubeiExtractor');
 } catch (error) {
   console.error('❌ Failed to register YoutubeiExtractor:', error);
@@ -183,14 +172,7 @@ try {
 
 try {
   // Register the alternative YouTube extractor as fallback
-  client.player.extractors.register(YouTubeExtractor, {
-    // Add better configuration
-    useISODuration: true,
-    // Add better error handling
-    onError: (error) => {
-      console.error('[Alternative YouTube Extractor Error]:', error);
-    }
-  });
+  client.player.extractors.register(YouTubeExtractor);
   console.log('✅ Registered alternative YouTubeExtractor');
 } catch (error) {
   console.error('❌ Failed to register alternative YouTubeExtractor:', error);
@@ -203,9 +185,6 @@ client.player.events.on('beforeCreateStream', async (track, source, _queue) => {
     console.log(`[Stream Interceptor] Processing YouTube track: ${track.title}`);
     
     try {
-      // Add a small delay to ensure proper initialization
-      await new Promise(resolve => setTimeout(resolve, 200));
-      
       // Try to use ytdl-core directly as a fallback
       const ytdl = require('ytdl-core');
       
@@ -221,6 +200,11 @@ client.player.events.on('beforeCreateStream', async (track, source, _queue) => {
               'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
             }
           }
+        });
+        
+        // Add error handling for the stream
+        stream.on('error', (error) => {
+          console.error('[Stream Interceptor] ytdl-core stream error:', error);
         });
         
         return stream;

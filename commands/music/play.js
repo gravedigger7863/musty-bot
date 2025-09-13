@@ -66,27 +66,54 @@ module.exports = {
       
       while (retryCount < maxRetries) {
         try {
-          result = await queue.play(query, { 
-            nodeOptions: { 
-              metadata: { channel: interaction.channel },
-              // Add better node options
-              selfDeaf: false,
-              selfMute: false
-            },
-            // Add search options
-            searchOptions: {
-              limit: 1,
-              type: 'video'
-            },
-            // Add better play options
-            skipFFmpeg: false,
-            // Add retry options
-            retry: 1,
-            // Add better error handling
-            onError: (error) => {
-              console.error('[Play Command Error]:', error);
+          // Try different approaches based on retry count
+          if (retryCount === 0) {
+            // First attempt: Use default search
+            result = await queue.play(query, { 
+              nodeOptions: { 
+                metadata: { channel: interaction.channel },
+                selfDeaf: false,
+                selfMute: false
+              },
+              searchOptions: {
+                limit: 1,
+                type: 'video'
+              }
+            });
+          } else if (retryCount === 1) {
+            // Second attempt: Use YouTube-specific search
+            result = await queue.play(query, { 
+              nodeOptions: { 
+                metadata: { channel: interaction.channel },
+                selfDeaf: false,
+                selfMute: false
+              },
+              searchOptions: {
+                limit: 1,
+                type: 'video',
+                source: 'youtube'
+              }
+            });
+          } else {
+            // Third attempt: Use ytdl-core directly
+            const ytdl = require('ytdl-core');
+            if (ytdl.validateURL(query)) {
+              result = await queue.play(query, { 
+                nodeOptions: { 
+                  metadata: { channel: interaction.channel },
+                  selfDeaf: false,
+                  selfMute: false
+                },
+                searchOptions: {
+                  limit: 1,
+                  type: 'video',
+                  source: 'youtube'
+                }
+              });
+            } else {
+              throw new Error('Invalid YouTube URL');
             }
-          });
+          }
           break; // Success, exit retry loop
         } catch (playError) {
           retryCount++;
