@@ -8,6 +8,7 @@ const fs = require('fs');
 const path = require('path');
 const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
+const { Downloader } = require('@discord-player/downloader');
 const ffmpeg = require('ffmpeg-static');
 const { Mediaplex } = require('mediaplex');
 
@@ -46,8 +47,8 @@ client.player = new Player(client, {
   connectionTimeout: 30000
 });
 
-// Load default extractors (YouTube, SoundCloud, Spotify, etc.) - v7+ method
-// This will be called after the bot is ready
+// Load default extractors (YouTube, SoundCloud, Spotify, etc.) and downloader - v7+ method
+// This will be called after the bot is ready in events/ready.js
 
 // Add comprehensive error event handlers
 client.player.events.on('error', (queue, error) => {
@@ -124,8 +125,8 @@ client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
 });
 
-// Extractors are now properly loaded with loadDefault()
-console.log('✅ Discord Player extractors loaded successfully');
+// Extractors and downloader are now properly loaded in events/ready.js
+console.log('✅ Discord Player configuration complete - extractors and downloader will load on ready');
 
 // --- Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
