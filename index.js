@@ -63,14 +63,7 @@ client.player = new Player(client, {
   connectionTimeout: 30000
 });
 
-// Register YouTube extractor for Discord Player v7+
-try {
-  const { YouTubeExtractor } = require('@discord-player/extractor');
-  client.player.extractors.register(YouTubeExtractor, {});
-  console.log('✅ YouTube extractor registered successfully');
-} catch (error) {
-  console.error('❌ Failed to register YouTube extractor:', error);
-}
+// Extractors will be registered in the ready event
 
 // Load default extractors (YouTube, SoundCloud, Spotify, etc.) and downloader - v7+ method
 // This will be called after the bot is ready in events/ready.js

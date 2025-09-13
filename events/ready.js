@@ -4,8 +4,17 @@ module.exports = {
   async execute(client) {
     console.log(`✅ Logged in as ${client.user.tag}`);
 
-    // Discord Player v7+ extractors are registered in index.js
-    console.log("✅ Discord Player extractors are ready (registered in index.js)");
+    // Register YouTube extractor for Discord Player v7+
+    try {
+      const { YouTubeExtractor } = require('@discord-player/extractor');
+      await client.player.extractors.register(YouTubeExtractor, {});
+      console.log('✅ YouTube extractor registered successfully');
+    } catch (error) {
+      console.error('❌ Failed to register YouTube extractor:', error);
+      console.error('Error details:', error.message);
+    }
+
+    console.log("✅ Discord Player extractors are ready");
     console.log("✅ Discord Player downloader available (700+ websites supported)");
     
     // Verify ytdl-core is working
