@@ -16,6 +16,17 @@ module.exports = {
       return interaction.reply({ content: '▶️ Player is already playing.', flags: 64 });
     }
 
+    // Ensure bot is not muted when resuming
+    const me = interaction.guild.members.me;
+    if (me?.voice?.mute) {
+      try {
+        await me.voice.setMute(false);
+        console.log('Bot unmuted on resume');
+      } catch (muteErr) {
+        console.error('Failed to unmute bot on resume:', muteErr);
+      }
+    }
+
     const ok = queue.node.setPaused(false);
     return interaction.reply({ content: ok ? '▶️ Playback resumed.' : '❌ Could not resume playback.' });
   },
