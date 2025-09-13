@@ -34,16 +34,7 @@ module.exports = {
       const result = await queue.play(query, { 
         nodeOptions: { 
           metadata: { channel: interaction.channel } 
-        },
-        // Add fallback options for better compatibility
-        fallbackSearchEngine: 'youtube',
-        searchEngine: 'youtube',
-        // Add retry options
-        retry: 2,
-        // Try different extractors
-        extractor: 'youtube',
-        // Add timeout
-        timeout: 30000
+        }
       });
       await interaction.editReply(`🎶 Now playing **${result.track.title}**`);
     } catch (err) {
