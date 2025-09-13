@@ -116,8 +116,13 @@ module.exports = {
       // Start playing if not already playing
       if (!queue.node.isPlaying()) {
         console.log(`[Play Command] Starting playback`);
-        await queue.node.play();
-        console.log(`[Play Command] Playback started - waiting for trackStart event`);
+        try {
+          await queue.node.play();
+          console.log(`[Play Command] Playback started - waiting for trackStart event`);
+        } catch (playError) {
+          console.error(`[Play Command] Failed to start playback:`, playError);
+          return await interaction.editReply('❌ Failed to start playback. This might be due to FFmpeg issues or audio stream problems.');
+        }
       } else {
         console.log(`[Play Command] Already playing, track added to queue`);
       }

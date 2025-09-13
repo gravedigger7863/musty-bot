@@ -11,6 +11,9 @@ const { DefaultExtractors } = require('@discord-player/extractor');
 const ffmpeg = require('ffmpeg-static');
 const { Mediaplex } = require('mediaplex');
 
+// Verify FFmpeg path
+console.log('FFmpeg path:', ffmpeg);
+
 // Additional libraries
 const express = require('express');
 

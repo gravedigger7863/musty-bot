@@ -40,8 +40,22 @@ module.exports = {
         await command.execute(interaction);
       } catch (error) {
         console.error('Command execution error:', error);
-        // Commands should handle their own error responses
-        // Don't try to reply here to avoid double acknowledgment
+        
+        // Defensive error handling for interaction timeouts
+        try {
+          if (!interaction.replied && !interaction.deferred) {
+            await interaction.reply({ 
+              content: '❌ Command failed due to a timeout or error. Please try again.', 
+              ephemeral: true 
+            });
+          } else if (interaction.deferred && !interaction.replied) {
+            await interaction.editReply({ 
+              content: '❌ Command failed due to an error. Please try again.' 
+            });
+          }
+        } catch (replyError) {
+          console.error('Failed to send error response:', replyError);
+        }
       } finally {
         // Clean up after processing
         processedInteractions.delete(interaction.id);
