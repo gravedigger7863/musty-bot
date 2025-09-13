@@ -14,21 +14,21 @@ module.exports = {
       return interaction.reply({ content: "⚠️ You need to join a voice channel first!", flags: 64 });
     }
 
-    await interaction.deferReply(); // defer for async operation
+    await interaction.deferReply(); // defer to avoid Unknown interaction
 
     try {
       const queue = interaction.client.player.nodes.create(interaction.guild, {
         metadata: { channel: interaction.channel },
-        leaveOnEnd: false,
+        leaveOnEnd: false, // 24/7 mode
         leaveOnEmpty: false,
-        leaveOnEmptyCooldown: 300000,
+        leaveOnEmptyCooldown: 300000, // 5 min
       });
 
       const result = await queue.play(query, { nodeOptions: { metadata: { channel: interaction.channel } } });
       await interaction.editReply(`🎶 Now playing **${result.track.title}**`);
     } catch (error) {
       console.error(error);
-      await interaction.editReply('❌ Could not find any results for that query.');
+      await interaction.editReply('❌ No results found for that query.');
     }
   },
 };
