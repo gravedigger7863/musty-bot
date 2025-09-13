@@ -11,7 +11,7 @@ module.exports = {
     ),
   async execute(interaction) {
     const query = interaction.options.getString("query");
-    const voiceChannel = interaction.member.voice.channel;
+    const voiceChannel = interaction.member?.voice?.channel;
 
     if (!voiceChannel) {
       return interaction.reply({ 
@@ -20,7 +20,8 @@ module.exports = {
       });
     }
 
-    await interaction.deferReply();
+    // defer once
+    await interaction.deferReply({ flags: InteractionResponseFlags.Ephemeral });
 
     try {
       const queue = interaction.client.player.nodes.create(interaction.guild, {
@@ -31,10 +32,12 @@ module.exports = {
       });
 
       if (!queue.connection) await queue.connect(voiceChannel);
-      await voiceChannel.members.me.voice.setMute(false);  // unmute the bot 
+
+      // Ensure the bot is unmuted
+      const me = voiceChannel.members.me;
+      if (me?.voice?.mute) await me.voice.setMute(false);
 
       const result = await queue.play(query, { nodeOptions: { metadata: { channel: interaction.channel } } });
-
       await interaction.editReply(`🎶 Now playing **${result.track.title}**`);
     } catch (err) {
       console.error(err);
