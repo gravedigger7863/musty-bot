@@ -32,6 +32,12 @@ module.exports = {
       return;
     }
 
+    // Check if interaction is already being processed
+    if (processedInteractions.has(interaction.id)) {
+      console.log('Interaction already being processed, skipping:', interaction.id);
+      return;
+    }
+
     // Immediately defer reply to prevent timeout with better error handling
     try {
       await interaction.deferReply({ ephemeral: false });
@@ -42,7 +48,7 @@ module.exports = {
       try {
         await interaction.reply({ 
           content: '⏳ Processing your request...', 
-          ephemeral: true 
+          flags: 64 // Use flags instead of ephemeral
         });
       } catch (replyError) {
         console.error('Failed to reply to interaction:', replyError);
