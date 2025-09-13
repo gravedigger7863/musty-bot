@@ -1,4 +1,5 @@
 const { SlashCommandBuilder } = require("discord.js");
+const { QueryType } = require("discord-player");
 
 // Track play command executions to prevent duplicates
 const playExecutions = new Set();
@@ -65,10 +66,10 @@ module.exports = {
       let searchResult;
       
       try {
-        // Use Discord Player's search with YouTube extractor
+        // Use Discord Player's search with YouTube extractor using QueryType
         searchResult = await interaction.client.player.search(query, {
           requestedBy: interaction.user,
-          searchEngine: 'youtube', // Use YouTube search engine
+          searchEngine: QueryType.YOUTUBE_SEARCH, // Use built-in YouTube search type
         });
         
         if (!searchResult || !searchResult.hasTracks()) {
