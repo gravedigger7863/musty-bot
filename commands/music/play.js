@@ -30,7 +30,7 @@ module.exports = {
       console.warn("Failed to defer interaction:", err.message);
       // Try to reply instead
       try {
-        await interaction.reply({ content: "❌ Command failed to start. Please try again.", ephemeral: true });
+        await interaction.reply({ content: "❌ Command failed to start. Please try again.", flags: 64 });
       } catch (replyErr) {
         console.error("Failed to reply to interaction:", replyErr.message);
       }
@@ -128,7 +128,14 @@ module.exports = {
           autoSelfDeaf: false,
           autoSelfMute: false,
           bufferingTimeout: 15000,
-          connectionTimeout: 30000
+          connectionTimeout: 30000,
+          // Add timeout configuration to prevent negative timeout warnings
+          ytdlOptions: {
+            timeout: 30000,
+            requestOptions: {
+              timeout: 30000
+            }
+          }
         });
       }
 
@@ -179,7 +186,7 @@ module.exports = {
         if (interaction.deferred) {
           await interaction.editReply(errorMessage);
         } else {
-          await interaction.reply({ content: errorMessage, ephemeral: true });
+          await interaction.reply({ content: errorMessage, flags: 64 });
         }
       } catch (replyError) {
         console.error('Failed to send error message:', replyError);

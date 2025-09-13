@@ -45,7 +45,21 @@ client.player = new Player(client, {
   useLegacyFFmpeg: false,
   ytdlOptions: {
     quality: 'highestaudio',
-    highWaterMark: 1 << 25
+    highWaterMark: 1 << 25,
+    // Add audio format validation
+    filter: 'audioonly',
+    format: 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
+    // Fix timeout issues
+    timeout: 30000,
+    requestOptions: {
+      timeout: 30000
+    }
+  },
+  // Add Opus encoder configuration
+  opusEncoder: {
+    rate: 48000,
+    channels: 2,
+    frameSize: 960
   }
 });
 
@@ -64,6 +78,16 @@ client.player = new Player(client, {
 // Enhanced event handlers for 2025
 client.player.events.on('error', (queue, error) => {
   console.error(`[Player Error] ${queue.guild.name}:`, error.message);
+  
+  // Handle Opus encoder errors gracefully
+  if (error.message && error.message.includes('Cannot convert "undefined" to int')) {
+    console.log(`[Player Error] Opus encoder error detected, skipping track...`);
+    if (queue.node.isPlaying()) {
+      queue.node.skip();
+    }
+    return;
+  }
+  
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`❌ Music player error: ${error.message}`).catch(console.error);
   }
@@ -71,6 +95,16 @@ client.player.events.on('error', (queue, error) => {
 
 client.player.events.on('playerError', (queue, error) => {
   console.error(`[Player Error] ${queue.guild.name}:`, error.message);
+  
+  // Handle Opus encoder errors gracefully
+  if (error.message && error.message.includes('Cannot convert "undefined" to int')) {
+    console.log(`[Player Error] Opus encoder error detected, skipping track...`);
+    if (queue.node.isPlaying()) {
+      queue.node.skip();
+    }
+    return;
+  }
+  
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`❌ Track playback error: ${error.message}`).catch(console.error);
   }
@@ -175,6 +209,11 @@ process.on('uncaughtException', err => {
   // Handle Opus encoder errors gracefully
   if (err.message && err.message.includes('Cannot convert "undefined" to int')) {
     console.log('Opus encoder error detected, continuing...');
+    return;
+  }
+  // Handle timeout warnings
+  if (err.message && err.message.includes('TimeoutNegativeWarning')) {
+    console.log('Timeout warning detected, continuing...');
     return;
   }
   // For other critical errors, exit
