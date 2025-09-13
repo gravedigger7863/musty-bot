@@ -51,8 +51,9 @@ client.player = new Player(client, {
   autoSelfMute: false
 });
 
-// Load default extractors - this is the proper way
-client.player.extractors.loadDefault();
+// Load default extractors using the new method
+const { DefaultExtractors } = require('@discord-player/extractor');
+client.player.extractors.loadMulti(DefaultExtractors);
 
 console.log(`✅ Loaded default extractors`);
 

@@ -8,7 +8,8 @@ module.exports = {
     // Ensure extractors are loaded
     if (client.player.extractors.size === 0) {
       console.log('⚠️ No extractors found, loading defaults...');
-      client.player.extractors.loadDefault();
+      const { DefaultExtractors } = require('@discord-player/extractor');
+      client.player.extractors.loadMulti(DefaultExtractors);
     }
     
     console.log(`✅ Loaded ${client.player.extractors.size} extractors`);
