@@ -3,10 +3,10 @@ const { SlashCommandBuilder } = require("discord.js");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("play")
-    .setDescription("Play a song from Spotify, SoundCloud, Bandcamp, Vimeo, Apple Music, or ReverbNation")
+    .setDescription("Play music from multiple sources with automatic fallback")
     .addStringOption(option =>
       option.setName("query")
-        .setDescription("Song name or link")
+        .setDescription("Song name, YouTube URL, or direct audio file URL (.mp3, .ogg, .wav, .m4a)")
         .setRequired(true)
     ),
   async execute(interaction) {
@@ -59,74 +59,136 @@ module.exports = {
         }
       }
 
-      // Play the track with better configuration and retry mechanism
+      // Play the track with comprehensive fallback system
       let result;
-      let retryCount = 0;
-      const maxRetries = 3;
+      let searchAttempts = 0;
+      const maxAttempts = 6; // Multiple fallback sources
       
-      while (retryCount < maxRetries) {
+      // Check if it's a direct audio file URL first
+      let isDirectAudio = false;
+      if (query.startsWith('http') && (query.includes('.mp3') || query.includes('.ogg') || query.includes('.wav') || query.includes('.m4a'))) {
+        console.log('[Play Command] Detected direct audio file URL');
+        isDirectAudio = true;
         try {
-          // Try different approaches based on retry count
-          if (retryCount === 0) {
-            // First attempt: Use default search
-            result = await queue.play(query, { 
-              nodeOptions: { 
-                metadata: { channel: interaction.channel },
-                selfDeaf: false,
-                selfMute: false
-              },
-              searchOptions: {
-                limit: 1,
-                type: 'video'
-              }
-            });
-          } else if (retryCount === 1) {
-            // Second attempt: Use YouTube-specific search
-            result = await queue.play(query, { 
-              nodeOptions: { 
-                metadata: { channel: interaction.channel },
-                selfDeaf: false,
-                selfMute: false
-              },
-              searchOptions: {
-                limit: 1,
-                type: 'video',
-                source: 'youtube'
-              }
-            });
-          } else {
-            // Third attempt: Use ytdl-core directly
+          result = await queue.play(query, { 
+            nodeOptions: { 
+              metadata: { channel: interaction.channel },
+              selfDeaf: false,
+              selfMute: false
+            }
+          });
+          console.log('[Play Command] ✅ Success with direct audio file!');
+        } catch (directError) {
+          console.error('[Play Command] ❌ Direct audio file failed:', directError.message);
+          // Continue to fallback strategies
+        }
+      }
+      
+      // Only run fallback strategies if direct audio didn't work or wasn't detected
+      if (!isDirectAudio || !result) {
+        // Define fallback search strategies
+        const searchStrategies = [
+        // Strategy 1: Direct query (YouTube default)
+        {
+          name: 'YouTube Direct',
+          query: query,
+          options: {
+            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
+          }
+        },
+        // Strategy 2: YouTube search with ytsearch prefix
+        {
+          name: 'YouTube Search',
+          query: query.startsWith('http') ? query : `ytsearch:${query}`,
+          options: {
+            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
+          }
+        },
+        // Strategy 3: SoundCloud search
+        {
+          name: 'SoundCloud',
+          query: `scsearch:${query}`,
+          options: {
+            searchOptions: { limit: 1, type: 'track', source: 'soundcloud' }
+          }
+        },
+        // Strategy 4: Generic search (any source)
+        {
+          name: 'Generic Search',
+          query: query,
+          options: {
+            searchOptions: { limit: 1, type: 'video' }
+          }
+        },
+        // Strategy 5: YouTube with different search terms
+        {
+          name: 'YouTube Alternative',
+          query: `ytsearch:${query} music`,
+          options: {
+            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
+          }
+        },
+        // Strategy 6: Direct ytdl-core (if it's a YouTube URL)
+        {
+          name: 'ytdl-core Direct',
+          query: query,
+          options: {
+            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
+          },
+          isDirect: true
+        }
+      ];
+      
+      while (searchAttempts < maxAttempts) {
+        const strategy = searchStrategies[searchAttempts];
+        console.log(`[Play Command] Trying ${strategy.name}... (${searchAttempts + 1}/${maxAttempts})`);
+        
+        try {
+          if (strategy.isDirect && query.startsWith('http')) {
+            // For direct URLs, try ytdl-core validation first
             const ytdl = require('ytdl-core');
             if (ytdl.validateURL(query)) {
+              console.log(`[Play Command] Using ytdl-core for direct YouTube URL`);
               result = await queue.play(query, { 
                 nodeOptions: { 
                   metadata: { channel: interaction.channel },
                   selfDeaf: false,
                   selfMute: false
                 },
-                searchOptions: {
-                  limit: 1,
-                  type: 'video',
-                  source: 'youtube'
-                }
+                ...strategy.options
               });
             } else {
-              throw new Error('Invalid YouTube URL');
+              throw new Error('Invalid YouTube URL for ytdl-core');
             }
-          }
-          break; // Success, exit retry loop
-        } catch (playError) {
-          retryCount++;
-          console.error(`[Play Command] Attempt ${retryCount} failed:`, playError);
-          
-          if (retryCount < maxRetries) {
-            console.log(`[Play Command] Retrying in 2 seconds... (${retryCount}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
           } else {
-            throw playError; // Re-throw the error if all retries failed
+            // Regular search
+            result = await queue.play(strategy.query, { 
+              nodeOptions: { 
+                metadata: { channel: interaction.channel },
+                selfDeaf: false,
+                selfMute: false
+              },
+              ...strategy.options
+            });
+          }
+          
+          console.log(`[Play Command] ✅ Success with ${strategy.name}!`);
+          break; // Success, exit retry loop
+          
+        } catch (playError) {
+          searchAttempts++;
+          console.error(`[Play Command] ❌ ${strategy.name} failed:`, playError.message);
+          
+          if (searchAttempts < maxAttempts) {
+            console.log(`[Play Command] Trying next fallback in 1 second...`);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          } else {
+            // All strategies failed
+            throw new Error(`All ${maxAttempts} search strategies failed. Last error: ${playError.message}`);
           }
         }
       }
+      } // End of fallback strategies
 
       // Send success message
       try {
