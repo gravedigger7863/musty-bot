@@ -2,7 +2,7 @@ require('dotenv').config();
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { useMainPlayer } = require('discord-player');
+const { Player } = require('discord-player');
 const { SoundCloudExtractor, YouTubeExtractor, SpotifyExtractor } = require('@discord-player/extractor');
 
 // Additional libraries
@@ -20,8 +20,20 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Initialize player with new API
-client.player = useMainPlayer();
+// Initialize player first
+client.player = new Player(client, {
+  ytdlOptions: { 
+    quality: 'highestaudio', 
+    filter: 'audioonly',
+    highWaterMark: 1 << 25
+  },
+  // Ensure bot doesn't get deafened
+  selfDeaf: false,
+  selfMute: false,
+  // Add additional options for better compatibility
+  bufferingTimeout: 5000,
+  connectionTimeout: 30000
+});
 
 // Register extractors individually for better control
 client.player.extractors.register(YouTubeExtractor, {
