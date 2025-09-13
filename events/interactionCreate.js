@@ -33,7 +33,7 @@ module.exports = {
 
     // Immediately defer reply to prevent timeout with better error handling
     try {
-      await interaction.deferReply({ ephemeral: false });
+      await interaction.deferReply({ flags: 0 });
     } catch (deferError) {
       console.error('Failed to defer interaction:', deferError);
       
