@@ -48,6 +48,14 @@ module.exports = {
       console.log(`[Play Command] Searching for: ${query}`);
       console.log(`[Play Command] Available extractors: ${interaction.client.player.extractors.size}`);
       
+      // Check if extractors are loaded
+      if (interaction.client.player.extractors.size === 0) {
+        console.log(`[Play Command] No extractors available, trying to load them...`);
+        const { DefaultExtractors } = require('@discord-player/extractor');
+        await interaction.client.player.extractors.loadMulti(DefaultExtractors);
+        console.log(`[Play Command] Loaded ${interaction.client.player.extractors.size} extractors`);
+      }
+      
       // Use YouTube as primary source (most reliable)
       let searchResult;
       try {

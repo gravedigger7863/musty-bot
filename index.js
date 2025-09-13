@@ -52,10 +52,14 @@ client.player = new Player(client, {
 });
 
 // Load default extractors using the new method
-const { DefaultExtractors } = require('@discord-player/extractor');
-client.player.extractors.loadMulti(DefaultExtractors);
-
-console.log(`✅ Loaded default extractors`);
+(async () => {
+  try {
+    await client.player.extractors.loadMulti(DefaultExtractors);
+    console.log(`✅ Loaded ${client.player.extractors.size} extractors`);
+  } catch (error) {
+    console.error('Failed to load extractors:', error);
+  }
+})();
 
 // Enhanced event handlers for better music experience
 client.player.events.on('error', (queue, error) => {
