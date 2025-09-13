@@ -28,6 +28,7 @@ module.exports = {
       });
 
       if (!queue.connection) await queue.connect(voiceChannel);
+      await voiceChannel.members.me.voice.setMute(false);  // unmute the bot 
 
       const result = await queue.play(query, { nodeOptions: { metadata: { channel: interaction.channel } } });
 
