@@ -3,7 +3,7 @@ const { SlashCommandBuilder } = require("discord.js");
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("play")
-    .setDescription("Play a song from YouTube, Spotify, or SoundCloud")
+    .setDescription("Play a song from Spotify, SoundCloud, Bandcamp, Vimeo, Apple Music, or ReverbNation")
     .addStringOption(option =>
       option.setName("query")
         .setDescription("Song name or link")
@@ -14,13 +14,12 @@ module.exports = {
     const voiceChannel = interaction.member.voice.channel;
 
     if (!voiceChannel) {
-      return interaction.reply({ content: "⚠️ You need to join a voice channel first!", flags: 64 });
+      return interaction.reply({ content: "⚠️ You need to join a voice channel first!", ephemeral: true });
     }
 
     await interaction.deferReply();
 
     try {
-      // Create or get the guild queue
       const queue = interaction.client.player.nodes.create(interaction.guild, {
         metadata: { channel: interaction.channel },
         leaveOnEnd: false,
@@ -28,21 +27,14 @@ module.exports = {
         leaveOnEmptyCooldown: 300000,
       });
 
-      // Ensure bot joins the voice channel and is unmuted
-      if (!queue.connection) {
-        await queue.connect(voiceChannel, {
-          selfDeaf: false, // allow bot to hear itself if needed
-          selfMute: false, // make sure bot is not muted
-        });
-      }
+      if (!queue.connection) await queue.connect(voiceChannel);
 
-      // Play the track
       const result = await queue.play(query, { nodeOptions: { metadata: { channel: interaction.channel } } });
 
       await interaction.editReply(`🎶 Now playing **${result.track.title}**`);
     } catch (err) {
       console.error(err);
-      await interaction.editReply('❌ No results found for that query.');
+      await interaction.editReply('❌ No results found for that query or the source is unsupported.');
     }
   },
 };
