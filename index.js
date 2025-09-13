@@ -36,6 +36,12 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildVoiceStates,
   ],
+  rest: {
+    rejectOnRateLimit: (rateLimitData) => {
+      console.log(`[Rate Limit] Hit rate limit: ${rateLimitData.method} ${rateLimitData.url} - Retry after: ${rateLimitData.retryAfter}ms`);
+      return false; // Don't throw, just log
+    }
+  }
 });
 
 client.commands = new Collection();
@@ -230,6 +236,30 @@ process.on('uncaughtException', err => {
   // For other critical errors, exit
   process.exit(1);
 });
+
+// --- Process Monitoring ---
+const processId = process.pid;
+console.log(`[Process] Starting bot with PID: ${processId}`);
+
+// Monitor for duplicate processes
+setInterval(() => {
+  const { exec } = require('child_process');
+  exec('tasklist | findstr node', (error, stdout) => {
+    if (stdout) {
+      const nodeProcesses = stdout.split('\n').filter(line => line.includes('node.exe'));
+      if (nodeProcesses.length > 1) {
+        console.warn(`[Process] WARNING: ${nodeProcesses.length} Node.js processes detected!`);
+        nodeProcesses.forEach(proc => {
+          const parts = proc.trim().split(/\s+/);
+          const pid = parts[1];
+          if (pid && pid !== processId.toString()) {
+            console.warn(`[Process] Other Node.js process found: PID ${pid}`);
+          }
+        });
+      }
+    }
+  });
+}, 30000); // Check every 30 seconds
 
 // --- Login ---
 client.login(process.env.DISCORD_TOKEN);

@@ -1,28 +1,40 @@
 const processedInteractions = new Set();
+const interactionTimestamps = new Map();
 
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
-    // Check if interaction already processed
-    if (processedInteractions.has(interaction.id)) {
-      console.log('Interaction already processed, skipping:', interaction.id);
-      return;
-    }
-
-    // Check if interaction is still valid (within 3 seconds)
-    const interactionAge = Date.now() - interaction.createdTimestamp;
-    if (interactionAge > 3000) {
-      console.log('Interaction too old, skipping:', interaction.id, 'age:', interactionAge + 'ms');
-      return;
-    }
-
-    // Mark interaction as being processed
-    processedInteractions.add(interaction.id);
+    const startTime = Date.now();
+    const interactionId = interaction.id;
     
-    // Clean up old processed interactions (keep only last 1000)
-    if (processedInteractions.size > 1000) {
+    console.log(`[Interaction] Received: ${interactionId} (${interaction.type}) - ${interaction.commandName || interaction.customId || 'unknown'}`);
+    
+    // Check if interaction already processed
+    if (processedInteractions.has(interactionId)) {
+      console.log(`[Interaction] Already processed, skipping: ${interactionId}`);
+      return;
+    }
+
+    // Check if interaction is still valid (within 2.5 seconds for safety)
+    const interactionAge = startTime - interaction.createdTimestamp;
+    if (interactionAge > 2500) {
+      console.log(`[Interaction] Too old, skipping: ${interactionId} (age: ${interactionAge}ms)`);
+      return;
+    }
+
+    // Store interaction timestamp for debugging
+    interactionTimestamps.set(interactionId, startTime);
+    
+    // Mark interaction as being processed immediately
+    processedInteractions.add(interactionId);
+    
+    // Clean up old processed interactions (keep only last 500)
+    if (processedInteractions.size > 500) {
       const toDelete = Array.from(processedInteractions).slice(0, 100);
-      toDelete.forEach(id => processedInteractions.delete(id));
+      toDelete.forEach(id => {
+        processedInteractions.delete(id);
+        interactionTimestamps.delete(id);
+      });
     }
 
     try {
@@ -30,31 +42,43 @@ module.exports = {
       if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
         if (!command) {
-          processedInteractions.delete(interaction.id);
+          console.log(`[Interaction] Command not found: ${interaction.commandName}`);
+          processedInteractions.delete(interactionId);
+          return;
+        }
+
+        // IMMEDIATELY defer the interaction to prevent timeout
+        try {
+          const deferStart = Date.now();
+          await interaction.deferReply();
+          const deferTime = Date.now() - deferStart;
+          console.log(`[Interaction] Deferred successfully in ${deferTime}ms: ${interactionId}`);
+        } catch (deferError) {
+          console.error(`[Interaction] Failed to defer: ${interactionId}`, deferError.message);
+          processedInteractions.delete(interactionId);
           return;
         }
 
         try {
+          const execStart = Date.now();
           await command.execute(interaction);
+          const execTime = Date.now() - execStart;
+          console.log(`[Interaction] Command executed successfully in ${execTime}ms: ${interactionId}`);
         } catch (error) {
-          console.error('Command execution error:', error);
+          console.error(`[Interaction] Command execution error: ${interactionId}`, error);
           
           try {
             // Check if interaction is still valid
             if (interaction.isRepliable()) {
-              if (!interaction.replied && !interaction.deferred) {
-                await interaction.reply({ 
-                  content: '❌ Command failed due to an error. Please try again.',
-                  flags: 64 // Use flags instead of ephemeral
-                });
-              } else if (interaction.deferred && !interaction.replied) {
+              if (interaction.deferred && !interaction.replied) {
                 await interaction.editReply({ 
                   content: '❌ Command failed due to an error. Please try again.' 
                 });
+                console.log(`[Interaction] Error response sent: ${interactionId}`);
               }
             }
           } catch (replyError) {
-            console.error('Failed to send error response:', replyError);
+            console.error(`[Interaction] Failed to send error response: ${interactionId}`, replyError.message);
           }
         }
       }
@@ -161,10 +185,14 @@ module.exports = {
         }
       }
     } catch (error) {
-      console.error('Error in interactionCreate:', error);
+      console.error(`[Interaction] Error in interactionCreate: ${interactionId}`, error);
     } finally {
       // Clean up after processing
-      processedInteractions.delete(interaction.id);
+      processedInteractions.delete(interactionId);
+      interactionTimestamps.delete(interactionId);
+      
+      const totalTime = Date.now() - startTime;
+      console.log(`[Interaction] Completed processing in ${totalTime}ms: ${interactionId}`);
     }
   },
 };

@@ -23,19 +23,8 @@ module.exports = {
       return;
     }
 
-    try {
-      await interaction.deferReply();
-      console.log(`[Play Command] Interaction deferred successfully`);
-    } catch (err) {
-      console.warn("Failed to defer interaction:", err.message);
-      // Try to reply instead
-      try {
-        await interaction.reply({ content: "❌ Command failed to start. Please try again.", flags: 64 });
-      } catch (replyErr) {
-        console.error("Failed to reply to interaction:", replyErr.message);
-      }
-      return;
-    }
+    // Interaction is already deferred in the event handler
+    console.log(`[Play Command] Processing play command`);
     
     try {
       const query = interaction.options.getString("query");
