@@ -3,13 +3,9 @@ const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { Player } = require('discord-player');
-// Removed problematic YouTube extractors - using fallback system instead
-// const { YoutubeiExtractor } = require('discord-player-youtubei');
-// const { YouTubeExtractor } = require('@discord-player/extractor');
+const { DefaultExtractors } = require('@discord-player/extractor');
 
-// Additional fallback libraries
-const play = require('play-dl');
-const ytSearch = require('yt-search');
+// Additional libraries
 const express = require('express');
 
 // --- Client Setup ---
@@ -24,53 +20,14 @@ const client = new Client({
 
 client.commands = new Collection();
 client.player = new Player(client, {
-  // Disable any automatic muting behavior
-  skipFFmpeg: false,
-  ytdlOptions: {
-    quality: 'highestaudio',
-    highWaterMark: 1 << 25,
-    // Add more robust options
-    requestOptions: {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
-    },
-    // Add additional options for better compatibility
-    filter: 'audioonly',
-    format: 'mp4',
-    liveBuffer: 20000,
-    highWaterMark: 1 << 25,
-    dlChunkSize: 0,
-    bitrate: 128
-  },
-  // Add better error handling
-  connectionTimeout: 30000,
-  lagMonitor: 30000,
-  // Disable problematic features that might cause stream extraction issues
-  disableEqualizer: true,
-  disableBiquad: true,
-  disableFilterer: true,
-  // Add retry configuration
-  retry: 3,
-  // Enable fallback streaming
-  enableStreamInterceptor: true,
-  // Add better stream handling
-  bufferingTimeout: 3000,
-  leaveOnEnd: false,
-  leaveOnEmpty: false,
-  leaveOnEmptyCooldown: 300000,
-  // Add better extractor configuration
-  useLegacyFFmpeg: false,
-  // Add better error recovery
-  selfDeaf: false,
-  selfMute: false,
-  // Add better stream handling
-  useLegacySearch: false,
-  // Add better error handling
-  onError: (error) => {
-    console.error('[Player] Global error:', error);
+  ytdlOptions: { 
+    quality: 'highestaudio', 
+    filter: 'audioonly' 
   }
 });
+
+// Load default extractors (YouTube, SoundCloud, Spotify, etc.)
+client.player.extractors.loadMulti(DefaultExtractors);
 
 // Add comprehensive error event handlers
 client.player.events.on('error', (queue, error) => {
@@ -82,7 +39,7 @@ client.player.events.on('error', (queue, error) => {
 });
 
 client.player.events.on('playerError', (queue, error) => {
-  console.error(`[Player Error] ${queue.guild.name}:`, error);
+  console.log(`Player error in ${queue.guild.name}:`, error);
   // Try to notify the channel about the error
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`❌ Music player error: ${error.message || 'Unknown error'}`).catch(console.error);
@@ -169,104 +126,8 @@ client.player.events.on('connection', (queue) => {
   }
 });
 
-// Skip problematic extractors and rely entirely on custom fallback system
-console.log('⚠️ Skipping extractors due to compatibility issues - using custom fallback system');
-
-// Add custom stream interceptor for better YouTube handling
-client.player.events.on('beforeCreateStream', async (track, source, _queue) => {
-  // Handle all YouTube tracks with multiple fallback methods
-  if (source === 'youtube' || track.url.includes('youtube.com') || track.url.includes('youtu.be')) {
-    console.log(`[Stream Interceptor] Processing track: ${track.title}`);
-    
-    try {
-      // Try play-dl first (more reliable)
-      if (await play.yt_validate(track.url)) {
-        console.log(`[Stream Interceptor] Using play-dl for: ${track.title}`);
-        
-        const stream = await play.stream(track.url, {
-          quality: 'highestaudio',
-          type: 'audio'
-        });
-        
-        return stream.stream;
-      }
-      
-      // Fallback to ytdl-core
-      const ytdl = require('ytdl-core');
-      if (ytdl.validateURL(track.url)) {
-        console.log(`[Stream Interceptor] Using ytdl-core fallback for: ${track.title}`);
-        
-        const stream = ytdl(track.url, {
-          quality: 'highestaudio',
-          filter: 'audioonly',
-          highWaterMark: 1 << 25,
-          requestOptions: {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-          }
-        });
-        
-        // Add error handling for the stream
-        stream.on('error', (error) => {
-          console.error('[Stream Interceptor] ytdl-core stream error:', error);
-        });
-        
-        return stream;
-      } else {
-        console.log(`[Stream Interceptor] Invalid YouTube URL: ${track.url}`);
-        return undefined;
-      }
-    } catch (error) {
-      console.error('[Stream Interceptor Error]:', error);
-      return undefined;
-    }
-  }
-  
-  return undefined;
-});
-
-// Add a fallback for when extractors fail
-client.player.events.on('error', (queue, error) => {
-  if (error.message && error.message.includes('Could not extract stream')) {
-    console.log('[Player] Stream extraction failed, trying ytdl-core fallback...');
-    
-    // Try to use ytdl-core directly
-    try {
-      const ytdl = require('ytdl-core');
-      const currentTrack = queue.currentTrack;
-      
-      if (currentTrack && ytdl.validateURL(currentTrack.url)) {
-        console.log('[Player] Using ytdl-core fallback for current track');
-        
-        const stream = ytdl(currentTrack.url, {
-          quality: 'highestaudio',
-          filter: 'audioonly',
-          highWaterMark: 1 << 25,
-          requestOptions: {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            }
-          }
-        });
-        
-        // Replace the current track's stream
-        if (queue.node && queue.node.player) {
-          queue.node.player.play(stream);
-        }
-      }
-    } catch (fallbackError) {
-      console.error('[Player] ytdl-core fallback failed:', fallbackError);
-    }
-  }
-});
-
-// Additional extractors are available but not registered to avoid errors
-// Uncomment these if you want to use them:
-// const { SpotifyExtractor } = require('discord-player-spotify');
-// const { SoundCloudExtractor } = require('discord-player-soundcloud');
-// client.player.extractors.register(SpotifyExtractor);
-// client.player.extractors.register(SoundCloudExtractor);
+// Extractors are now properly loaded with loadDefault()
+console.log('✅ Discord Player extractors loaded successfully');
 
 // --- Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
