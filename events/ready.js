@@ -4,18 +4,34 @@ module.exports = {
   async execute(client) {
     console.log(`✅ Logged in as ${client.user.tag}`);
 
-    // Register YouTube extractor for Discord Player v7+ (using community package)
-    // Note: youtubei.js currently has parser issues with YouTube's latest changes
-    // We have a play-dl fallback in the play command as a workaround
+    // Register extractors for Discord Player v7+
     try {
+      // Register YouTube extractor (community package)
       const { YoutubeiExtractor } = require('discord-player-youtubei');
       await client.player.extractors.register(YoutubeiExtractor, {});
       console.log('✅ YouTube extractor (youtubei) registered successfully');
       console.log('ℹ️ Note: If YouTube search fails, play-dl fallback will be used');
     } catch (error) {
       console.error('❌ Failed to register YouTube extractor:', error);
-      console.error('Error details:', error.message);
       console.log('ℹ️ play-dl fallback will be used for YouTube searches');
+    }
+
+    try {
+      // Register Apple Music extractor
+      const { AppleMusicExtractor } = require('@discord-player/extractor');
+      await client.player.extractors.register(AppleMusicExtractor, {});
+      console.log('✅ Apple Music extractor registered successfully');
+    } catch (error) {
+      console.error('❌ Failed to register Apple Music extractor:', error);
+    }
+
+    try {
+      // Register Spotify extractor
+      const { SpotifyExtractor } = require('@discord-player/extractor');
+      await client.player.extractors.register(SpotifyExtractor, {});
+      console.log('✅ Spotify extractor registered successfully');
+    } catch (error) {
+      console.error('❌ Failed to register Spotify extractor:', error);
     }
 
     console.log("✅ Discord Player extractors are ready");

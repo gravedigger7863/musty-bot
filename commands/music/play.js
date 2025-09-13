@@ -7,10 +7,10 @@ const playExecutions = new Set();
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("play")
-    .setDescription("Play music from multiple sources with automatic fallback")
+    .setDescription("Play music from Apple Music, Spotify, YouTube, and more with automatic fallback")
     .addStringOption(option =>
       option.setName("query")
-        .setDescription("Song name, YouTube URL, or direct audio file URL (.mp3, .ogg, .wav, .m4a)")
+        .setDescription("Song name, artist, or music service URL (Apple Music, Spotify, YouTube)")
         .setRequired(true)
     ),
   async execute(interaction) {
@@ -58,7 +58,7 @@ module.exports = {
       
       // Send initial processing message
       await interaction.editReply({ 
-        content: "🔍 Searching YouTube for your music..." 
+        content: "🔍 Searching for your music..." 
       });
 
       // Search for track using Discord Player's built-in search
@@ -66,11 +66,30 @@ module.exports = {
       let searchResult;
       
       try {
-        // Try Discord Player's search with YouTube extractor first
-        searchResult = await interaction.client.player.search(query, {
-          requestedBy: interaction.user,
-          searchEngine: QueryType.YOUTUBE_SEARCH, // Use built-in YouTube search type
-        });
+        // Try multiple search engines in order of reliability
+        const searchEngines = [
+          QueryType.APPLE_MUSIC_SEARCH,  // Most reliable
+          QueryType.SPOTIFY_SEARCH,      // Very reliable
+          QueryType.YOUTUBE_SEARCH       // Fallback with play-dl
+        ];
+        
+        for (const searchEngine of searchEngines) {
+          try {
+            console.log(`[Play Command] Trying search engine: ${searchEngine}`);
+            searchResult = await interaction.client.player.search(query, {
+              requestedBy: interaction.user,
+              searchEngine: searchEngine,
+            });
+            
+            if (searchResult && searchResult.hasTracks()) {
+              console.log(`[Play Command] Found results with ${searchEngine}`);
+              break; // Success, exit the loop
+            }
+          } catch (engineError) {
+            console.log(`[Play Command] ${searchEngine} failed:`, engineError.message);
+            continue; // Try next engine
+          }
+        }
         
         // If Discord Player search fails, try play-dl fallback
         if (!searchResult || !searchResult.hasTracks()) {
@@ -112,10 +131,11 @@ module.exports = {
         const track = searchResult.tracks[0];
         console.log(`[Play Command] Found track: ${track.title} from ${track.source}`);
         
-        // Verify it's from YouTube
-        if (track.source !== 'youtube') {
-          console.warn(`[Play Command] Non-YouTube track detected: ${track.source}`);
-          return await interaction.editReply('❌ Only YouTube tracks are supported. Please try a different search.');
+        // Accept multiple music sources
+        const supportedSources = ['youtube', 'apple_music', 'spotify'];
+        if (!supportedSources.includes(track.source)) {
+          console.warn(`[Play Command] Unsupported track source: ${track.source}`);
+          return await interaction.editReply('❌ Unsupported music source. Please try a different search.');
         }
         
       } catch (searchError) {
