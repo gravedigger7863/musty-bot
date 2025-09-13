@@ -111,6 +111,16 @@ client.player.events.on('connection', (queue) => {
         return;
       }
       
+      // Check bot permissions
+      const botMember = queue.guild.members.me;
+      const permissions = botMember.permissions;
+      console.log('Bot permissions check:', {
+        hasDeafenMembers: permissions.has('DeafenMembers'),
+        hasMuteMembers: permissions.has('MuteMembers'),
+        hasConnect: permissions.has('Connect'),
+        hasSpeak: permissions.has('Speak')
+      });
+      
       const fixVoiceState = async () => {
         try {
           // Force unmute and undeafen
@@ -200,12 +210,27 @@ client.on('voiceStateUpdate', (oldState, newState) => {
         // Use a more robust approach to fix voice state
         const fixVoiceState = async () => {
           try {
+            console.log('Attempting to fix voice state...');
+            console.log('Current voice state before fix:', {
+              mute: newState.mute,
+              deaf: newState.deaf,
+              selfMute: newState.selfMute,
+              selfDeaf: newState.selfDeaf
+            });
+            
             // Try to fix all voice state issues at once
-            await Promise.all([
+            const results = await Promise.allSettled([
               newState.setMute(false),
               newState.setDeaf(false)
             ]);
-            console.log('Successfully fixed bot voice state');
+            
+            console.log('Voice state fix results:', results.map((r, i) => ({
+              operation: i === 0 ? 'setMute(false)' : 'setDeaf(false)',
+              status: r.status,
+              reason: r.status === 'rejected' ? r.reason?.message : 'success'
+            })));
+            
+            console.log('Successfully attempted bot voice state fix');
           } catch (err) {
             console.error('Failed to fix bot voice state:', err);
           }
