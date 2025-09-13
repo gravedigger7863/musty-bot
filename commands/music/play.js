@@ -65,10 +65,10 @@ module.exports = {
       let searchResult;
       
       try {
-        // Use Discord Player's built-in search with YouTube preference
+        // Use Discord Player's search with YouTube extractor
         searchResult = await interaction.client.player.search(query, {
           requestedBy: interaction.user,
-          searchEngine: 'youtube_search', // Use YouTube search engine
+          searchEngine: 'youtube', // Use YouTube search engine
         });
         
         if (!searchResult || !searchResult.hasTracks()) {

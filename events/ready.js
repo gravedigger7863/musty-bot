@@ -4,11 +4,11 @@ module.exports = {
   async execute(client) {
     console.log(`✅ Logged in as ${client.user.tag}`);
 
-    // Register YouTube extractor for Discord Player v7+
+    // Register YouTube extractor for Discord Player v7+ (using community package)
     try {
-      const { YouTubeExtractor } = require('@discord-player/extractor');
-      await client.player.extractors.register(YouTubeExtractor, {});
-      console.log('✅ YouTube extractor registered successfully');
+      const { YoutubeiExtractor } = require('discord-player-youtubei');
+      await client.player.extractors.register(YoutubeiExtractor, {});
+      console.log('✅ YouTube extractor (youtubei) registered successfully');
     } catch (error) {
       console.error('❌ Failed to register YouTube extractor:', error);
       console.error('Error details:', error.message);
