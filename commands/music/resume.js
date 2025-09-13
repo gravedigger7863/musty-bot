@@ -8,12 +8,12 @@ module.exports = {
   async execute(interaction) {
     const queue = useQueue(interaction.guild.id);
     if (!queue || !queue.currentTrack) {
-      return interaction.reply({ content: '⚠️ No music is currently playing.', ephemeral: true });
+      return interaction.reply({ content: '⚠️ No music is currently playing.', flags: 64 });
     }
 
     // if not paused, tell the user
     if (!queue.node.isPaused()) {
-      return interaction.reply({ content: '▶️ Player is already playing.', ephemeral: true });
+      return interaction.reply({ content: '▶️ Player is already playing.', flags: 64 });
     }
 
     const ok = queue.node.setPaused(false);

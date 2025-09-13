@@ -14,7 +14,7 @@ module.exports = {
     const amount = interaction.options.getInteger('amount');
 
     // Defer reply immediately
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 });
 
     // Check if channel is text-based
     if (!interaction.channel || !interaction.channel.isTextBased()) {

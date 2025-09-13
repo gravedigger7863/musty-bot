@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, Collection, GatewayIntentBits, InteractionResponseFlags } = require('discord.js');
+const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { Player } = require('discord-player');
@@ -62,50 +62,50 @@ client.on('interactionCreate', async interaction => {
   if (!interaction.isButton()) return;
 
   const queue = client.player.nodes.get(interaction.guild.id);
-  if (!queue) return interaction.reply({ content: '⚠️ No music is playing.', ephemeral: true });
+  if (!queue) return interaction.reply({ content: '⚠️ No music is playing.', flags: 64 });
 
   switch (interaction.customId) {
     case 'pause':
       queue.node.setPaused(!queue.node.isPaused());
-      return interaction.reply({ 
-        content: queue.node.isPaused() ? '⏸️ Paused' : '▶️ Resumed', 
-        flags: InteractionResponseFlags.Ephemeral 
+      return interaction.reply({
+        content: queue.node.isPaused() ? '⏸️ Paused' : '▶️ Resumed',
+        flags: 64
       });
     case 'skip':
       queue.node.skip();
-      return interaction.reply({ 
-        content: '⏭️ Skipped', 
-        flags: InteractionResponseFlags.Ephemeral 
+      return interaction.reply({
+        content: '⏭️ Skipped',
+        flags: 64
       });
     case 'stop':
       queue.delete();
-      return interaction.reply({ 
-        content: '🛑 Stopped', 
-        flags: InteractionResponseFlags.Ephemeral 
+      return interaction.reply({
+        content: '🛑 Stopped',
+        flags: 64
       });
     case 'volup':
       queue.node.setVolume(Math.min(queue.node.volume + 10, 100));
-      return interaction.reply({ 
-        content: `🔊 Volume: ${queue.node.volume}%`, 
-        flags: InteractionResponseFlags.Ephemeral 
+      return interaction.reply({
+        content: `🔊 Volume: ${queue.node.volume}%`,
+        flags: 64
       });
     case 'voldown':
       queue.node.setVolume(Math.max(queue.node.volume - 10, 0));
-      return interaction.reply({ 
-        content: `🔉 Volume: ${queue.node.volume}%`, 
-        flags: InteractionResponseFlags.Ephemeral 
+      return interaction.reply({
+        content: `🔉 Volume: ${queue.node.volume}%`,
+        flags: 64
       });
     case 'loop':
       queue.setRepeatMode(queue.repeatMode === 0 ? 1 : 0);
-      return interaction.reply({ 
-        content: queue.repeatMode === 1 ? '🔁 Looping current track' : 'Loop disabled', 
-        flags: InteractionResponseFlags.Ephemeral 
+      return interaction.reply({
+        content: queue.repeatMode === 1 ? '🔁 Looping current track' : 'Loop disabled',
+        flags: 64
       });
     case 'autoplay':
       queue.node.setAutoplay(!queue.node.isAutoplay);
-      return interaction.reply({ 
-        content: queue.node.isAutoplay ? '▶️ Autoplay Enabled' : 'Autoplay Disabled', 
-        flags: InteractionResponseFlags.Ephemeral 
+      return interaction.reply({
+        content: queue.node.isAutoplay ? '▶️ Autoplay Enabled' : 'Autoplay Disabled',
+        flags: 64
       });
     case 'queue':
       const current = queue.currentTrack;
@@ -118,9 +118,9 @@ client.on('interactionCreate', async interaction => {
       } else {
         text += '\n🚫 No more songs in the queue.';
       }
-      return interaction.reply({ 
-        content: text, 
-        flags: InteractionResponseFlags.Ephemeral 
+      return interaction.reply({
+        content: text,
+        flags: 64
       });
   }
 });

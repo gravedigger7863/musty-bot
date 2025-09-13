@@ -16,11 +16,11 @@ module.exports = {
     if (!voiceChannel) {
       return interaction.reply({ 
         content: "⚠️ You need to join a voice channel first!", 
-        ephemeral: true 
+        flags: 64 // Ephemeral flag
       });
     }
 
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
 
     try {
       const queue = interaction.client.player.nodes.create(interaction.guild, {

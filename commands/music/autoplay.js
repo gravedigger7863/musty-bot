@@ -11,7 +11,7 @@ module.exports = {
   async execute(interaction) {
     const queue = useQueue(interaction.guild.id);
     if (!queue || !queue.channel) {
-      return interaction.reply({ content: '⚠️ The bot must be in a voice channel first.', ephemeral: true });
+      return interaction.reply({ content: '⚠️ The bot must be in a voice channel first.', flags: 64 });
     }
 
     const enabled = autoplayStatus.get(interaction.guild.id) || false;

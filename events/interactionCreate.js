@@ -10,7 +10,14 @@ module.exports = {
       await command.execute(interaction);
     } catch (error) {
       console.error(error);
-      await interaction.reply({ content: '❌ Error while executing command!', ephemeral: true });
+
+      // Check if interaction has already been replied to or deferred
+      const errorMessage = { content: '❌ Error while executing command!', flags: 64 }; // Ephemeral flag
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: '❌ Error while executing command!' });
+      } else {
+        await interaction.reply(errorMessage).catch(console.error);
+      }
     }
   },
 };
