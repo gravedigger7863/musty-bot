@@ -88,18 +88,9 @@ module.exports = {
       
       // Only run fallback strategies if direct audio didn't work or wasn't detected
       if (!isDirectAudio || !result) {
-        // Define fallback search strategies
+        // Define fallback search strategies - use custom methods since extractors are disabled
         const searchStrategies = [
-        // Strategy 1: ytdl-core for direct YouTube URLs
-        {
-          name: 'ytdl-core Direct',
-          query: query,
-          options: {
-            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
-          },
-          isDirect: true
-        },
-        // Strategy 2: yt-search for better search results
+        // Strategy 1: yt-search for better search results (primary method)
         {
           name: 'yt-search',
           query: query,
@@ -108,7 +99,25 @@ module.exports = {
           },
           useYtSearch: true
         },
-        // Strategy 3: YouTube search with ytsearch prefix
+        // Strategy 2: ytdl-core for direct YouTube URLs
+        {
+          name: 'ytdl-core Direct',
+          query: query,
+          options: {
+            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
+          },
+          isDirect: true
+        },
+        // Strategy 3: play-dl search
+        {
+          name: 'play-dl Search',
+          query: query,
+          options: {
+            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
+          },
+          usePlayDl: true
+        },
+        // Strategy 4: YouTube search with ytsearch prefix
         {
           name: 'YouTube Search',
           query: query.startsWith('http') ? query : `ytsearch:${query}`,
@@ -116,20 +125,12 @@ module.exports = {
             searchOptions: { limit: 1, type: 'video', source: 'youtube' }
           }
         },
-        // Strategy 4: SoundCloud search
+        // Strategy 5: SoundCloud search
         {
           name: 'SoundCloud',
           query: `scsearch:${query}`,
           options: {
             searchOptions: { limit: 1, type: 'track', source: 'soundcloud' }
-          }
-        },
-        // Strategy 5: Generic search (any source)
-        {
-          name: 'Generic Search',
-          query: query,
-          options: {
-            searchOptions: { limit: 1, type: 'video' }
           }
         },
         // Strategy 6: YouTube with different search terms
@@ -180,6 +181,24 @@ module.exports = {
               });
             } else {
               throw new Error('No videos found with yt-search');
+            }
+          } else if (strategy.usePlayDl && !query.startsWith('http')) {
+            // Use play-dl for search
+            console.log(`[Play Command] Using play-dl search for: ${query}`);
+            const searchResults = await play.search(query, { limit: 1 });
+            if (searchResults && searchResults.length > 0) {
+              const video = searchResults[0];
+              console.log(`[Play Command] Found video: ${video.title}`);
+              result = await queue.play(video.url, { 
+                nodeOptions: { 
+                  metadata: { channel: interaction.channel },
+                  selfDeaf: false,
+                  selfMute: false
+                },
+                ...strategy.options
+              });
+            } else {
+              throw new Error('No videos found with play-dl search');
             }
           } else {
             // Regular search

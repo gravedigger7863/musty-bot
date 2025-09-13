@@ -169,25 +169,8 @@ client.player.events.on('connection', (queue) => {
   }
 });
 
-// Register working extractors - we need at least one for discord-player to work
-try {
-  // Try to register the basic YouTube extractor from @discord-player/extractor
-  const { YouTubeExtractor } = require('@discord-player/extractor');
-  client.player.extractors.register(YouTubeExtractor);
-  console.log('✅ Registered basic YouTubeExtractor');
-} catch (error) {
-  console.error('❌ Failed to register basic YouTubeExtractor:', error);
-  
-  // If that fails, try to register a minimal extractor
-  try {
-    const { YoutubeiExtractor } = require('discord-player-youtubei');
-    client.player.extractors.register(YoutubeiExtractor);
-    console.log('✅ Registered YoutubeiExtractor as fallback');
-  } catch (fallbackError) {
-    console.error('❌ Failed to register any extractors:', fallbackError);
-    console.log('⚠️ Bot may not be able to play music without extractors');
-  }
-}
+// Skip problematic extractors and rely entirely on custom fallback system
+console.log('⚠️ Skipping extractors due to compatibility issues - using custom fallback system');
 
 // Add custom stream interceptor for better YouTube handling
 client.player.events.on('beforeCreateStream', async (track, source, _queue) => {
