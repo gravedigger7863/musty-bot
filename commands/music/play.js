@@ -1,6 +1,4 @@
 const { SlashCommandBuilder } = require("discord.js");
-const ytSearch = require('yt-search');
-const play = require('play-dl');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -16,264 +14,61 @@ module.exports = {
     const voiceChannel = interaction.member?.voice?.channel;
 
     if (!voiceChannel) {
-      try {
         return await interaction.editReply({ 
           content: "⚠️ You need to join a voice channel first!"
         });
-      } catch (err) {
-        console.error('Failed to send voice channel error:', err);
-        return;
-      }
     }
 
     // Send initial processing message
-    try {
       await interaction.editReply({ 
         content: "🔍 Searching for your music..." 
       });
-    } catch (err) {
-      console.error('Failed to send processing message:', err);
-    }
 
     try {
-      const queue = interaction.client.player.nodes.create(interaction.guild, {
+      // Get or create the queue
+      const queue = interaction.client.player.nodes.get(interaction.guild.id) || 
+        interaction.client.player.nodes.create(interaction.guild, {
         metadata: { channel: interaction.channel },
         leaveOnEnd: false,
         leaveOnEmpty: false,
-        leaveOnEmptyCooldown: 300000,
-        // Add better queue configuration
-        selfDeaf: false,
-        selfMute: false,
-        // Add better connection options
-        connectionOptions: {
-          selfDeaf: false,
-          selfMute: false
-        }
+          leaveOnEmptyCooldown: 300000
+        });
+
+      // Connect to voice channel if not already connected
+      if (!queue.connection) {
+          await queue.connect(voiceChannel);
+      }
+
+      // Search and play the track using Discord Player's built-in search
+      const searchResult = await interaction.client.player.search(query, {
+        requestedBy: interaction.user,
+        searchEngine: 'auto'
       });
 
-      // Connect to voice channel with better error handling
-      if (!queue.connection) {
-        try {
-          await queue.connect(voiceChannel);
-        } catch (connectErr) {
-          console.error('Failed to connect to voice channel:', connectErr);
-          throw new Error('Failed to connect to voice channel. Please check permissions.');
-        }
+      if (!searchResult.hasTracks()) {
+        return await interaction.editReply('❌ No results found for your search query.');
       }
 
-      // Play the track with comprehensive fallback system
-      let result;
-      let searchAttempts = 0;
-      const maxAttempts = 6; // Multiple fallback sources
-      
-      // Check if it's a direct audio file URL first
-      let isDirectAudio = false;
-      if (query.startsWith('http') && (query.includes('.mp3') || query.includes('.ogg') || query.includes('.wav') || query.includes('.m4a'))) {
-        console.log('[Play Command] Detected direct audio file URL');
-        isDirectAudio = true;
-        try {
-          result = await queue.play(query, { 
-            nodeOptions: { 
-              metadata: { channel: interaction.channel },
-              selfDeaf: false,
-              selfMute: false
-            }
-          });
-          console.log('[Play Command] ✅ Success with direct audio file!');
-        } catch (directError) {
-          console.error('[Play Command] ❌ Direct audio file failed:', directError.message);
-          // Continue to fallback strategies
-        }
+      // Add the track to the queue
+      queue.addTrack(searchResult.tracks[0]);
+
+      // Start playing if nothing is currently playing
+      if (!queue.isPlaying()) {
+        await queue.node.play();
       }
-      
-      // Only run fallback strategies if direct audio didn't work or wasn't detected
-      if (!isDirectAudio || !result) {
-        // Define fallback search strategies - use custom methods since extractors are disabled
-        const searchStrategies = [
-        // Strategy 1: yt-search for better search results (primary method)
-        {
-          name: 'yt-search',
-          query: query,
-          options: {
-            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
-          },
-          useYtSearch: true
-        },
-        // Strategy 2: ytdl-core for direct YouTube URLs
-        {
-          name: 'ytdl-core Direct',
-          query: query,
-          options: {
-            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
-          },
-          isDirect: true
-        },
-        // Strategy 3: play-dl search
-        {
-          name: 'play-dl Search',
-          query: query,
-          options: {
-            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
-          },
-          usePlayDl: true
-        },
-        // Strategy 4: YouTube search with ytsearch prefix
-        {
-          name: 'YouTube Search',
-          query: query.startsWith('http') ? query : `ytsearch:${query}`,
-          options: {
-            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
-          }
-        },
-        // Strategy 5: SoundCloud search
-        {
-          name: 'SoundCloud',
-          query: `scsearch:${query}`,
-          options: {
-            searchOptions: { limit: 1, type: 'track', source: 'soundcloud' }
-          }
-        },
-        // Strategy 6: YouTube with different search terms
-        {
-          name: 'YouTube Alternative',
-          query: `ytsearch:${query} music`,
-          options: {
-            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
-          }
-        }
-      ];
-      
-      while (searchAttempts < maxAttempts) {
-        const strategy = searchStrategies[searchAttempts];
-        console.log(`[Play Command] Trying ${strategy.name}... (${searchAttempts + 1}/${maxAttempts})`);
-        
-        try {
-          if (strategy.isDirect && query.startsWith('http')) {
-            // For direct URLs, try ytdl-core validation first
-            const ytdl = require('ytdl-core');
-            if (ytdl.validateURL(query)) {
-              console.log(`[Play Command] Using ytdl-core for direct YouTube URL`);
-              result = await queue.play(query, { 
-                nodeOptions: { 
-                  metadata: { channel: interaction.channel },
-                  selfDeaf: false,
-                  selfMute: false
-                },
-                ...strategy.options
-              });
-            } else {
-              throw new Error('Invalid YouTube URL for ytdl-core');
-            }
-          } else if (strategy.useYtSearch && !query.startsWith('http')) {
-            // Use yt-search for better search results
-            console.log(`[Play Command] Using yt-search for: ${query}`);
-            const searchResults = await ytSearch(query);
-            if (searchResults.videos && searchResults.videos.length > 0) {
-              const video = searchResults.videos[0];
-              console.log(`[Play Command] Found video: ${video.title}`);
-              result = await queue.play(video.url, { 
-                nodeOptions: { 
-                  metadata: { channel: interaction.channel },
-                  selfDeaf: false,
-                  selfMute: false
-                },
-                ...strategy.options
-              });
-            } else {
-              throw new Error('No videos found with yt-search');
-            }
-          } else if (strategy.usePlayDl && !query.startsWith('http')) {
-            // Use play-dl for search
-            console.log(`[Play Command] Using play-dl search for: ${query}`);
-            const searchResults = await play.search(query, { limit: 1 });
-            if (searchResults && searchResults.length > 0) {
-              const video = searchResults[0];
-              console.log(`[Play Command] Found video: ${video.title}`);
-              result = await queue.play(video.url, { 
-                nodeOptions: { 
-                  metadata: { channel: interaction.channel },
-                  selfDeaf: false,
-                  selfMute: false
-                },
-                ...strategy.options
-              });
-            } else {
-              throw new Error('No videos found with play-dl search');
-            }
-          } else {
-            // Regular search
-            result = await queue.play(strategy.query, { 
-              nodeOptions: { 
-                metadata: { channel: interaction.channel },
-                selfDeaf: false,
-                selfMute: false
-              },
-              ...strategy.options
-            });
-          }
-          
-          console.log(`[Play Command] ✅ Success with ${strategy.name}!`);
-          break; // Success, exit retry loop
-          
-        } catch (playError) {
-          searchAttempts++;
-          console.error(`[Play Command] ❌ ${strategy.name} failed:`, playError.message);
-          
-          if (searchAttempts < maxAttempts) {
-            console.log(`[Play Command] Trying next fallback in 1 second...`);
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          } else {
-            // All strategies failed
-            throw new Error(`All ${maxAttempts} search strategies failed. Last error: ${playError.message}`);
-          }
-        }
-      }
-      } // End of fallback strategies
 
       // Send success message
-      try {
-        await interaction.editReply(`🎶 Now playing **${result.track.title}**`);
-      } catch (editErr) {
-        console.error('Failed to send success message:', editErr);
-        // Try follow-up as fallback
-        try {
-          await interaction.followUp({ 
-            content: `🎶 Now playing **${result.track.title}**`, 
-            flags: 64 
-          });
-        } catch (followUpErr) {
-          console.error('Failed to send follow-up success message:', followUpErr);
-        }
-      }
+      await interaction.editReply(`🎶 Now playing **${searchResult.tracks[0].title}**`);
     } catch (err) {
       console.error('Play command error:', err);
       
-      let errorMessage = '❌ No results found for that query or the source is unsupported.';
+      let errorMessage = '❌ Failed to play music. Please try again.';
       
-      // Provide more specific error messages
-      if (err.message && err.message.includes('Could not extract stream')) {
-        errorMessage = '❌ Could not extract audio stream. The video might be unavailable or restricted.';
-      } else if (err.message && err.message.includes('NoResultError')) {
-        errorMessage = '❌ No results found for your search query.';
-      } else if (err.message && err.message.includes('timeout')) {
-        errorMessage = '❌ Request timed out. Please try again.';
-      } else if (err.message && err.message.includes('Failed to connect')) {
+      if (err.message && err.message.includes('Failed to connect')) {
         errorMessage = '❌ Failed to connect to voice channel. Please check permissions.';
-      } else if (err.message && err.message.includes('No tracks found')) {
-        errorMessage = '❌ No tracks found for your search.';
       }
       
-      try {
-        await interaction.editReply(errorMessage);
-      } catch (editErr) {
-        console.error('Failed to edit reply:', editErr);
-        // Try to send a follow-up if edit fails
-        try {
-          await interaction.followUp({ content: errorMessage, flags: 64 });
-        } catch (followUpErr) {
-          console.error('Failed to send follow-up:', followUpErr);
-        }
-      }
+      await interaction.editReply(errorMessage);
     }
   },
 };
