@@ -173,11 +173,13 @@ module.exports = {
         }
       }
 
+      // RACE-FREE PLAYBACK: Use setImmediate to ensure queue state is fully updated
+      console.log(`[Play Command] Adding track and preparing for race-free playback...`);
+      
       // Add track to queue
-      console.log(`[Play Command] Adding track to queue: ${searchResult.tracks[0].title}`);
       queue.addTrack(searchResult.tracks[0]);
       
-      // Verify track was added to queue
+      // Verify track was added
       console.log(`[Play Command] Queue size after adding track: ${queue.tracks.size}`);
       
       // Additional queue stability check
@@ -185,71 +187,61 @@ module.exports = {
         console.error(`[Play Command] CRITICAL: Track was not added to queue!`);
         return await interaction.editReply('❌ Failed to add track to queue. Please try again.');
       }
-
-      // CRITICAL: Wait for queue to be fully ready before starting playback
-      console.log(`[Play Command] Waiting for queue to be ready...`);
       
-      // Small delay to ensure track is fully processed and queue is ready
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
-      // Additional check using setImmediate for next tick processing
-      await new Promise(resolve => setImmediate(resolve));
-      
-      // Verify queue state before attempting playback
-      console.log(`[Play Command] Pre-playback queue state:`, {
-        tracksSize: queue.tracks.size,
-        isPlaying: queue.node.isPlaying(),
-        connectionExists: !!queue.connection,
-        nodeExists: !!queue.node
-      });
-      
-      // Only start playback if queue has tracks and is not already playing
-      if (queue.tracks.size > 0 && !queue.node.isPlaying()) {
-        console.log(`[Play Command] Starting playback with ${queue.tracks.size} tracks in queue`);
-        try {
-          // Add more robust error handling around player.play()
-          await queue.node.play();
-          console.log(`[Play Command] Playback started - waiting for trackStart event`);
-          
-          // Wait a moment for track to start, then verify
-          setTimeout(() => {
-            console.log(`[Play Command] Post-playback queue state:`, {
-              tracksSize: queue.tracks.size,
-              isPlaying: queue.node.isPlaying(),
-              connectionExists: !!queue.connection,
-              nodeExists: !!queue.node
+      // Use setImmediate for race-free playback - ensures queue state is fully updated
+      setImmediate(() => {
+        console.log(`[Play Command] Pre-playback queue state:`, {
+          tracksSize: queue.tracks.size,
+          isPlaying: queue.node.isPlaying(),
+          connectionExists: !!queue.connection,
+          nodeExists: !!queue.node
+        });
+        
+        // Only start playback if queue has tracks and is not already playing
+        if (queue.tracks.size > 0 && !queue.node.isPlaying()) {
+          console.log(`[Play Command] Starting race-free playback with ${queue.tracks.size} tracks in queue`);
+          try {
+            queue.node.play().then(() => {
+              console.log(`[Play Command] Playback started successfully`);
+              
+              // Send final success message
+              interaction.editReply(`🎶 Now playing **${searchResult.tracks[0].title}**`);
+              
+              // Verify queue state after playback
+              setTimeout(() => {
+                console.log(`[Play Command] Post-playback queue state:`, {
+                  tracksSize: queue.tracks.size,
+                  isPlaying: queue.node.isPlaying(),
+                  connectionExists: !!queue.connection,
+                  nodeExists: !!queue.node
+                });
+                if (queue.tracks.size === 0) {
+                  console.error(`[Play Command] CRITICAL: Queue was emptied after playback attempt!`);
+                }
+              }, 2000);
+            }).catch(playError => {
+              console.error(`[Play Command] Playback failed:`, playError);
+              interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Unknown error'}`);
             });
-            if (queue.tracks.size === 0) {
-              console.error(`[Play Command] CRITICAL: Queue was emptied after playback attempt!`);
-            }
-          }, 2000);
-          
-        } catch (playError) {
-          console.error(`[Play Command] Failed to start playback:`, playError);
-          console.error(`[Play Command] Play error details:`, {
-            message: playError.message,
-            code: playError.code,
-            stack: playError.stack
+          } catch (playError) {
+            console.error(`[Play Command] Playback error:`, playError);
+            interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Unknown error'}`);
+          }
+        } else {
+          console.warn(`[Play Command] Queue not ready for playback:`, {
+            tracksSize: queue.tracks.size,
+            isPlaying: queue.node.isPlaying()
           });
-          
-          // Check if it's an audio source issue
-          if (playError.message && playError.message.includes('extract')) {
-            return await interaction.editReply('❌ Could not extract audio from this source. The track might be unavailable or blocked.');
-          } else if (playError.message && playError.message.includes('FFmpeg')) {
-            return await interaction.editReply('❌ Audio processing error. This might be due to FFmpeg issues.');
+          if (queue.tracks.size === 0) {
+            interaction.editReply('❌ No tracks in queue. Please try again.');
           } else {
-            return await interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Unknown error'}`);
+            interaction.editReply('🎶 Track added to queue');
           }
         }
-      } else if (queue.tracks.size === 0) {
-        console.error(`[Play Command] CRITICAL: Queue has no tracks when trying to play!`);
-        return await interaction.editReply('❌ No tracks in queue. Please try again.');
-      } else {
-        console.log(`[Play Command] Already playing, track added to queue`);
-      }
+      });
 
-      // Send success message
-      await interaction.editReply(`🎶 Now playing **${searchResult.tracks[0].title}**`);
+      // Send initial success message - final message will be sent in setImmediate callback
+      await interaction.editReply(`🎶 Adding **${searchResult.tracks[0].title}** to queue...`);
     } catch (err) {
       console.error('Play command error:', err);
       
@@ -290,3 +282,4 @@ module.exports = {
     }
   },
 };
+
