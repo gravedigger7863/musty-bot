@@ -11,17 +11,12 @@ module.exports = {
     ),
   async execute(interaction) {
     // Defer immediately to prevent interaction timeout - MUST be first!
-    if (!interaction.deferred && !interaction.replied) {
-      try {
-        await interaction.deferReply();
-        console.log(`[Play Command] Interaction deferred successfully`);
-      } catch (deferError) {
-        console.error(`[Play Command] Failed to defer interaction:`, deferError);
-        // If defer fails, the interaction is likely already handled
-        return;
-      }
-    } else {
-      console.log(`[Play Command] Interaction already deferred or replied`);
+    try {
+      await interaction.deferReply();
+      console.log(`[Play Command] Interaction deferred successfully`);
+    } catch (err) {
+      console.warn("Failed to defer interaction:", err.message);
+      return; // Exit if we can't defer - interaction is likely expired
     }
     
     try {
@@ -44,27 +39,50 @@ module.exports = {
         content: "🔍 Searching for your music..." 
       });
 
-      // Search for tracks first with multiple fallback engines
+      // Search for tracks with optimized timeout
       console.log(`[Play Command] Searching for: ${query}`);
       let searchResult;
       
-      // Try different search engines as fallback
-      const searchEngines = ['youtube', 'soundcloud', 'spotify'];
-      for (const engine of searchEngines) {
-        try {
-          console.log(`[Play Command] Trying search engine: ${engine}`);
-          searchResult = await interaction.client.player.search(query, {
+      try {
+        // Try YouTube first (usually fastest) with timeout
+        searchResult = await Promise.race([
+          interaction.client.player.search(query, {
             requestedBy: interaction.user,
-            searchEngine: engine
-          });
+            searchEngine: 'youtube'
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('YouTube search timeout')), 5000)
+          )
+        ]);
+        
+        if (searchResult.hasTracks()) {
+          console.log(`[Play Command] Found tracks with YouTube: ${searchResult.tracks[0].title}`);
+        } else {
+          throw new Error('No YouTube results');
+        }
+      } catch (youtubeError) {
+        console.log(`[Play Command] YouTube failed, trying SoundCloud:`, youtubeError.message);
+        
+        // Fallback to SoundCloud if YouTube fails
+        try {
+          searchResult = await Promise.race([
+            interaction.client.player.search(query, {
+              requestedBy: interaction.user,
+              searchEngine: 'soundcloud'
+            }),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('SoundCloud search timeout')), 5000)
+            )
+          ]);
           
           if (searchResult.hasTracks()) {
-            console.log(`[Play Command] Found tracks with ${engine}: ${searchResult.tracks[0].title}`);
-            break;
+            console.log(`[Play Command] Found tracks with SoundCloud: ${searchResult.tracks[0].title}`);
+          } else {
+            throw new Error('No SoundCloud results');
           }
-        } catch (searchError) {
-          console.log(`[Play Command] Search failed with ${engine}:`, searchError.message);
-          continue;
+        } catch (soundcloudError) {
+          console.log(`[Play Command] SoundCloud also failed:`, soundcloudError.message);
+          throw new Error('All search engines failed');
         }
       }
 
@@ -84,7 +102,10 @@ module.exports = {
           leaveOnEmpty: false,
           leaveOnEmptyCooldown: 300000,
           selfDeaf: false,
-          selfMute: false
+          selfMute: false,
+          // Prevent queue from being auto-destroyed
+          skipOnEmpty: false,
+          skipOnEmptyCooldown: 300000
         });
       }
 
@@ -112,6 +133,9 @@ module.exports = {
       // Add track to queue
       console.log(`[Play Command] Adding track to queue: ${searchResult.tracks[0].title}`);
       queue.addTrack(searchResult.tracks[0]);
+      
+      // Verify track was added to queue
+      console.log(`[Play Command] Queue size after adding track: ${queue.tracks.size}`);
 
       // Start playing if not already playing
       if (!queue.node.isPlaying()) {
@@ -119,6 +143,12 @@ module.exports = {
         try {
           await queue.node.play();
           console.log(`[Play Command] Playback started - waiting for trackStart event`);
+          
+          // Wait a moment for track to start, then verify
+          setTimeout(() => {
+            console.log(`[Play Command] Queue state check - Size: ${queue.tracks.size}, Playing: ${queue.node.isPlaying()}`);
+          }, 2000);
+          
         } catch (playError) {
           console.error(`[Play Command] Failed to start playback:`, playError);
           return await interaction.editReply('❌ Failed to start playback. This might be due to FFmpeg issues or audio stream problems.');
@@ -127,7 +157,7 @@ module.exports = {
         console.log(`[Play Command] Already playing, track added to queue`);
       }
 
-      // Send success message - don't check queue state immediately as it may not be updated yet
+      // Send success message
       await interaction.editReply(`🎶 Now playing **${searchResult.tracks[0].title}**`);
     } catch (err) {
       console.error('Play command error:', err);
