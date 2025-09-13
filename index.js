@@ -110,9 +110,12 @@ client.player.events.on('trackError', (queue, error) => {
   }
 });
 
-// Add additional player events for better monitoring
+// Add additional player events for better monitoring (reduced logging)
 client.player.events.on('debug', (queue, message) => {
-  console.log(`[Player Debug] ${queue.guild.name}: ${message}`);
+  // Only log important debug messages
+  if (message.includes('error') || message.includes('failed') || message.includes('Error')) {
+    console.log(`[Player Debug] ${queue.guild.name}: ${message}`);
+  }
 });
 
 client.player.events.on('emptyQueue', (queue) => {
@@ -287,38 +290,11 @@ client.on('voiceStateUpdate', (oldState, newState) => {
             console.log('Successfully fixed bot voice state');
           } catch (err) {
             console.error('Failed to fix bot voice state:', err);
-            
-            // If that fails, try a more aggressive approach
-            try {
-              // Disconnect and reconnect to reset voice state
-              await newState.disconnect();
-              await new Promise(resolve => setTimeout(resolve, 1000));
-              
-              // Reconnect to the same channel
-              const queue = client.player.nodes.get(newState.guild.id);
-              if (queue) {
-                await queue.connect(newState.channel);
-              } else {
-                await newState.channel.join();
-              }
-            } catch (reconnectErr) {
-              console.error('Failed to reconnect bot:', reconnectErr);
-            }
           }
         };
         
-        // Fix voice state immediately and also with a delay
+        // Fix voice state with a single attempt
         fixVoiceState();
-        setTimeout(fixVoiceState, 500);
-        setTimeout(fixVoiceState, 1000);
-        setTimeout(fixVoiceState, 2000);
-      }
-      
-      // Also force fix voice state every time there are issues
-      if (hasVoiceIssues) {
-        console.log('Bot still has voice issues, forcing fix...');
-        newState.setMute(false).catch(console.error);
-        newState.setDeaf(false).catch(console.error);
       }
     } else {
       // Bot is not in a voice channel, but if it was deafened, try to fix it
@@ -411,7 +387,7 @@ client.on('interactionCreate', async interaction => {
 process.on('unhandledRejection', err => console.error('Unhandled Rejection:', err));
 process.on('uncaughtException', err => console.error('Uncaught Exception:', err));
 
-// --- Periodic Voice State Check ---
+// --- Periodic Voice State Check (Reduced frequency since bot is working) ---
 setInterval(() => {
   client.guilds.cache.forEach(guild => {
     const me = guild.members.me;
@@ -429,54 +405,13 @@ setInterval(() => {
           console.log(`[Periodic Check] Successfully fixed bot voice state in ${guild.name}`);
         } catch (err) {
           console.error(`[Periodic Check] Failed to fix bot voice state in ${guild.name}:`, err);
-          
-          // If that fails, try a more aggressive approach
-          try {
-            // Disconnect and reconnect to reset voice state
-            await me.voice.disconnect();
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            
-            // Reconnect to the same channel
-            const queue = client.player.nodes.get(guild.id);
-            if (queue) {
-              await queue.connect(me.voice.channel);
-            } else {
-              await me.voice.channel.join();
-            }
-          } catch (reconnectErr) {
-            console.error(`[Periodic Check] Failed to reconnect bot in ${guild.name}:`, reconnectErr);
-          }
         }
       };
       
       fixVoiceState();
     }
   });
-}, 15000); // Check every 15 seconds for more aggressive monitoring
-
-// Add additional voice state monitoring
-setInterval(() => {
-  client.guilds.cache.forEach(guild => {
-    const me = guild.members.me;
-    if (me?.voice?.channel) {
-      // Force undeafen every 5 seconds if bot is deafened
-      if (me.voice.deaf || me.voice.selfDeaf) {
-        console.log(`[Force Undeafen] Bot is deafened in ${guild.name}, forcing undeafen...`);
-        me.voice.setDeaf(false).catch(err => {
-          console.error(`[Force Undeafen] Failed to undeafen bot in ${guild.name}:`, err);
-        });
-      }
-      
-      // Force unmute every 5 seconds if bot is muted
-      if (me.voice.mute || me.voice.selfMute) {
-        console.log(`[Force Unmute] Bot is muted in ${guild.name}, forcing unmute...`);
-        me.voice.setMute(false).catch(err => {
-          console.error(`[Force Unmute] Failed to unmute bot in ${guild.name}:`, err);
-        });
-      }
-    }
-  });
-}, 5000); // Check every 5 seconds for aggressive voice state fixing
+}, 60000); // Check every 60 seconds (reduced from 15 seconds)
 
 // --- Login ---
 client.login(process.env.DISCORD_TOKEN);
