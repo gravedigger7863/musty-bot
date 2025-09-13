@@ -15,15 +15,23 @@ if (!global.interactionCreateListenerActive) {
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
-    // BULLETPROOF: Check if interaction already handled - MUST be first line
-    if (interaction.handled || interaction.isHandled) {
-      console.log('Interaction already handled, skipping:', interaction.id);
+    // DISCORD RETRY RACE CONDITION FIX: Global interaction lock
+    if (global.activeInteractions.has(interaction.id)) {
+      console.log('Discord retry detected - ignoring duplicate interaction:', interaction.id);
       return;
     }
+    global.activeInteractions.add(interaction.id);
     
-    // Mark interaction as being handled IMMEDIATELY - before any other logic
-    interaction.handled = true;
-    interaction.isHandled = true;
+    try {
+      // BULLETPROOF: Check if interaction already handled - MUST be first line
+      if (interaction.handled || interaction.isHandled) {
+        console.log('Interaction already handled, skipping:', interaction.id);
+        return;
+      }
+      
+      // Mark interaction as being handled IMMEDIATELY - before any other logic
+      interaction.handled = true;
+      interaction.isHandled = true;
     
     console.log('interactionCreate listener loaded and executing');
     
@@ -195,10 +203,14 @@ module.exports = {
       } finally {
         // Clean up after processing
         processedInteractions.delete(interaction.id);
+        // CRITICAL: Remove from global interaction lock
+        global.activeInteractions.delete(interaction.id);
       }
     } else {
       // Unknown interaction type, clean up
       processedInteractions.delete(interaction.id);
+      // CRITICAL: Remove from global interaction lock
+      global.activeInteractions.delete(interaction.id);
     }
   },
 };

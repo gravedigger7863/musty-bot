@@ -27,11 +27,11 @@ module.exports = {
     }
     playExecutions.add(executionKey);
 
-    // Defer immediately to prevent interaction timeout - MUST be first!
+    // ULTRA-FAST DEFER: Prevent Discord retry race condition - MUST be first!
     if (!interaction.deferred && !interaction.replied) {
       try {
         await interaction.deferReply();
-        console.log(`[Play Command] Interaction deferred successfully`);
+        console.log(`[Play Command] Interaction deferred successfully - Discord retry prevented`);
       } catch (err) {
         console.warn("Failed to defer interaction:", err.message);
         return; // Exit if we can't defer - interaction is likely expired

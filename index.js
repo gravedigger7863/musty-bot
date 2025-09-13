@@ -19,6 +19,9 @@ console.log('FFmpeg path (ffmpeg-installer):', ffmpegInstaller.path);
 // Use the more reliable FFmpeg path
 const ffmpegPath = ffmpegInstaller.path || ffmpeg;
 
+// Global interaction lock to prevent Discord retry race conditions
+const activeInteractions = new Set();
+
 // Additional libraries
 const express = require('express');
 
@@ -168,6 +171,9 @@ for (const folder of fs.readdirSync(commandsPath)) {
 // --- Event Loader ---
 const eventsPath = path.join(__dirname, 'events');
 const loadedEvents = new Set();
+
+// Make activeInteractions available globally for event handlers
+global.activeInteractions = activeInteractions;
 
 for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
   const event = require(path.join(eventsPath, file));
