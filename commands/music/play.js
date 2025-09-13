@@ -28,17 +28,17 @@ module.exports = {
     }
     playExecutions.add(executionKey);
 
-    // ULTRA-FAST DEFER: Prevent Discord retry race condition - MUST be first!
+    // Defer interaction to prevent timeout (only if not already handled)
     if (!interaction.deferred && !interaction.replied) {
       try {
         await interaction.deferReply();
-        console.log(`[Play Command] Interaction deferred successfully - Discord retry prevented`);
+        console.log(`[Play Command] Interaction deferred successfully`);
       } catch (err) {
         console.warn("Failed to defer interaction:", err.message);
         return; // Exit if we can't defer - interaction is likely expired
       }
     } else {
-      console.log(`[Play Command] Interaction already deferred or replied, continuing...`);
+      console.log(`[Play Command] Interaction already handled, continuing...`);
     }
     
     try {
@@ -207,7 +207,48 @@ module.exports = {
           await interaction.editReply(`🎶 Now playing **${track.title}**`);
         } catch (playError) {
           console.error(`[Play Command] Playback failed:`, playError);
-          await interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Unknown error'}`);
+          
+          // If playback fails due to stream extraction, try play-dl fallback
+          if (playError.message && (playError.message.includes('extract') || playError.message.includes('stream'))) {
+            console.log(`[Play Command] Stream extraction failed, trying play-dl fallback...`);
+            
+            try {
+              const playdl = require('play-dl');
+              const stream = await playdl.stream(track.url);
+              
+              if (stream && stream.stream) {
+                console.log(`[Play Command] play-dl stream obtained successfully`);
+                
+                // Create a new track with play-dl stream data
+                const playdlTrack = {
+                  title: track.title,
+                  url: track.url,
+                  duration: track.duration,
+                  thumbnail: track.thumbnail,
+                  author: track.author,
+                  source: 'youtube',
+                  requestedBy: interaction.user,
+                  // Add play-dl stream data for custom handling
+                  playdlStream: stream
+                };
+                
+                // Replace the track in queue with play-dl version
+                queue.tracks.clear();
+                queue.addTrack(playdlTrack);
+                
+                // Try playback again
+                await queue.node.play();
+                await interaction.editReply(`🎶 Now playing **${track.title}** (via play-dl)`);
+              } else {
+                throw new Error('Could not obtain stream from play-dl');
+              }
+            } catch (streamError) {
+              console.error(`[Play Command] play-dl stream fallback failed:`, streamError);
+              await interaction.editReply(`❌ Failed to start playback: ${streamError.message || 'Stream extraction failed'}`);
+            }
+          } else {
+            await interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Unknown error'}`);
+          }
         }
       } else {
         await interaction.editReply(`🎶 **${track.title}** added to queue`);
