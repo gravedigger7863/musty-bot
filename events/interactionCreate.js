@@ -24,6 +24,14 @@ module.exports = {
       toDelete.forEach(id => processedInteractions.delete(id));
     }
 
+    // Check if interaction is still valid (within 3 seconds)
+    const interactionAge = Date.now() - interaction.createdTimestamp;
+    if (interactionAge > 2500) { // 2.5 seconds safety margin
+      console.log('Interaction too old, skipping:', interaction.id, 'age:', interactionAge + 'ms');
+      processedInteractions.delete(interaction.id);
+      return;
+    }
+
     // Immediately defer reply to prevent timeout
     try {
       await interaction.deferReply();

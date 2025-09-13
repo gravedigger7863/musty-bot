@@ -26,7 +26,11 @@ client.player = new Player(client, {
   },
   // Add better error handling
   connectionTimeout: 30000,
-  lagMonitor: 30000
+  lagMonitor: 30000,
+  // Disable problematic features that might cause stream extraction issues
+  disableEqualizer: true,
+  disableBiquad: true,
+  disableFilterer: true
 });
 
 // Add comprehensive error event handlers
@@ -172,6 +176,21 @@ client.on('voiceStateUpdate', (oldState, newState) => {
           console.error('Failed to undeafen bot:', err);
         });
       }
+    } else {
+      // Bot is not in a voice channel, but if it was deafened, try to fix it
+      if (newState.deaf && !oldState.deaf) {
+        console.log('Bot was deafened outside voice channel! Attempting to undeafen...');
+        newState.setDeaf(false).catch(err => {
+          console.error('Failed to undeafen bot:', err);
+        });
+      }
+      
+      if (newState.selfDeaf && !oldState.selfDeaf) {
+        console.log('Bot was self-deafened outside voice channel! Attempting to undeafen...');
+        newState.setDeaf(false).catch(err => {
+          console.error('Failed to undeafen bot:', err);
+        });
+      }
     }
   }
 });
@@ -247,6 +266,28 @@ client.on('interactionCreate', async interaction => {
 // --- Crash Handling ---
 process.on('unhandledRejection', err => console.error('Unhandled Rejection:', err));
 process.on('uncaughtException', err => console.error('Uncaught Exception:', err));
+
+// --- Periodic Voice State Check ---
+setInterval(() => {
+  client.guilds.cache.forEach(guild => {
+    const me = guild.members.me;
+    if (me?.voice?.channel && (me.voice.deaf || me.voice.mute)) {
+      console.log(`[Periodic Check] Bot is ${me.voice.deaf ? 'deafened' : ''} ${me.voice.mute ? 'muted' : ''} in ${guild.name}, attempting to fix...`);
+      
+      if (me.voice.deaf) {
+        me.voice.setDeaf(false).catch(err => {
+          console.error('Failed to undeafen bot in periodic check:', err);
+        });
+      }
+      
+      if (me.voice.mute) {
+        me.voice.setMute(false).catch(err => {
+          console.error('Failed to unmute bot in periodic check:', err);
+        });
+      }
+    }
+  });
+}, 30000); // Check every 30 seconds
 
 // --- Login ---
 client.login(process.env.DISCORD_TOKEN);
