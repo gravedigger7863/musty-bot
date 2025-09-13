@@ -12,6 +12,9 @@ module.exports = {
   async execute(interaction) {
     console.log(`[Play Command] Starting play command for query: ${interaction.options.getString("query")}`);
     
+    // Defer immediately to prevent interaction timeout
+    await interaction.deferReply();
+    
     const query = interaction.options.getString("query");
     const voiceChannel = interaction.member?.voice?.channel;
 
@@ -69,8 +72,12 @@ module.exports = {
       });
 
       console.log(`[Play Command] Queue created/updated for guild: ${interaction.guild.id}`);
-      console.log(`[Play Command] Queue is playing: ${queue.node.isPlaying()}`);
-      console.log(`[Play Command] Current track: ${queue.currentTrack?.title || 'None'}`);
+      if (queue && queue.node) {
+        console.log(`[Play Command] Queue is playing: ${queue.node.isPlaying()}`);
+        console.log(`[Play Command] Current track: ${queue.currentTrack?.title || 'None'}`);
+      } else {
+        console.log(`[Play Command] Queue or node is undefined`);
+      }
 
       // Send success message
       await interaction.editReply(`🎶 Now playing **${searchResult.tracks[0].title}**`);

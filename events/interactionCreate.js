@@ -34,16 +34,7 @@ module.exports = {
         return;
       }
 
-      // Immediately defer reply to prevent timeout with better error handling
-      try {
-        await interaction.deferReply({ flags: 0 });
-      } catch (deferError) {
-        console.error('Failed to defer interaction:', deferError);
-        
-        // If defer fails, the interaction is likely expired, so skip processing
-        processedInteractions.delete(interaction.id);
-        return;
-      }
+      // Defer is now handled in individual commands
 
       try {
         await command.execute(interaction);

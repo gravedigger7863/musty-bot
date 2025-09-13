@@ -2,8 +2,8 @@ require('dotenv').config();
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
-const { Player } = require('discord-player');
-const { DefaultExtractors } = require('@discord-player/extractor');
+const { useMainPlayer } = require('discord-player');
+const { SoundCloudExtractor, YouTubeExtractor, SpotifyExtractor } = require('@discord-player/extractor');
 
 // Additional libraries
 const express = require('express');
@@ -19,30 +19,21 @@ const client = new Client({
 });
 
 client.commands = new Collection();
-client.player = new Player(client, {
+
+// Initialize player with new API
+client.player = useMainPlayer();
+
+// Register extractors individually for better control
+client.player.extractors.register(YouTubeExtractor, {
   ytdlOptions: { 
     quality: 'highestaudio', 
     filter: 'audioonly',
-    highWaterMark: 1 << 25,
-    requestOptions: {
-      headers: {
-        cookie: process.env.YOUTUBE_COOKIE || ''
-      }
-    }
-  },
-  // Ensure bot doesn't get deafened
-  selfDeaf: false,
-  selfMute: false,
-  // Add additional options for better compatibility
-  bufferingTimeout: 5000,
-  connectionTimeout: 30000,
-  // Enable fallback extractors
-  useLegacyFFmpeg: false,
-  skipFFmpeg: false
+    highWaterMark: 1 << 25
+  }
 });
 
-// Load default extractors (YouTube, SoundCloud, Spotify, etc.)
-client.player.extractors.loadMulti(DefaultExtractors);
+client.player.extractors.register(SoundCloudExtractor, {});
+client.player.extractors.register(SpotifyExtractor, {});
 
 // Add comprehensive error event handlers
 client.player.events.on('error', (queue, error) => {
