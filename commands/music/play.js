@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, InteractionResponseFlags } = require("discord.js");
+const { SlashCommandBuilder } = require("discord.js");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -16,12 +16,11 @@ module.exports = {
     if (!voiceChannel) {
       return interaction.reply({ 
         content: "⚠️ You need to join a voice channel first!", 
-        flags: InteractionResponseFlags.Ephemeral 
+        ephemeral: true 
       });
     }
 
-    // defer once
-    await interaction.deferReply({ flags: InteractionResponseFlags.Ephemeral });
+    await interaction.deferReply({ ephemeral: true });
 
     try {
       const queue = interaction.client.player.nodes.create(interaction.guild, {
@@ -33,8 +32,7 @@ module.exports = {
 
       if (!queue.connection) await queue.connect(voiceChannel);
 
-      // Ensure the bot is unmuted
-      const me = voiceChannel.members.me;
+      const me = voiceChannel.guild.members.me;
       if (me?.voice?.mute) await me.voice.setMute(false);
 
       const result = await queue.play(query, { nodeOptions: { metadata: { channel: interaction.channel } } });
