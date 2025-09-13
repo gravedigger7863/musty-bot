@@ -42,8 +42,8 @@ module.exports = {
           try {
             if (!interaction.replied && !interaction.deferred) {
               await interaction.reply({ 
-                content: '❌ Command failed due to an error. Please try again.', 
-                ephemeral: true 
+                content: '❌ Command failed due to an error. Please try again.',
+                flags: 64 // Use flags instead of ephemeral
               });
             } else if (interaction.deferred && !interaction.replied) {
               await interaction.editReply({ 
@@ -59,11 +59,11 @@ module.exports = {
       else if (interaction.isButton()) {
         const queue = client.player.nodes.get(interaction.guild.id);
         if (!queue) {
-          try {
-            await interaction.reply({ content: '⚠️ No music is currently playing.', ephemeral: true });
-          } catch (error) {
-            console.error('Failed to reply to button interaction:', error);
-          }
+        try {
+          await interaction.reply({ content: '⚠️ No music is currently playing.', flags: 64 });
+        } catch (error) {
+          console.error('Failed to reply to button interaction:', error);
+        }
           processedInteractions.delete(interaction.id);
           return;
         }

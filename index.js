@@ -40,7 +40,13 @@ client.player = new Player(client, {
   leaveOnEmptyCooldown: 30000,
   leaveOnStop: true,
   autoSelfDeaf: false,
-  autoSelfMute: false
+  autoSelfMute: false,
+  // Fix Opus encoder issues
+  useLegacyFFmpeg: false,
+  ytdlOptions: {
+    quality: 'highestaudio',
+    highWaterMark: 1 << 25
+  }
 });
 
 // Load extractors using the latest 2025 method
@@ -159,8 +165,21 @@ for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
 }
 
 // --- Crash Handling ---
-process.on('unhandledRejection', err => console.error('Unhandled Rejection:', err));
-process.on('uncaughtException', err => console.error('Uncaught Exception:', err));
+process.on('unhandledRejection', err => {
+  console.error('Unhandled Rejection:', err);
+  // Don't exit on unhandled rejections for music bots
+});
+
+process.on('uncaughtException', err => {
+  console.error('Uncaught Exception:', err);
+  // Handle Opus encoder errors gracefully
+  if (err.message && err.message.includes('Cannot convert "undefined" to int')) {
+    console.log('Opus encoder error detected, continuing...');
+    return;
+  }
+  // For other critical errors, exit
+  process.exit(1);
+});
 
 // --- Login ---
 client.login(process.env.DISCORD_TOKEN);
