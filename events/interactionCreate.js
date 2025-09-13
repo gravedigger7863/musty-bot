@@ -40,21 +40,8 @@ module.exports = {
         await command.execute(interaction);
       } catch (error) {
         console.error('Command execution error:', error);
-        
-        // Only try to reply if the interaction hasn't been handled yet
-        if (!interaction.replied && !interaction.deferred) {
-          try {
-            await interaction.reply({ content: '❌ Error while executing command!', ephemeral: true });
-          } catch (replyError) {
-            console.error('Failed to reply:', replyError);
-          }
-        } else if (interaction.deferred) {
-          try {
-            await interaction.editReply({ content: '❌ Error while executing command!' });
-          } catch (editError) {
-            console.error('Failed to edit reply:', editError);
-          }
-        }
+        // Commands should handle their own error responses
+        // Don't try to reply here to avoid double acknowledgment
       } finally {
         // Clean up after processing
         processedInteractions.delete(interaction.id);

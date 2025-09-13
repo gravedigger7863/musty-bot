@@ -111,6 +111,10 @@ client.player.events.on('emptyChannel', (queue) => {
   console.log(`[Player] Channel empty in ${queue.guild.name}`);
 });
 
+client.player.events.on('queueEnd', (queue) => {
+  console.log(`[Player] Queue ended in ${queue.guild.name}`);
+});
+
 // Bot should connect without being deafened now
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
