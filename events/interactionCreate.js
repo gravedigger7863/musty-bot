@@ -15,6 +15,13 @@ module.exports = {
     const command = client.commands.get(interaction.commandName);
     if (!command) return;
 
+    // Check if interaction is still valid (within 3 seconds)
+    const interactionAge = Date.now() - interaction.createdTimestamp;
+    if (interactionAge > 2500) { // 2.5 seconds safety margin
+      console.log('Interaction too old, skipping:', interaction.id, 'age:', interactionAge + 'ms');
+      return;
+    }
+
     // Mark interaction as being processed
     processedInteractions.add(interaction.id);
 
@@ -22,20 +29,6 @@ module.exports = {
     if (processedInteractions.size > 1000) {
       const toDelete = Array.from(processedInteractions).slice(0, 100);
       toDelete.forEach(id => processedInteractions.delete(id));
-    }
-
-    // Check if interaction is still valid (within 3 seconds)
-    const interactionAge = Date.now() - interaction.createdTimestamp;
-    if (interactionAge > 2500) { // 2.5 seconds safety margin
-      console.log('Interaction too old, skipping:', interaction.id, 'age:', interactionAge + 'ms');
-      processedInteractions.delete(interaction.id);
-      return;
-    }
-
-    // Check if interaction is already being processed
-    if (processedInteractions.has(interaction.id)) {
-      console.log('Interaction already being processed, skipping:', interaction.id);
-      return;
     }
 
     // Immediately defer reply to prevent timeout with better error handling
