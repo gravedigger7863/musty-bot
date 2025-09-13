@@ -41,15 +41,18 @@ module.exports = {
       } catch (error) {
         console.error('Command execution error:', error);
         
-        try {
-          await interaction.editReply({ content: '❌ Error while executing command!' });
-        } catch (editError) {
-          console.error('Failed to edit reply:', editError);
-          // Try follow-up as last resort
+        // Only try to reply if the interaction hasn't been handled yet
+        if (!interaction.replied && !interaction.deferred) {
           try {
-            await interaction.followUp({ content: '❌ Error while executing command!', flags: 64 });
-          } catch (followUpError) {
-            console.error('Failed to send follow-up:', followUpError);
+            await interaction.reply({ content: '❌ Error while executing command!', ephemeral: true });
+          } catch (replyError) {
+            console.error('Failed to reply:', replyError);
+          }
+        } else if (interaction.deferred) {
+          try {
+            await interaction.editReply({ content: '❌ Error while executing command!' });
+          } catch (editError) {
+            console.error('Failed to edit reply:', editError);
           }
         }
       } finally {

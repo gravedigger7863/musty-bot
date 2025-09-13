@@ -12,7 +12,16 @@ module.exports = {
   async execute(interaction) {
     // Defer immediately to prevent interaction timeout - MUST be first!
     if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferReply();
+      try {
+        await interaction.deferReply();
+        console.log(`[Play Command] Interaction deferred successfully`);
+      } catch (deferError) {
+        console.error(`[Play Command] Failed to defer interaction:`, deferError);
+        // If defer fails, the interaction is likely already handled
+        return;
+      }
+    } else {
+      console.log(`[Play Command] Interaction already deferred or replied`);
     }
     
     try {
