@@ -13,13 +13,21 @@ module.exports = {
   async execute(interaction) {
     // Check if interaction already processed
     if (interaction.deferred || interaction.replied) {
+      console.log(`[Play Command] Interaction already processed, skipping`);
       return;
     }
 
     try {
       await interaction.deferReply();
+      console.log(`[Play Command] Interaction deferred successfully`);
     } catch (err) {
       console.warn("Failed to defer interaction:", err.message);
+      // Try to reply instead if defer fails
+      try {
+        await interaction.reply({ content: "❌ Command failed to start. Please try again.", ephemeral: true });
+      } catch (replyErr) {
+        console.error("Failed to reply to interaction:", replyErr.message);
+      }
       return;
     }
     
@@ -38,27 +46,39 @@ module.exports = {
       });
 
       console.log(`[Play Command] Searching for: ${query}`);
+      console.log(`[Play Command] Available extractors: ${interaction.client.player.extractors.size}`);
       
-      // Search for track with multiple fallback strategies
+      // Use YouTube as primary source (most reliable)
       let searchResult;
-      const searchEngines = ['youtube', 'spotify', 'soundcloud'];
-      
-      for (const engine of searchEngines) {
-        try {
-          console.log(`[Play Command] Trying search engine: ${engine}`);
-          searchResult = await interaction.client.player.search(query, {
-            requestedBy: interaction.user,
-            searchEngine: engine,
-          });
-          
-          if (searchResult && searchResult.hasTracks()) {
-            console.log(`[Play Command] Found results with ${engine}`);
-            break;
+      try {
+        searchResult = await interaction.client.player.search(query, {
+          requestedBy: interaction.user,
+          searchEngine: 'youtube',
+        });
+        
+        if (!searchResult || !searchResult.hasTracks()) {
+          // Fallback to other engines
+          const fallbackEngines = ['spotify', 'soundcloud'];
+          for (const engine of fallbackEngines) {
+            try {
+              console.log(`[Play Command] Trying fallback engine: ${engine}`);
+              searchResult = await interaction.client.player.search(query, {
+                requestedBy: interaction.user,
+                searchEngine: engine,
+              });
+              if (searchResult && searchResult.hasTracks()) {
+                console.log(`[Play Command] Found results with ${engine}`);
+                break;
+              }
+            } catch (engineError) {
+              console.log(`[Play Command] ${engine} search failed:`, engineError.message);
+              continue;
+            }
           }
-        } catch (engineError) {
-          console.log(`[Play Command] ${engine} search failed:`, engineError.message);
-          continue;
         }
+      } catch (searchError) {
+        console.error(`[Play Command] Search failed:`, searchError);
+        return await interaction.editReply('❌ Search failed. Please try a different search term.');
       }
       
       if (!searchResult || !searchResult.hasTracks()) {
@@ -134,7 +154,11 @@ module.exports = {
       }
       
       try {
-        await interaction.editReply(errorMessage);
+        if (interaction.deferred) {
+          await interaction.editReply(errorMessage);
+        } else {
+          await interaction.reply({ content: errorMessage, ephemeral: true });
+        }
       } catch (replyError) {
         console.error('Failed to send error message:', replyError);
       }

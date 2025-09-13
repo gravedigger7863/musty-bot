@@ -51,12 +51,10 @@ client.player = new Player(client, {
   autoSelfMute: false
 });
 
-// Register extractors immediately
-DefaultExtractors.forEach(extractor => {
-  client.player.extractors.register(extractor, {});
-});
+// Load default extractors - this is the proper way
+client.player.extractors.loadDefault();
 
-console.log(`✅ Registered ${client.player.extractors.size} extractors`);
+console.log(`✅ Loaded default extractors`);
 
 // Enhanced event handlers for better music experience
 client.player.events.on('error', (queue, error) => {
