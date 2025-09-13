@@ -21,7 +21,7 @@ module.exports = {
     if (!query) {
       const queue = interaction.client.player.nodes.get(interaction.guild.id);
       if (!queue || !queue.currentTrack) {
-        return interaction.editReply('⚠️ No song is playing, and you didn't provide one.');
+        return interaction.editReply('⚠️ No song is playing, and you didn\'t provide one.');
       }
       query = queue.currentTrack.title;
     }
