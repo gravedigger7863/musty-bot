@@ -95,8 +95,8 @@ client.player.events.on('emptyChannel', (queue) => {
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
   
-  // Wait a moment for voice state to settle, then fix
-  setTimeout(() => {
+  // Try multiple approaches to fix voice state
+  const fixVoiceState = async () => {
     const me = queue.guild.members.me;
     if (me?.voice) {
       console.log('Bot voice state on connection:', {
@@ -106,17 +106,39 @@ client.player.events.on('connection', (queue) => {
         selfDeaf: me.voice.selfDeaf
       });
       
-      // Try to fix voice state
-      if (me.voice.mute || me.voice.deaf || me.voice.selfMute || me.voice.selfDeaf) {
-        console.log('Fixing bot voice state on connection...');
-        me.voice.setMute(false);
-        me.voice.setDeaf(false);
-        console.log('Bot voice state fixed on connection');
-      } else {
-        console.log('Bot voice state is already correct');
+      // Try different approaches
+      try {
+        // Approach 1: Direct fix
+        await me.voice.setMute(false);
+        await me.voice.setDeaf(false);
+        console.log('Voice state fix attempt 1 completed');
+        
+        // Wait and try again
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await me.voice.setMute(false);
+        await me.voice.setDeaf(false);
+        console.log('Voice state fix attempt 2 completed');
+        
+        // Wait and try one more time
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await me.voice.setMute(false);
+        await me.voice.setDeaf(false);
+        console.log('Voice state fix attempt 3 completed');
+        
+      } catch (err) {
+        console.log('Voice state fix failed:', err.message);
       }
     }
-  }, 1000); // Wait 1 second for voice state to settle
+  };
+  
+  // Try immediately
+  fixVoiceState();
+  
+  // Try again after 2 seconds
+  setTimeout(fixVoiceState, 2000);
+  
+  // Try one more time after 5 seconds
+  setTimeout(fixVoiceState, 5000);
 });
 
 // Extractors are now properly loaded with loadDefault()
@@ -152,35 +174,10 @@ for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
 // --- Voice State Monitoring ---
 let voiceStateFixAttempts = new Map(); // Track fix attempts per guild
 
-client.on('voiceStateUpdate', (oldState, newState) => {
-  // Only monitor the bot's own voice state
-  if (newState.member.id === client.user.id) {
-    console.log(`Bot voice state changed:`, {
-      channel: newState.channel?.name || 'None',
-      mute: newState.mute,
-      deaf: newState.deaf,
-      selfMute: newState.selfMute,
-      selfDeaf: newState.selfDeaf
-    });
-    
-    // Simple fix - if bot is muted/deafened, just fix it (with cooldown to prevent infinite loop)
-    if (newState.channel && (newState.mute || newState.deaf || newState.selfMute || newState.selfDeaf)) {
-      const guildId = newState.guild.id;
-      const currentTime = Date.now();
-      const lastFixAttempt = voiceStateFixAttempts.get(guildId) || 0;
-      
-      // Only try to fix if we haven't tried in the last 3 seconds
-      if (currentTime - lastFixAttempt > 3000) {
-        console.log('Bot has voice issues! Fixing...');
-        voiceStateFixAttempts.set(guildId, currentTime);
-        newState.setMute(false);
-        newState.setDeaf(false);
-      } else {
-        console.log('Skipping voice fix - too recent');
-      }
-    }
-  }
-});
+// Disabled voice state monitoring - let Discord handle it naturally
+// client.on('voiceStateUpdate', (oldState, newState) => {
+//   // Voice state monitoring disabled to prevent infinite loops
+// });
 
 // --- Button Interaction Handler ---
 client.on('interactionCreate', async interaction => {
