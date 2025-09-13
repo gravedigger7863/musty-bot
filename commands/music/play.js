@@ -1,4 +1,6 @@
 const { SlashCommandBuilder } = require("discord.js");
+const ytSearch = require('yt-search');
+const play = require('play-dl');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -62,7 +64,7 @@ module.exports = {
       // Play the track with comprehensive fallback system
       let result;
       let searchAttempts = 0;
-      const maxAttempts = 5; // Multiple fallback sources
+      const maxAttempts = 6; // Multiple fallback sources
       
       // Check if it's a direct audio file URL first
       let isDirectAudio = false;
@@ -97,7 +99,16 @@ module.exports = {
           },
           isDirect: true
         },
-        // Strategy 2: YouTube search with ytsearch prefix
+        // Strategy 2: yt-search for better search results
+        {
+          name: 'yt-search',
+          query: query,
+          options: {
+            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
+          },
+          useYtSearch: true
+        },
+        // Strategy 3: YouTube search with ytsearch prefix
         {
           name: 'YouTube Search',
           query: query.startsWith('http') ? query : `ytsearch:${query}`,
@@ -105,7 +116,7 @@ module.exports = {
             searchOptions: { limit: 1, type: 'video', source: 'youtube' }
           }
         },
-        // Strategy 3: SoundCloud search
+        // Strategy 4: SoundCloud search
         {
           name: 'SoundCloud',
           query: `scsearch:${query}`,
@@ -113,7 +124,7 @@ module.exports = {
             searchOptions: { limit: 1, type: 'track', source: 'soundcloud' }
           }
         },
-        // Strategy 4: Generic search (any source)
+        // Strategy 5: Generic search (any source)
         {
           name: 'Generic Search',
           query: query,
@@ -121,7 +132,7 @@ module.exports = {
             searchOptions: { limit: 1, type: 'video' }
           }
         },
-        // Strategy 5: YouTube with different search terms
+        // Strategy 6: YouTube with different search terms
         {
           name: 'YouTube Alternative',
           query: `ytsearch:${query} music`,
@@ -151,6 +162,24 @@ module.exports = {
               });
             } else {
               throw new Error('Invalid YouTube URL for ytdl-core');
+            }
+          } else if (strategy.useYtSearch && !query.startsWith('http')) {
+            // Use yt-search for better search results
+            console.log(`[Play Command] Using yt-search for: ${query}`);
+            const searchResults = await ytSearch(query);
+            if (searchResults.videos && searchResults.videos.length > 0) {
+              const video = searchResults.videos[0];
+              console.log(`[Play Command] Found video: ${video.title}`);
+              result = await queue.play(video.url, { 
+                nodeOptions: { 
+                  metadata: { channel: interaction.channel },
+                  selfDeaf: false,
+                  selfMute: false
+                },
+                ...strategy.options
+              });
+            } else {
+              throw new Error('No videos found with yt-search');
             }
           } else {
             // Regular search

@@ -6,6 +6,10 @@ const { Player } = require('discord-player');
 // Removed problematic YouTube extractors - using fallback system instead
 // const { YoutubeiExtractor } = require('discord-player-youtubei');
 // const { YouTubeExtractor } = require('@discord-player/extractor');
+
+// Additional fallback libraries
+const play = require('play-dl');
+const ytSearch = require('yt-search');
 const express = require('express');
 
 // --- Client Setup ---
@@ -170,16 +174,27 @@ console.log('⚠️ Skipping YouTube extractors due to parser errors - using fal
 
 // Add custom stream interceptor for better YouTube handling
 client.player.events.on('beforeCreateStream', async (track, source, _queue) => {
-  // Handle all YouTube tracks with ytdl-core since extractors are disabled
+  // Handle all YouTube tracks with multiple fallback methods
   if (source === 'youtube' || track.url.includes('youtube.com') || track.url.includes('youtu.be')) {
     console.log(`[Stream Interceptor] Processing track: ${track.title}`);
     
     try {
-      // Use ytdl-core directly for all YouTube content
-      const ytdl = require('ytdl-core');
+      // Try play-dl first (more reliable)
+      if (await play.yt_validate(track.url)) {
+        console.log(`[Stream Interceptor] Using play-dl for: ${track.title}`);
+        
+        const stream = await play.stream(track.url, {
+          quality: 'highestaudio',
+          type: 'audio'
+        });
+        
+        return stream.stream;
+      }
       
+      // Fallback to ytdl-core
+      const ytdl = require('ytdl-core');
       if (ytdl.validateURL(track.url)) {
-        console.log(`[Stream Interceptor] Using ytdl-core for: ${track.title}`);
+        console.log(`[Stream Interceptor] Using ytdl-core fallback for: ${track.title}`);
         
         const stream = ytdl(track.url, {
           quality: 'highestaudio',
