@@ -60,55 +60,50 @@ module.exports = {
         content: "🔍 Searching for your music..." 
       });
 
-      // Search for tracks with optimized timeout
+      // RACE-PROOF TRACK RESOLUTION: Fully resolve track before adding to queue
       console.log(`[Play Command] Searching for: ${query}`);
-      let searchResult;
+      let track;
       
       try {
-        // Try YouTube first (usually fastest) with timeout
-        searchResult = await Promise.race([
-          interaction.client.player.search(query, {
-            requestedBy: interaction.user,
-            searchEngine: 'youtube'
-          }),
-          new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('YouTube search timeout')), 5000)
-          )
-        ]);
+        // First try YouTube with proper await
+        console.log(`[Play Command] Trying YouTube search...`);
+        const youtubeResult = await interaction.client.player.search(query, {
+          requestedBy: interaction.user,
+          searchEngine: 'youtube'
+        });
         
-        if (searchResult.hasTracks()) {
-          console.log(`[Play Command] Found tracks with YouTube: ${searchResult.tracks[0].title}`);
+        if (youtubeResult && youtubeResult.hasTracks()) {
+          track = youtubeResult.tracks[0];
+          console.log(`[Play Command] Found YouTube track: ${track.title}`);
         } else {
-          throw new Error('No YouTube results');
-        }
-      } catch (youtubeError) {
-        console.log(`[Play Command] YouTube failed, trying SoundCloud:`, youtubeError.message);
-        
-        // Fallback to SoundCloud if YouTube fails
-        try {
-          searchResult = await Promise.race([
-            interaction.client.player.search(query, {
-              requestedBy: interaction.user,
-              searchEngine: 'soundcloud'
-            }),
-            new Promise((_, reject) => 
-              setTimeout(() => reject(new Error('SoundCloud search timeout')), 5000)
-            )
-          ]);
+          // Fallback to SoundCloud with proper await
+          console.log(`[Play Command] YouTube failed, trying SoundCloud...`);
+          const soundcloudResult = await interaction.client.player.search(query, {
+            requestedBy: interaction.user,
+            searchEngine: 'soundcloud'
+          });
           
-          if (searchResult.hasTracks()) {
-            console.log(`[Play Command] Found tracks with SoundCloud: ${searchResult.tracks[0].title}`);
-          } else {
-            throw new Error('No SoundCloud results');
+          if (soundcloudResult && soundcloudResult.hasTracks()) {
+            track = soundcloudResult.tracks[0];
+            console.log(`[Play Command] Found SoundCloud track: ${track.title}`);
           }
-        } catch (soundcloudError) {
-          console.log(`[Play Command] SoundCloud also failed:`, soundcloudError.message);
-          throw new Error('All search engines failed');
         }
-      }
-
-      if (!searchResult || !searchResult.hasTracks()) {
-        return await interaction.editReply('❌ No results found for your search query on any platform.');
+        
+        if (!track) {
+          return await interaction.editReply('❌ No tracks found. Please try a different search term.');
+        }
+        
+        // Verify track is fully resolved
+        if (!track.url && !track.id) {
+          console.error(`[Play Command] Track not properly resolved:`, track);
+          return await interaction.editReply('❌ Track could not be properly resolved. Please try again.');
+        }
+        
+        console.log(`[Play Command] Track resolved successfully: ${track.title} (${track.source})`);
+        
+      } catch (searchError) {
+        console.error(`[Play Command] Search failed:`, searchError);
+        return await interaction.editReply('❌ Search failed. Please try again.');
       }
 
       // Create or get existing queue
@@ -173,11 +168,11 @@ module.exports = {
         }
       }
 
-      // RACE-FREE PLAYBACK: Use setImmediate to ensure queue state is fully updated
-      console.log(`[Play Command] Adding track and preparing for race-free playback...`);
+      // RACE-PROOF TRACK ADDITION: Add fully resolved track to queue
+      console.log(`[Play Command] Adding resolved track to queue...`);
       
-      // Add track to queue
-      queue.addTrack(searchResult.tracks[0]);
+      // Add the fully resolved track to queue
+      queue.addTrack(track);
       
       // Verify track was added
       console.log(`[Play Command] Queue size after adding track: ${queue.tracks.size}`);
@@ -188,7 +183,13 @@ module.exports = {
         return await interaction.editReply('❌ Failed to add track to queue. Please try again.');
       }
       
-      // Wait for queue to be fully ready before starting playback
+      // RACE-PROOF PLAYBACK: Wait for track to be fully registered
+      console.log(`[Play Command] Waiting for track to be fully registered...`);
+      
+      // Wait until the track is fully added (as recommended by ChatGPT/Gemini)
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Verify queue state before playback
       console.log(`[Play Command] Pre-playback queue state:`, {
         tracksSize: queue.tracks.size,
         isPlaying: queue.node.isPlaying(),
@@ -196,32 +197,16 @@ module.exports = {
         nodeExists: !!queue.node
       });
       
-      // Only start playback if queue has tracks and is not already playing
+      // Only start playback if queue has tracks and is not already playing (recommended pattern)
       if (queue.tracks.size > 0 && !queue.node.isPlaying()) {
         console.log(`[Play Command] Starting playback with ${queue.tracks.size} tracks in queue`);
-        
-        // Small delay to ensure queue is fully stable
-        await new Promise(resolve => setTimeout(resolve, 50));
-        
-        // Verify queue is still stable before playback
-        console.log(`[Play Command] Pre-playback verification:`, {
-          tracksSize: queue.tracks.size,
-          isPlaying: queue.node.isPlaying(),
-          connectionExists: !!queue.connection,
-          nodeExists: !!queue.node
-        });
-        
-        if (queue.tracks.size === 0) {
-          console.error(`[Play Command] CRITICAL: Queue was emptied during delay!`);
-          return await interaction.editReply('❌ Queue was emptied unexpectedly. Please try again.');
-        }
         
         try {
           await queue.node.play();
           console.log(`[Play Command] Playback started successfully`);
           
           // Send final success message
-          await interaction.editReply(`🎶 Now playing **${searchResult.tracks[0].title}**`);
+          await interaction.editReply(`🎶 Now playing **${track.title}**`);
           
           // Verify queue state after playback
           setTimeout(() => {
