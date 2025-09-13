@@ -5,6 +5,11 @@ module.exports = {
     .setName('control')
     .setDescription('Show music control panel in chat'),
   async execute(interaction) {
+    // Defer immediately to prevent interaction timeout
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply();
+    }
+
     const row1 = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId('pause').setLabel('⏯️ Pause/Resume').setStyle(ButtonStyle.Primary),
       new ButtonBuilder().setCustomId('skip').setLabel('⏭️ Skip').setStyle(ButtonStyle.Primary),

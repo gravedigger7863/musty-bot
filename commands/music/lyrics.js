@@ -13,7 +13,10 @@ module.exports = {
         .setRequired(false)
     ),
   async execute(interaction) {
-    // Interaction is already deferred by event handler
+    // Defer immediately to prevent interaction timeout
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply();
+    }
 
     let query = interaction.options.getString('song');
 

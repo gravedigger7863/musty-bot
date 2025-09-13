@@ -9,6 +9,11 @@ module.exports = {
     .setName('autoplay')
     .setDescription('Toggle autoplay for related tracks'),
   async execute(interaction) {
+    // Defer immediately to prevent interaction timeout
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply();
+    }
+
     const queue = useQueue(interaction.guild.id);
     if (!queue || !queue.channel) {
       return interaction.editReply({ content: '⚠️ The bot must be in a voice channel first.' });

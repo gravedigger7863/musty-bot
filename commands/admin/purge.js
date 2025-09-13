@@ -11,9 +11,12 @@ module.exports = {
     )
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
   async execute(interaction) {
-    const amount = interaction.options.getInteger('amount');
+    // Defer immediately to prevent interaction timeout
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply();
+    }
 
-    // Interaction is already deferred by event handler
+    const amount = interaction.options.getInteger('amount');
 
     // Check if channel is text-based
     if (!interaction.channel || !interaction.channel.isTextBased()) {

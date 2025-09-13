@@ -9,6 +9,11 @@ module.exports = {
     .setName('247')
     .setDescription('Toggle 24/7 mode (stay in VC even with no music)'),
   async execute(interaction) {
+    // Defer immediately to prevent interaction timeout
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply();
+    }
+
     const queue = useQueue(interaction.guild.id);
     if (!queue || !queue.channel) {
       return interaction.editReply({ content: '⚠️ The bot must be in a voice channel first.' });

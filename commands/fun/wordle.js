@@ -49,6 +49,11 @@ module.exports = {
     .setDescription('Play a Wordle-like game!'),
 
   async execute(interaction) {
+    // Defer immediately to prevent interaction timeout
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply();
+    }
+
     const now = Date.now();
     const last = lastPlayed.get(interaction.user.id) || 0;
 
