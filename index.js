@@ -3,8 +3,9 @@ const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { Player } = require('discord-player');
-const { YoutubeiExtractor } = require('discord-player-youtubei');
-const { YouTubeExtractor } = require('@discord-player/extractor');
+// Removed problematic YouTube extractors - using fallback system instead
+// const { YoutubeiExtractor } = require('discord-player-youtubei');
+// const { YouTubeExtractor } = require('@discord-player/extractor');
 const express = require('express');
 
 // --- Client Setup ---
@@ -164,42 +165,21 @@ client.player.events.on('connection', (queue) => {
   }
 });
 
-// Register YouTube extractors with proper error handling
-// Only register extractors if they exist and are valid
-if (YoutubeiExtractor && typeof YoutubeiExtractor === 'function') {
-  try {
-    client.player.extractors.register(YoutubeiExtractor);
-    console.log('✅ Registered YoutubeiExtractor');
-  } catch (error) {
-    console.error('❌ Failed to register YoutubeiExtractor:', error);
-  }
-} else {
-  console.warn('⚠️ YoutubeiExtractor not available or invalid');
-}
-
-if (YouTubeExtractor && typeof YouTubeExtractor === 'function') {
-  try {
-    client.player.extractors.register(YouTubeExtractor);
-    console.log('✅ Registered alternative YouTubeExtractor');
-  } catch (error) {
-    console.error('❌ Failed to register alternative YouTubeExtractor:', error);
-  }
-} else {
-  console.warn('⚠️ YouTubeExtractor not available or invalid');
-}
+// Skip problematic YouTube extractors - rely on fallback system instead
+console.log('⚠️ Skipping YouTube extractors due to parser errors - using fallback system');
 
 // Add custom stream interceptor for better YouTube handling
 client.player.events.on('beforeCreateStream', async (track, source, _queue) => {
-  // Only handle YouTube tracks
-  if (source === 'youtube') {
-    console.log(`[Stream Interceptor] Processing YouTube track: ${track.title}`);
+  // Handle all YouTube tracks with ytdl-core since extractors are disabled
+  if (source === 'youtube' || track.url.includes('youtube.com') || track.url.includes('youtu.be')) {
+    console.log(`[Stream Interceptor] Processing track: ${track.title}`);
     
     try {
-      // Try to use ytdl-core directly as a fallback
+      // Use ytdl-core directly for all YouTube content
       const ytdl = require('ytdl-core');
       
       if (ytdl.validateURL(track.url)) {
-        console.log(`[Stream Interceptor] Using ytdl-core fallback for: ${track.title}`);
+        console.log(`[Stream Interceptor] Using ytdl-core for: ${track.title}`);
         
         const stream = ytdl(track.url, {
           quality: 'highestaudio',
@@ -218,10 +198,10 @@ client.player.events.on('beforeCreateStream', async (track, source, _queue) => {
         });
         
         return stream;
+      } else {
+        console.log(`[Stream Interceptor] Invalid YouTube URL: ${track.url}`);
+        return undefined;
       }
-      
-      // Return undefined to let the default extractor handle it
-      return undefined;
     } catch (error) {
       console.error('[Stream Interceptor Error]:', error);
       return undefined;

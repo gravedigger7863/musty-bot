@@ -62,7 +62,7 @@ module.exports = {
       // Play the track with comprehensive fallback system
       let result;
       let searchAttempts = 0;
-      const maxAttempts = 6; // Multiple fallback sources
+      const maxAttempts = 5; // Multiple fallback sources
       
       // Check if it's a direct audio file URL first
       let isDirectAudio = false;
@@ -88,13 +88,14 @@ module.exports = {
       if (!isDirectAudio || !result) {
         // Define fallback search strategies
         const searchStrategies = [
-        // Strategy 1: Direct query (YouTube default)
+        // Strategy 1: ytdl-core for direct YouTube URLs
         {
-          name: 'YouTube Direct',
+          name: 'ytdl-core Direct',
           query: query,
           options: {
             searchOptions: { limit: 1, type: 'video', source: 'youtube' }
-          }
+          },
+          isDirect: true
         },
         // Strategy 2: YouTube search with ytsearch prefix
         {
@@ -127,15 +128,6 @@ module.exports = {
           options: {
             searchOptions: { limit: 1, type: 'video', source: 'youtube' }
           }
-        },
-        // Strategy 6: Direct ytdl-core (if it's a YouTube URL)
-        {
-          name: 'ytdl-core Direct',
-          query: query,
-          options: {
-            searchOptions: { limit: 1, type: 'video', source: 'youtube' }
-          },
-          isDirect: true
         }
       ];
       
