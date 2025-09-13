@@ -118,11 +118,15 @@ module.exports = {
           leaveOnEnd: false,
           leaveOnEmpty: false,
           leaveOnEmptyCooldown: 300000,
+          leaveOnStop: false,
           selfDeaf: false,
           selfMute: false,
           // Prevent queue from being auto-destroyed
           skipOnEmpty: false,
-          skipOnEmptyCooldown: 300000
+          skipOnEmptyCooldown: 300000,
+          // Additional stability options
+          autoSelfDeaf: false,
+          autoSelfMute: false
         });
       }
 
@@ -158,17 +162,34 @@ module.exports = {
       if (!queue.node.isPlaying()) {
         console.log(`[Play Command] Starting playback`);
         try {
+          // Add more robust error handling around player.play()
           await queue.node.play();
           console.log(`[Play Command] Playback started - waiting for trackStart event`);
           
           // Wait a moment for track to start, then verify
           setTimeout(() => {
             console.log(`[Play Command] Queue state check - Size: ${queue.tracks.size}, Playing: ${queue.node.isPlaying()}`);
+            if (queue.tracks.size === 0) {
+              console.error(`[Play Command] CRITICAL: Queue was emptied after playback attempt!`);
+            }
           }, 2000);
           
         } catch (playError) {
           console.error(`[Play Command] Failed to start playback:`, playError);
-          return await interaction.editReply('❌ Failed to start playback. This might be due to FFmpeg issues or audio stream problems.');
+          console.error(`[Play Command] Play error details:`, {
+            message: playError.message,
+            code: playError.code,
+            stack: playError.stack
+          });
+          
+          // Check if it's an audio source issue
+          if (playError.message && playError.message.includes('extract')) {
+            return await interaction.editReply('❌ Could not extract audio from this source. The track might be unavailable or blocked.');
+          } else if (playError.message && playError.message.includes('FFmpeg')) {
+            return await interaction.editReply('❌ Audio processing error. This might be due to FFmpeg issues.');
+          } else {
+            return await interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Unknown error'}`);
+          }
         }
       } else {
         console.log(`[Play Command] Already playing, track added to queue`);

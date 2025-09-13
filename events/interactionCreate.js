@@ -7,6 +7,7 @@ const commandExecutions = new Set();
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
+    console.log('interactionCreate listener loaded and executing');
     // Check if this interaction was already processed
     if (processedInteractions.has(interaction.id)) {
       console.log('Interaction already processed, skipping:', interaction.id);

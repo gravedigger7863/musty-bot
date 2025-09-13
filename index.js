@@ -112,6 +112,14 @@ client.player.events.on('debug', (queue, message) => {
 
 client.player.events.on('emptyQueue', (queue) => {
   console.log(`[Player] Queue empty in ${queue.guild.name}`);
+  console.log(`[Player] Empty queue details:`, {
+    guildId: queue.guild.id,
+    guildName: queue.guild.name,
+    connectionExists: !!queue.connection,
+    nodeExists: !!queue.node,
+    tracksSize: queue.tracks.size,
+    isPlaying: queue.node?.isPlaying?.() || false
+  });
 });
 
 client.player.events.on('emptyChannel', (queue) => {
