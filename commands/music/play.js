@@ -66,64 +66,21 @@ module.exports = {
       let searchResult;
       
       try {
-        // Try only the most reliable music sources
-        const searchEngines = [
-          QueryType.APPLE_MUSIC_SEARCH,  // Most reliable
-          QueryType.SPOTIFY_SEARCH       // Very reliable
-        ];
+        // Use simple search without specific extractors
+        console.log(`[Play Command] Searching for: ${query}`);
+        searchResult = await interaction.client.player.search(query, {
+          requestedBy: interaction.user,
+        });
         
-        for (const searchEngine of searchEngines) {
-          try {
-            console.log(`[Play Command] Trying search engine: ${searchEngine}`);
-            
-            // Try different search variations for better accuracy
-            const searchVariations = [
-              query, // Original query
-              `"${query}"`, // Quoted search
-              query + " official", // Add official
-              query + " 2025" // Add year for recent tracks
-            ];
-            
-            for (const searchTerm of searchVariations) {
-              try {
-                searchResult = await interaction.client.player.search(searchTerm, {
-                  requestedBy: interaction.user,
-                  searchEngine: searchEngine,
-                });
-                
-                if (searchResult && searchResult.hasTracks()) {
-                  console.log(`[Play Command] Found results with ${searchEngine} using "${searchTerm}"`);
-                  break; // Success, exit the loop
-                }
-              } catch (variationError) {
-                console.log(`[Play Command] Search variation "${searchTerm}" failed:`, variationError.message);
-                continue;
-              }
-            }
-            
-            if (searchResult && searchResult.hasTracks()) {
-              break; // Success, exit the engine loop
-            }
-          } catch (engineError) {
-            console.log(`[Play Command] ${searchEngine} failed:`, engineError.message);
-            continue; // Try next engine
-          }
-        }
-        
-        // If all reliable sources fail, return error
         if (!searchResult || !searchResult.hasTracks()) {
-          return await interaction.editReply('❌ No tracks found on Apple Music or Spotify. Please try a different search term.');
+          return await interaction.editReply('❌ No tracks found. Please try a different search term.');
         }
         
         const track = searchResult.tracks[0];
         console.log(`[Play Command] Found track: ${track.title} from ${track.source}`);
         
-        // Accept only the most reliable music sources
-        const supportedSources = ['apple_music', 'spotify'];
-        if (!supportedSources.includes(track.source)) {
-          console.warn(`[Play Command] Unsupported track source: ${track.source}`);
-          return await interaction.editReply('❌ Unsupported music source. Please try a different search.');
-        }
+        // Accept any music source that Discord Player finds
+        console.log(`[Play Command] Track source: ${track.source}`);
         
       } catch (searchError) {
         console.error(`[Play Command] Search failed:`, searchError);

@@ -37,24 +37,10 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Initialize player first with ffmpeg-static and play-dl configuration
+// Initialize player with simple configuration
 client.player = new Player(client, {
-  ytdlOptions: { 
-    quality: 'highestaudio', 
-    filter: 'audioonly',
-    highWaterMark: 1 << 25,
-    // Enhanced options for better stability
-    requestOptions: {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    }
-  },
   // Use enhanced FFmpeg for better audio processing
   ffmpegPath: ffmpegPath,
-  // Force use of play-dl for better stream extraction
-  useLegacyFFmpeg: false,
-  skipFFmpeg: false,
   // Ensure bot doesn't get deafened
   selfDeaf: false,
   selfMute: false,
