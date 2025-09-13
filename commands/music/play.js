@@ -57,7 +57,7 @@ module.exports = {
       
       // Send initial processing message
       await interaction.editReply({ 
-        content: "🔍 Searching for your music..." 
+        content: "🔍 Searching YouTube for your music..." 
       });
 
       // RACE-PROOF TRACK RESOLUTION: Fully resolve track before adding to queue
@@ -65,19 +65,55 @@ module.exports = {
       let track;
       
       try {
-        // YouTube-only search for maximum reliability
+        // YouTube-only search with extended timeout and retry logic
         console.log(`[Play Command] Searching YouTube for: ${query}`);
-        const youtubeResult = await interaction.client.player.search(query, {
-          requestedBy: interaction.user,
-          searchEngine: 'youtube'
-        });
         
-        if (youtubeResult && youtubeResult.hasTracks()) {
-          track = youtubeResult.tracks[0];
-          console.log(`[Play Command] Found YouTube track: ${track.title}`);
-        } else {
-          console.log(`[Play Command] No YouTube results found for: ${query}`);
-          return await interaction.editReply('❌ No tracks found on YouTube. Please try a different search term.');
+        let youtubeResult;
+        let searchAttempts = 0;
+        const maxAttempts = 3;
+        
+        while (searchAttempts < maxAttempts) {
+          try {
+            searchAttempts++;
+            console.log(`[Play Command] YouTube search attempt ${searchAttempts}/${maxAttempts}`);
+            
+            // Use Promise.race with longer timeout for YouTube search
+            youtubeResult = await Promise.race([
+              interaction.client.player.search(query, {
+                requestedBy: interaction.user,
+                searchEngine: 'youtube'
+              }),
+              new Promise((_, reject) => 
+                setTimeout(() => reject(new Error('YouTube search timeout')), 15000) // 15 seconds
+              )
+            ]);
+            
+            if (youtubeResult && youtubeResult.hasTracks()) {
+              track = youtubeResult.tracks[0];
+              console.log(`[Play Command] Found YouTube track: ${track.title}`);
+              break; // Success, exit retry loop
+            } else {
+              console.log(`[Play Command] No results in attempt ${searchAttempts}`);
+              if (searchAttempts === maxAttempts) {
+                return await interaction.editReply('❌ No tracks found on YouTube. Please try a different search term.');
+              }
+              
+              // Update user on retry
+              await interaction.editReply({ 
+                content: `🔍 Searching YouTube... (attempt ${searchAttempts + 1}/${maxAttempts})` 
+              });
+              
+              // Wait before retry
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          } catch (searchError) {
+            console.log(`[Play Command] Search attempt ${searchAttempts} failed:`, searchError.message);
+            if (searchAttempts === maxAttempts) {
+              throw searchError; // Re-throw on final attempt
+            }
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }
         }
         
         // Verify track is fully resolved
@@ -120,8 +156,18 @@ module.exports = {
         }
         
       } catch (searchError) {
-        console.error(`[Play Command] Search failed:`, searchError);
-        return await interaction.editReply('❌ Search failed. Please try again.');
+        console.error(`[Play Command] YouTube search failed after ${maxAttempts} attempts:`, searchError);
+        
+        // Provide specific error messages based on the error type
+        if (searchError.message && searchError.message.includes('timeout')) {
+          return await interaction.editReply('❌ YouTube search timed out. Please try again with a shorter search term.');
+        } else if (searchError.message && searchError.message.includes('rate limit')) {
+          return await interaction.editReply('❌ YouTube search rate limited. Please wait a moment and try again.');
+        } else if (searchError.message && searchError.message.includes('network')) {
+          return await interaction.editReply('❌ Network error during search. Please check your connection and try again.');
+        } else {
+          return await interaction.editReply('❌ YouTube search failed. Please try a different search term.');
+        }
       }
 
       // Create or get existing queue
