@@ -4,8 +4,13 @@ const processedInteractions = new Set();
 // Track command executions to prevent duplicates
 const commandExecutions = new Set();
 
-// Safety check to prevent duplicate listener registration
-let listenerRegistered = false;
+// Global check to prevent duplicate listener execution
+if (!global.interactionCreateListenerActive) {
+  global.interactionCreateListenerActive = true;
+  console.log('✅ interactionCreate listener registered');
+} else {
+  console.log('❌ DUPLICATE interactionCreate listener detected!');
+}
 
 module.exports = {
   name: 'interactionCreate',

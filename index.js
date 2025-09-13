@@ -167,12 +167,24 @@ for (const folder of fs.readdirSync(commandsPath)) {
 
 // --- Event Loader ---
 const eventsPath = path.join(__dirname, 'events');
+const loadedEvents = new Set();
+
 for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
   const event = require(path.join(eventsPath, file));
+  
+  // Prevent duplicate event registration
+  if (loadedEvents.has(event.name)) {
+    console.log(`⚠️ Duplicate event detected: ${event.name} - skipping`);
+    continue;
+  }
+  loadedEvents.add(event.name);
+  
   if (event.once) {
     client.once(event.name, (...args) => event.execute(...args, client));
+    console.log(`✅ Event loaded (once): ${event.name}`);
   } else {
     client.on(event.name, (...args) => event.execute(...args, client));
+    console.log(`✅ Event loaded: ${event.name}`);
   }
 }
 
