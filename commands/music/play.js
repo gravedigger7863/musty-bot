@@ -7,10 +7,10 @@ const playExecutions = new Set();
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("play")
-    .setDescription("Play music from Apple Music, Spotify, YouTube, and more with automatic fallback")
+    .setDescription("Play music from Apple Music, Spotify, and Deezer with automatic fallback")
     .addStringOption(option =>
       option.setName("query")
-        .setDescription("Song name, artist, or music service URL (Apple Music, Spotify, YouTube)")
+        .setDescription("Song name, artist, or music service URL (Apple Music, Spotify, Deezer)")
         .setRequired(true)
     ),
   async execute(interaction) {
@@ -66,11 +66,11 @@ module.exports = {
       let searchResult;
       
       try {
-        // Try multiple search engines in order of reliability
+        // Try reliable music sources only (NO YOUTUBE - it's broken)
         const searchEngines = [
           QueryType.APPLE_MUSIC_SEARCH,  // Most reliable
           QueryType.SPOTIFY_SEARCH,      // Very reliable
-          QueryType.YOUTUBE_SEARCH       // Fallback with play-dl
+          QueryType.DEEZER_SEARCH        // Reliable alternative
         ];
         
         for (const searchEngine of searchEngines) {
@@ -91,48 +91,16 @@ module.exports = {
           }
         }
         
-        // If Discord Player search fails, try play-dl fallback
+        // If all reliable sources fail, return error
         if (!searchResult || !searchResult.hasTracks()) {
-          console.log(`[Play Command] Discord Player search failed, trying play-dl fallback...`);
-          
-          try {
-            const playdl = require('play-dl');
-            const playdlResults = await playdl.search(query, { limit: 1 });
-            
-            if (playdlResults && playdlResults.length > 0) {
-              const playdlTrack = playdlResults[0];
-              console.log(`[Play Command] play-dl found track: ${playdlTrack.title}`);
-              
-              // Convert play-dl result to Discord Player format
-              searchResult = {
-                tracks: [{
-                  title: playdlTrack.title,
-                  url: playdlTrack.url,
-                  duration: playdlTrack.durationInSec * 1000, // Convert to milliseconds
-                  thumbnail: playdlTrack.thumbnails?.[0]?.url,
-                  author: playdlTrack.channel?.name || 'Unknown Artist',
-                  source: 'youtube',
-                  id: playdlTrack.id,
-                  raw: playdlTrack
-                }],
-                hasTracks: () => true
-              };
-              
-              console.log(`[Play Command] play-dl fallback successful`);
-            } else {
-              return await interaction.editReply('❌ No tracks found. Please try a different search term.');
-            }
-          } catch (playdlError) {
-            console.error(`[Play Command] play-dl fallback also failed:`, playdlError);
-            return await interaction.editReply('❌ No tracks found. Please try a different search term.');
-          }
+          return await interaction.editReply('❌ No tracks found on Apple Music, Spotify, or Deezer. Please try a different search term.');
         }
         
         const track = searchResult.tracks[0];
         console.log(`[Play Command] Found track: ${track.title} from ${track.source}`);
         
-        // Accept multiple music sources
-        const supportedSources = ['youtube', 'apple_music', 'spotify'];
+        // Accept reliable music sources only (NO YOUTUBE)
+        const supportedSources = ['apple_music', 'spotify', 'deezer'];
         if (!supportedSources.includes(track.source)) {
           console.warn(`[Play Command] Unsupported track source: ${track.source}`);
           return await interaction.editReply('❌ Unsupported music source. Please try a different search.');
@@ -227,48 +195,7 @@ module.exports = {
           await interaction.editReply(`🎶 Now playing **${track.title}**`);
         } catch (playError) {
           console.error(`[Play Command] Playback failed:`, playError);
-          
-          // If playback fails due to stream extraction, try play-dl fallback
-          if (playError.message && (playError.message.includes('extract') || playError.message.includes('stream'))) {
-            console.log(`[Play Command] Stream extraction failed, trying play-dl fallback...`);
-            
-            try {
-              const playdl = require('play-dl');
-              const stream = await playdl.stream(track.url);
-              
-              if (stream && stream.stream) {
-                console.log(`[Play Command] play-dl stream obtained successfully`);
-                
-                // Create a new track with play-dl stream data
-                const playdlTrack = {
-                  title: track.title,
-                  url: track.url,
-                  duration: track.duration,
-                  thumbnail: track.thumbnail,
-                  author: track.author,
-                  source: 'youtube',
-                  requestedBy: interaction.user,
-                  // Add play-dl stream data for custom handling
-                  playdlStream: stream
-                };
-                
-                // Replace the track in queue with play-dl version
-                queue.tracks.clear();
-                queue.addTrack(playdlTrack);
-                
-                // Try playback again
-                await queue.node.play();
-                await interaction.editReply(`🎶 Now playing **${track.title}** (via play-dl)`);
-              } else {
-                throw new Error('Could not obtain stream from play-dl');
-              }
-            } catch (streamError) {
-              console.error(`[Play Command] play-dl stream fallback failed:`, streamError);
-              await interaction.editReply(`❌ Failed to start playback: ${streamError.message || 'Stream extraction failed'}`);
-            }
-          } else {
-            await interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Unknown error'}`);
-          }
+          await interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Unknown error'}`);
         }
       } else {
         await interaction.editReply(`🎶 **${track.title}** added to queue`);

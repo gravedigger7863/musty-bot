@@ -4,20 +4,9 @@ module.exports = {
   async execute(client) {
     console.log(`✅ Logged in as ${client.user.tag}`);
 
-    // Register extractors for Discord Player v7+
+    // Register reliable music extractors (NO YOUTUBE - it's broken)
     try {
-      // Register YouTube extractor (community package)
-      const { YoutubeiExtractor } = require('discord-player-youtubei');
-      await client.player.extractors.register(YoutubeiExtractor, {});
-      console.log('✅ YouTube extractor (youtubei) registered successfully');
-      console.log('ℹ️ Note: If YouTube search fails, play-dl fallback will be used');
-    } catch (error) {
-      console.error('❌ Failed to register YouTube extractor:', error);
-      console.log('ℹ️ play-dl fallback will be used for YouTube searches');
-    }
-
-    try {
-      // Register Apple Music extractor
+      // Register Apple Music extractor (most reliable)
       const { AppleMusicExtractor } = require('@discord-player/extractor');
       await client.player.extractors.register(AppleMusicExtractor, {});
       console.log('✅ Apple Music extractor registered successfully');
@@ -26,12 +15,21 @@ module.exports = {
     }
 
     try {
-      // Register Spotify extractor
+      // Register Spotify extractor (very reliable)
       const { SpotifyExtractor } = require('@discord-player/extractor');
       await client.player.extractors.register(SpotifyExtractor, {});
       console.log('✅ Spotify extractor registered successfully');
     } catch (error) {
       console.error('❌ Failed to register Spotify extractor:', error);
+    }
+
+    try {
+      // Register Deezer extractor (reliable alternative to YouTube)
+      const { DeezerExtractor } = require('discord-player-deezer');
+      await client.player.extractors.register(DeezerExtractor, {});
+      console.log('✅ Deezer extractor registered successfully');
+    } catch (error) {
+      console.error('❌ Failed to register Deezer extractor:', error);
     }
 
     console.log("✅ Discord Player extractors are ready");
