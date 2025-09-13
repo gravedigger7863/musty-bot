@@ -9,10 +9,15 @@ const path = require('path');
 const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 const ffmpeg = require('ffmpeg-static');
+const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const { Mediaplex } = require('mediaplex');
 
-// Verify FFmpeg path
-console.log('FFmpeg path:', ffmpeg);
+// Verify FFmpeg paths
+console.log('FFmpeg path (ffmpeg-static):', ffmpeg);
+console.log('FFmpeg path (ffmpeg-installer):', ffmpegInstaller.path);
+
+// Use the more reliable FFmpeg path
+const ffmpegPath = ffmpegInstaller.path || ffmpeg;
 
 // Additional libraries
 const express = require('express');
@@ -34,10 +39,16 @@ client.player = new Player(client, {
   ytdlOptions: { 
     quality: 'highestaudio', 
     filter: 'audioonly',
-    highWaterMark: 1 << 25
+    highWaterMark: 1 << 25,
+    // Enhanced options for better stability
+    requestOptions: {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    }
   },
-  // Use ffmpeg-static for better audio processing
-  ffmpegPath: ffmpeg,
+  // Use enhanced FFmpeg for better audio processing
+  ffmpegPath: ffmpegPath,
   // Force use of play-dl for better stream extraction
   useLegacyFFmpeg: false,
   skipFFmpeg: false,
