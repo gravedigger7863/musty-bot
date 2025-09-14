@@ -77,7 +77,11 @@ client.player = new Player(client, {
   useLegacyFFmpeg: false,
   // Ensure bot is never deafened or muted
   selfDeaf: false,
-  selfMute: false
+  selfMute: false,
+  // Debug options for VPS troubleshooting
+  leaveOnEmpty: false,
+  leaveOnEnd: false,
+  leaveOnStop: false
 });
 
 // Configure Discord Player for proper voice connections (v7.1 API)
@@ -110,6 +114,7 @@ client.player.events.on('connection', (queue) => {
 // Enhanced event handlers for 2025
 client.player.events.on('error', (queue, error) => {
   console.error(`[Player Error] ${queue.guild.name}:`, error.message);
+  console.error(`[Player Error] Full error:`, error);
   
   // Handle Opus encoder errors gracefully
   if (error.message && (error.message.includes('Cannot convert "undefined" to int') || error.message.includes('OpusScript'))) {
@@ -118,6 +123,11 @@ client.player.events.on('error', (queue, error) => {
       queue.node.skip();
     }
     return;
+  }
+  
+  // Handle FFmpeg errors
+  if (error.message && error.message.includes('ffmpeg')) {
+    console.error(`[Player Error] FFmpeg error detected - check FFmpeg installation on VPS`);
   }
   
   if (queue.metadata?.channel) {

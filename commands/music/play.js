@@ -67,15 +67,28 @@ module.exports = {
           await queue.connect(voiceChannel);
           console.log(`[Play Command] ✅ Connection initiated successfully`);
           
-          // Give Discord time to send voice state update (race condition fix)
-          console.log(`[Play Command] Waiting for voice state update...`);
-          await new Promise(resolve => setTimeout(resolve, 700));
+          // Wait for voice connection to be fully ready with proper validation
+          console.log(`[Play Command] Waiting for voice connection to be ready...`);
+          let connectionReady = false;
+          let attempts = 0;
+          const maxAttempts = 10; // 5 seconds total
           
-          const voiceState = queue.connection?.voice;
-          if (voiceState) {
-            console.log(`[Play Command] ✅ Voice connection state: ${voiceState.state}`);
-          } else {
-            console.log(`[Play Command] ⚠️ Voice state still not available after delay - Discord may be slow`);
+          while (!connectionReady && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            attempts++;
+            
+            const voiceState = queue.connection?.voice;
+            if (voiceState && voiceState.state === 'ready') {
+              connectionReady = true;
+              console.log(`[Play Command] ✅ Voice connection ready after ${attempts * 500}ms`);
+            } else {
+              console.log(`[Play Command] Voice state check ${attempts}/${maxAttempts}: ${voiceState?.state || 'undefined'}`);
+            }
+          }
+          
+          if (!connectionReady) {
+            console.log(`[Play Command] ❌ Voice connection not ready after 5s - this will cause audio issues`);
+            return interaction.editReply(`❌ Voice connection failed. Please try again.`);
           }
           
         } catch (connectError) {

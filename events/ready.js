@@ -13,6 +13,14 @@ module.exports = {
       MESSAGE_CONTENT: client.options.intents.has('MessageContent')
     });
     
+    // Log VPS environment info
+    console.log(`[Debug] VPS Environment:`, {
+      NodeVersion: process.version,
+      Platform: process.platform,
+      Architecture: process.arch,
+      MemoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB'
+    });
+    
     console.log(`✅ Extractors registered successfully`);
     console.log('✅ Discord Player ready for music functionality');
     console.log('✅ Bot is online and ready to play music! 🎵');
