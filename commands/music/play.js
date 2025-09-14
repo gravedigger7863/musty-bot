@@ -96,7 +96,40 @@ module.exports = {
       console.log(`[Play Command] Searching for: ${query}`);
       
       try {
-        // Try to play the track
+        // First, search for the track to check metadata before playing
+        console.log(`[Play Command] Pre-validating track metadata...`);
+        const searchResult = await player.search(query, {
+          requestedBy: interaction.user,
+          searchEngine: 'auto'
+        });
+        
+        if (searchResult.hasTracks()) {
+          const track = searchResult.tracks[0];
+          console.log(`[Play Command] Found track: ${track.title} by ${track.author}`);
+          console.log(`[Play Command] Track source: ${track.source}`);
+          
+          // Check if it's a SoundCloud track and validate metadata
+          if (track.source === 'soundcloud' && track.__metadata) {
+            console.log(`[Play Command] SoundCloud track validation:`);
+            console.log(`[Play Command] - Streamable: ${track.__metadata.streamable || 'Unknown'}`);
+            console.log(`[Play Command] - Monetization: ${track.__metadata.monetization_model || 'Unknown'}`);
+            console.log(`[Play Command] - License: ${track.__metadata.license || 'Unknown'}`);
+            
+            // Block non-streamable tracks
+            if (track.__metadata.streamable === false) {
+              console.log(`[Play Command] ❌ Track is not streamable`);
+              return replyToUser(interaction, "❌ This SoundCloud track is not available for streaming. Try a different track.");
+            }
+            
+            // Block ad-supported tracks
+            if (track.__metadata.monetization_model === 'AD_SUPPORTED') {
+              console.log(`[Play Command] ❌ Track is ad-supported - blocking to prevent streaming issues`);
+              return replyToUser(interaction, "❌ This SoundCloud track is ad-supported and cannot be streamed. Please try a different track or search for a non-ad-supported version.");
+            }
+          }
+        }
+        
+        // If validation passes, proceed with playback
         let result = await player.play(voiceChannel, query, {
           requestedBy: interaction.user,
           nodeOptions: {
@@ -134,35 +167,8 @@ module.exports = {
           console.log(`[Play Command] Track format: ${track.raw?.format || 'Unknown'}`);
           console.log(`[Play Command] Track quality: ${track.raw?.quality || 'Unknown'}`);
           
-          // SoundCloud specific validation
-          if (track.source === 'soundcloud') {
-            console.log(`[Play Command] SoundCloud track validation:`);
-            console.log(`[Play Command] - Streamable: ${track.__metadata?.streamable || 'Unknown'}`);
-            console.log(`[Play Command] - Has auth token: ${!!track.__metadata?.track_authorization}`);
-            console.log(`[Play Command] - Duration: ${track.durationMS}ms`);
-            console.log(`[Play Command] - License: ${track.__metadata?.license || 'Unknown'}`);
-            console.log(`[Play Command] - Monetization: ${track.__metadata?.monetization_model || 'Unknown'}`);
-            
-            // Check if track is actually streamable
-            if (track.__metadata && track.__metadata.streamable === false) {
-              console.log(`[Play Command] ❌ Track is not streamable`);
-              return replyToUser(interaction, "❌ This SoundCloud track is not available for streaming. Try a different track.");
-            }
-            
-            // Check for monetization issues
-            if (track.__metadata && track.__metadata.monetization_model === 'AD_SUPPORTED') {
-              console.log(`[Play Command] ⚠️ Track is ad-supported - blocking to prevent streaming issues`);
-              console.log(`[Play Command] Ad-supported tracks consistently fail to stream properly`);
-              
-              // Block ad-supported tracks completely
-              return replyToUser(interaction, "❌ This SoundCloud track is ad-supported and cannot be streamed. Please try a different track or search for a non-ad-supported version.");
-            }
-            
-            // Check for all-rights-reserved license
-            if (track.__metadata && track.__metadata.license === 'all-rights-reserved') {
-              console.log(`[Play Command] ⚠️ Track has all-rights-reserved license - may have streaming restrictions`);
-            }
-          }
+          // Track validation already happened in pre-validation step
+          console.log(`[Play Command] ✅ Track passed validation and is ready to play`);
           
           // Validate track has proper duration
           if (!track.durationMS || track.durationMS <= 0) {
