@@ -213,9 +213,31 @@ module.exports = {
             await queue.node.play();
             console.log(`[Play Command] ✅ Playlist playback command sent successfully`);
             
-            // Wait for audio player to actually start playing
+            // Wait for audio player to actually start playing using events
             console.log(`[Play Command] Waiting for audio player to start...`);
-            await entersState(queue.node.player, AudioPlayerStatus.Playing, 10_000);
+            
+            // Guard against undefined player
+            const playerState = queue.node?.player?.state?.status;
+            if (!playerState) {
+              console.log(`[Play Command] ⚠️ Player state not available yet, waiting...`);
+              
+              // Wait for playerStart event instead of forcing entersState
+              await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                  reject(new Error("Audio player did not start in time"));
+                }, 10000);
+
+                const callback = () => {
+                  if (queue.node?.player?.state?.status === AudioPlayerStatus.Playing) {
+                    clearTimeout(timeout);
+                    player.events.off("playerStart", callback);
+                    resolve();
+                  }
+                };
+                player.events.on("playerStart", callback);
+              });
+            }
+            
             console.log(`[Play Command] ✅ Audio player is now playing playlist`);
             
           } catch (playError) {
@@ -247,9 +269,31 @@ module.exports = {
             await queue.node.play();
             console.log(`[Play Command] ✅ Playback command sent successfully`);
             
-            // Wait for audio player to actually start playing
+            // Wait for audio player to actually start playing using events
             console.log(`[Play Command] Waiting for audio player to start...`);
-            await entersState(queue.node.player, AudioPlayerStatus.Playing, 10_000);
+            
+            // Guard against undefined player
+            const playerState = queue.node?.player?.state?.status;
+            if (!playerState) {
+              console.log(`[Play Command] ⚠️ Player state not available yet, waiting...`);
+              
+              // Wait for playerStart event instead of forcing entersState
+              await new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                  reject(new Error("Audio player did not start in time"));
+                }, 10000);
+
+                const callback = () => {
+                  if (queue.node?.player?.state?.status === AudioPlayerStatus.Playing) {
+                    clearTimeout(timeout);
+                    player.events.off("playerStart", callback);
+                    resolve();
+                  }
+                };
+                player.events.on("playerStart", callback);
+              });
+            }
+            
             console.log(`[Play Command] ✅ Audio player is now playing`);
             
           } catch (playError) {
