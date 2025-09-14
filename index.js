@@ -219,10 +219,15 @@ client.player.events.on('connection', (queue) => {
     
     // Load Deezer extractor
     try {
+      console.log(`[Deezer] Attempting to register Deezer extractor...`);
+      console.log(`[Deezer] Extractor type: ${DeezerExtractor.constructor.name}`);
+      console.log(`[Deezer] Has identifier: ${DeezerExtractor.identifier ? 'Yes' : 'No'}`);
+      
       client.player.extractors.register(DeezerExtractor);
       console.log('✅ Deezer extractor loaded successfully');
     } catch (error) {
       console.log('⚠️ Deezer extractor failed to load:', error.message);
+      console.log('⚠️ Deezer extractor error details:', error);
     }
     
     // Load yt-dlp extractor (more reliable YouTube) with platform-specific binary
@@ -256,21 +261,25 @@ client.player.events.on('connection', (queue) => {
         
         // Create yt-dlp extractor with proper configuration
         try {
+          console.log(`[yt-dlp] Creating extractor with path: ${ytdlpPath}`);
           const ytdlpExtractor = new YtDlpExtractor({
             ytdlpPath: ytdlpPath,
             timeout: 30000
           });
           
+          console.log(`[yt-dlp] Extractor created, type: ${ytdlpExtractor.constructor.name}`);
+          console.log(`[yt-dlp] Has identifier: ${ytdlpExtractor.identifier ? 'Yes' : 'No'}`);
+          console.log(`[yt-dlp] Identifier value: ${ytdlpExtractor.identifier || 'undefined'}`);
+          
           client.player.extractors.register(ytdlpExtractor);
+          console.log('✅ yt-dlp extractor loaded successfully');
         } catch (constructorError) {
           console.log(`[yt-dlp] Constructor error: ${constructorError.message}`);
-          console.log(`[yt-dlp] Trying alternative instantiation...`);
-          
-          // Try without options
-          const ytdlpExtractor = new YtDlpExtractor();
-          client.player.extractors.register(ytdlpExtractor);
+          console.log(`[yt-dlp] Error details:`, constructorError);
+          console.log(`[yt-dlp] Skipping yt-dlp extractor due to configuration error`);
+          console.log(`[yt-dlp] Will rely on default YouTube extractor instead`);
+          // Don't try to register a malformed extractor - this causes the identifier error
         }
-        console.log('✅ yt-dlp extractor loaded successfully');
       } else {
         console.log(`[yt-dlp] Binary not found at ${ytdlpPath}, skipping yt-dlp extractor`);
         console.log(`[yt-dlp] Will rely on default YouTube extractor instead`);
