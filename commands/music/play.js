@@ -46,95 +46,57 @@ module.exports = {
   async execute(interaction) {
     const guildId = interaction.guild.id;
     const interactionId = interaction.id;
-    
-    // Check if there's already a play command running for this guild
-    if (playCommandLocks.has(guildId)) {
-      console.log(`[Play Command] Another play command already running for guild ${guildId}, skipping`);
-      // Don't use replyToUser here since interaction might not be deferred yet
-      try {
-        if (interaction.deferred || interaction.replied) {
-          return replyToUser(interaction, "⏳ Another play command is already running, please wait...");
-        } else {
-          return interaction.reply({ content: "⏳ Another play command is already running, please wait...", ephemeral: true });
-        }
-      } catch (error) {
-        console.error(`[Play Command] Failed to reply to locked interaction: ${error.message}`);
-        return;
-      }
-    }
-    
-    // Lock this guild's play command
-    playCommandLocks.set(guildId, interactionId);
-    console.log(`[Play Command] Locked guild ${guildId} for interaction ${interactionId}`);
-    
-    let queue = null;
-    
-    try {
-      // Defer the interaction first
-      if (!interaction.deferred && !interaction.replied) {
-        await interaction.deferReply();
-      }
 
+    // Defer immediately to avoid Discord retries
+    if (!interaction.deferred && !interaction.replied) {
+      await interaction.deferReply().catch(() => {});
+    }
+
+    // Prevent duplicate execution for the same interaction
+    if (playCommandLocks.has(interactionId)) {
+      return replyToUser(interaction, "⏳ Command is already being processed...", true);
+    }
+    playCommandLocks.set(interactionId, true);
+
+    // Check if another play command is running for this guild
+    if (playCommandLocks.has(guildId) && playCommandLocks.get(guildId) !== interactionId) {
+      return replyToUser(interaction, "⏳ Another play command is already running, please wait...", true);
+    }
+    playCommandLocks.set(guildId, interactionId);
+
+    try {
       const query = interaction.options.getString("query");
       const voiceChannel = interaction.member?.voice?.channel;
-
       if (!voiceChannel) return replyToUser(interaction, "⚠️ You need to join a voice channel first!");
-      if (!interaction.client.player) return replyToUser(interaction, "⏳ Music system not ready yet, try again later.");
 
-      // Check bot permissions in the voice channel
+      const player = useMainPlayer();
+      if (!player) return replyToUser(interaction, "⏳ Music system not ready yet, try again later.");
+
       const botMember = interaction.guild.members.me;
       const permissions = voiceChannel.permissionsFor(botMember);
-      console.log(`[Play Command] Bot permissions in voice channel:`, {
-        Connect: permissions.has('Connect'),
-        Speak: permissions.has('Speak'),
-        ViewChannel: permissions.has('ViewChannel'),
-        allPermissions: permissions.toArray()
-      });
-      
       if (!permissions.has(['Connect', 'Speak'])) {
         return replyToUser(interaction, "❌ I don't have permission to connect or speak in this voice channel!");
       }
 
-      // Show searching message
       await replyToUser(interaction, "⏳ Searching for your music...");
 
-      console.log(`[Play Command] Searching for: ${query}`);
-      
-      // Use the modern Discord Player v7 approach with proper player.play() method
-      const player = useMainPlayer();
-      
-      // Check for recent duplicate track additions (within last 5 seconds)
-      const trackKey = `${interaction.guild.id}-${query}`;
+      // Duplicate track spam prevention
+      const trackKey = `${guildId}-${query}`;
       const now = Date.now();
       const lastAdded = recentTracks.get(trackKey);
-      
-      if (lastAdded && (now - lastAdded) < 5000) {
-        console.log(`[Play Command] Track added too recently, preventing spam`);
-        return replyToUser(interaction, `⏳ Please wait a moment before adding the same track again!`);
+      if (lastAdded && now - lastAdded < 5000) {
+        return replyToUser(interaction, "⏳ Please wait a moment before adding the same track again!");
       }
-      
-      // Record this track addition
       recentTracks.set(trackKey, now);
-      
-      // Clean up old entries (older than 30 seconds)
       for (const [key, timestamp] of recentTracks.entries()) {
-        if (now - timestamp > 30000) {
-          recentTracks.delete(key);
-        }
+        if (now - timestamp > 30000) recentTracks.delete(key);
       }
 
-      console.log(`[Play Command] Using controlled queue management for: ${query}`);
-      
-      // Search for tracks first
       const searchResult = await player.search(query, { requestedBy: interaction.user });
-      if (!searchResult || !searchResult.tracks.length) {
-        return replyToUser(interaction, "❌ No tracks found.");
-      }
+      if (!searchResult || !searchResult.tracks.length) return replyToUser(interaction, "❌ No tracks found.");
 
-      // Get or create queue with proper state management
-      let queue = player.nodes.get(interaction.guild.id);
+      let queue = player.nodes.get(guildId);
       if (!queue) {
-        console.log(`[Play Command] Creating new queue`);
         queue = player.nodes.create(voiceChannel, {
           metadata: { channel: interaction.channel },
           leaveOnEnd: true,
@@ -145,98 +107,37 @@ module.exports = {
         });
       }
 
-      // Connect to voice channel if not already connected
       if (!queue.connection) {
-        console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
         await queue.connect(voiceChannel);
-        console.log(`[Play Command] ✅ Connected to voice channel`);
-        
-        // Wait for voice connection to be ready (increased to 30s for VPS)
-        try {
-          await entersState(queue.connection, VoiceConnectionStatus.Ready, 30_000);
-          console.log(`[Play Command] ✅ Voice connection ready`);
-        } catch (error) {
-          console.log(`[Play Command] ❌ Voice connection not ready after 30s`);
+        await entersState(queue.connection, VoiceConnectionStatus.Ready, 30_000).catch(() => {
           queue.delete();
-          return replyToUser(interaction, `❌ Could not establish voice connection! Please try again.`);
-        }
+          return replyToUser(interaction, "❌ Could not establish voice connection! Please try again.");
+        });
       }
 
-      // Handle playlists vs single tracks
       if (searchResult.playlist) {
-        console.log(`[Play Command] Adding playlist: ${searchResult.playlist.title} with ${searchResult.tracks.length} tracks`);
-        
-        // Validate playlist tracks have playable URLs
-        const validTracks = searchResult.tracks.filter(track => track.url);
-        if (validTracks.length === 0) {
-          return replyToUser(interaction, `❌ No tracks in playlist have playable URLs.`);
-        }
-        
-        // Limit playlist size to prevent memory issues
-        const maxPlaylistSize = 100;
-        const tracksToAdd = validTracks.slice(0, maxPlaylistSize);
-        
-        if (validTracks.length < searchResult.tracks.length) {
-          console.log(`[Play Command] Filtered out ${searchResult.tracks.length - validTracks.length} tracks without URLs`);
-        }
-        
-        if (tracksToAdd.length < validTracks.length) {
-          console.log(`[Play Command] Limited playlist to ${maxPlaylistSize} tracks (was ${validTracks.length})`);
-        }
-        
-        queue.addTrack(tracksToAdd);
-        
-        // Start playing if not already playing
-        if (!queue.node.isPlaying()) {
-          await queue.node.play();
-        }
-        
-        return replyToUser(interaction, `🎵 Added **${tracksToAdd.length} tracks** from **${searchResult.playlist.title}** to the queue!`);
+        const validTracks = searchResult.tracks.filter(t => t.url).slice(0, 100);
+        queue.addTrack(validTracks);
+        if (!queue.node.isPlaying()) await queue.node.play();
+        return replyToUser(interaction, `🎵 Added **${validTracks.length} tracks** from **${searchResult.playlist.title}** to the queue!`);
       } else {
-        // Handle single track
         const track = searchResult.tracks[0];
-        console.log(`[Play Command] Adding single track: ${track.title} by ${track.author}`);
-        console.log(`[Play Command] Track URL: ${track.url || 'No URL'}`);
-        console.log(`[Play Command] Track duration: ${track.duration || 'Unknown'}`);
-        
-        // Validate track has playable URL
-        if (!track.url) {
-          console.log(`[Play Command] ❌ Track has no playable URL`);
-          return replyToUser(interaction, `❌ Track has no playable URL. Try a different source.`);
-        }
-        
-        // Check for duplicates
-        const existingTrack = queue.tracks.find(t => 
-          t.title === track.title && t.author === track.author
-        );
-        
-        if (existingTrack) {
+        if (!track.url) return replyToUser(interaction, "❌ Track has no playable URL. Try a different source.");
+        if (queue.tracks.find(t => t.title === track.title && t.author === track.author)) {
           return replyToUser(interaction, `🎵 **${track.title}** is already in the queue!`);
         }
-        
-        // Add track to queue FIRST to ensure proper state
+
         queue.addTrack(track);
-        console.log(`[Play Command] Track added, queue size: ${queue.tracks.size}`);
-        
-        // Start playing if not already playing
-        if (!queue.node.isPlaying()) {
-          console.log(`[Play Command] Starting playback...`);
-          await queue.node.play();
-          console.log(`[Play Command] ✅ Started playback`);
-        } else {
-          console.log(`[Play Command] Queue already playing, track added to queue`);
-        }
-        
+        if (!queue.node.isPlaying()) await queue.node.play();
         return replyToUser(interaction, `🎶 Added **${track.title}** to the queue!`);
       }
 
     } catch (err) {
-      console.error(`[Play Command] Error:`, err);
+      console.error("[Play Command] Error:", err);
       return replyToUser(interaction, `❌ Failed to play music: ${err.message || "Unknown error"}`);
     } finally {
-      // Always release the lock
+      playCommandLocks.delete(interactionId);
       playCommandLocks.delete(guildId);
-      console.log(`[Play Command] Released lock for guild ${guildId}`);
     }
   },
 };
