@@ -71,7 +71,7 @@ module.exports = {
         }
         
         // Connect to voice channel using v7.1 API
-        if (!queue.node.isConnected()) {
+        if (!queue.node.connection) {
           console.log(`[Play Command] Connecting to voice channel using v7.1 API`);
           await queue.node.connect(voiceChannel);
           console.log(`[Play Command] Voice connection established`);
@@ -92,9 +92,9 @@ module.exports = {
         
         // Debug connection state before playing (v7.1 API)
         console.log(`[Play Command] Connection debug (v7.1):`);
-        console.log(`[Play Command] - queue.node.isConnected(): ${queue.node.isConnected()}`);
         console.log(`[Play Command] - queue.node.connection: ${!!queue.node.connection}`);
         console.log(`[Play Command] - queue.node.connection.state: ${queue.node.connection?.state?.status || 'undefined'}`);
+        console.log(`[Play Command] - queue.node.isPlaying(): ${queue.node.isPlaying()}`);
         
         // Only play if not already playing
         if (!queue.node.isPlaying()) {
