@@ -121,7 +121,11 @@ module.exports = {
           console.log(`[Play Command] SoundCloud failed, trying YouTube fallback for: ${query}`);
           await replyToUser(interaction, "⏳ SoundCloud track failed, trying YouTube...");
           
-          result = await player.play(voiceChannel, query, {
+          // Force YouTube search by modifying the query
+          const youtubeQuery = `ytsearch:${query}`;
+          console.log(`[Play Command] Searching YouTube with: ${youtubeQuery}`);
+          
+          result = await player.play(voiceChannel, youtubeQuery, {
             requestedBy: interaction.user,
             nodeOptions: {
               metadata: { channel: interaction.channel },
@@ -133,9 +137,7 @@ module.exports = {
               bufferingTimeout: 30000,
               connectionTimeout: 30000,
               volume: 50,
-              autoplay: false,
-              // Force YouTube search
-              searchEngine: 'youtube'
+              autoplay: false
             }
           });
         }
@@ -171,11 +173,11 @@ module.exports = {
             
             // Check for monetization issues
             if (track.__metadata && track.__metadata.monetization_model === 'AD_SUPPORTED') {
-              console.log(`[Play Command] ⚠️ Track is ad-supported - may have streaming restrictions`);
+              console.log(`[Play Command] ⚠️ Track is ad-supported - will likely fail to stream`);
               console.log(`[Play Command] Ad-supported tracks often fail to stream properly`);
               
-              // Warn user about potential issues
-              return replyToUser(interaction, "⚠️ This SoundCloud track is ad-supported and may not stream properly. Try searching for a different version or a different track.");
+              // Don't block, but warn user and let the fallback system handle it
+              console.log(`[Play Command] Allowing playback attempt, fallback will handle failure`);
             }
             
             // Check for all-rights-reserved license

@@ -195,13 +195,13 @@ client.player.events.on('connection', (queue) => {
   }, 1000);
 });
 
-// Register extractors for v7.1 - Enhanced approach with SoundCloud focus
+// Register extractors for v7.1 - Enhanced approach with SoundCloud bridge
 (async () => {
   try {
     // Wait for player to be ready
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    console.log('🔍 Registering extractors...');
+    console.log('🔍 Registering extractors with bridge support...');
     
     // Use the simple loadMulti method as per Discord Player docs
     await client.player.extractors.loadMulti(DefaultExtractors);
@@ -217,8 +217,24 @@ client.player.events.on('connection', (queue) => {
     const soundcloudExtractor = loadedExtractors.get('com.discord-player.soundcloudextractor');
     if (soundcloudExtractor) {
       console.log(`✅ SoundCloud extractor loaded successfully`);
+      
+      // Enable bridge mode for SoundCloud to convert URLs to audio format
+      if (soundcloudExtractor.enableBridge) {
+        await soundcloudExtractor.enableBridge();
+        console.log(`✅ SoundCloud bridge enabled - URLs will be converted to audio format`);
+      } else {
+        console.log(`⚠️ SoundCloud bridge not available - this may cause streaming issues`);
+      }
     } else {
       console.log(`⚠️ SoundCloud extractor not found - this may cause SoundCloud track issues`);
+    }
+    
+    // Check for YouTube extractor as fallback
+    const youtubeExtractor = loadedExtractors.get('com.discord-player.youtubeextractor');
+    if (youtubeExtractor) {
+      console.log(`✅ YouTube extractor loaded successfully`);
+    } else {
+      console.log(`⚠️ YouTube extractor not found - fallback may not work`);
     }
     
     global.extractorsLoaded = true;
