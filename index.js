@@ -209,17 +209,12 @@ client.player.events.on('connection', (queue) => {
     // Load default extractors
     await client.player.extractors.loadMulti(DefaultExtractors);
     
-    // Explicitly ensure YouTube extractor is loaded
-    try {
-      const { YouTubeExtractor } = require('@discord-player/extractor');
-      if (!client.player.extractors.store.has('com.discord-player.youtubeextractor')) {
-        client.player.extractors.register(YouTubeExtractor);
-        console.log('✅ YouTube extractor explicitly loaded');
-      } else {
-        console.log('✅ YouTube extractor already loaded from default extractors');
-      }
-    } catch (error) {
-      console.log('⚠️ Failed to explicitly load YouTube extractor:', error.message);
+    // Check if YouTube extractor is already loaded from default extractors
+    const hasYouTubeExtractor = client.player.extractors.store.has('com.discord-player.youtubeextractor');
+    if (hasYouTubeExtractor) {
+      console.log('✅ YouTube extractor already loaded from default extractors');
+    } else {
+      console.log('⚠️ YouTube extractor not found in default extractors');
     }
     
     // Load Deezer extractor
@@ -260,22 +255,21 @@ client.player.events.on('connection', (queue) => {
         console.log(`[yt-dlp] Binary found, creating extractor...`);
         
         // Create yt-dlp extractor with proper configuration
-        const ytdlpExtractor = new YtDlpExtractor({
-          ytdlpPath: ytdlpPath,
-          timeout: 30000,
-          // Add additional configuration options
-          args: [
-            '--no-playlist',
-            '--extract-flat',
-            '--no-warnings',
-            '--no-check-certificate',
-            '--prefer-free-formats',
-            '--audio-format', 'best',
-            '--audio-quality', '0'
-          ]
-        });
-        
-        client.player.extractors.register(ytdlpExtractor);
+        try {
+          const ytdlpExtractor = new YtDlpExtractor({
+            ytdlpPath: ytdlpPath,
+            timeout: 30000
+          });
+          
+          client.player.extractors.register(ytdlpExtractor);
+        } catch (constructorError) {
+          console.log(`[yt-dlp] Constructor error: ${constructorError.message}`);
+          console.log(`[yt-dlp] Trying alternative instantiation...`);
+          
+          // Try without options
+          const ytdlpExtractor = new YtDlpExtractor();
+          client.player.extractors.register(ytdlpExtractor);
+        }
         console.log('✅ yt-dlp extractor loaded successfully');
       } else {
         console.log(`[yt-dlp] Binary not found at ${ytdlpPath}, skipping yt-dlp extractor`);
@@ -356,10 +350,12 @@ client.player.events.on('connection', (queue) => {
         console.log(`🔄 No YouTube extractor found, attempting to load manually...`);
         try {
           const { YouTubeExtractor } = require('@discord-player/extractor');
-          client.player.extractors.register(YouTubeExtractor);
-          youtubeExtractor = loadedExtractors.get('com.discord-player.youtubeextractor');
-          if (youtubeExtractor) {
+          // Check if it's already registered before trying to register again
+          if (!client.player.extractors.store.has('com.discord-player.youtubeextractor')) {
+            client.player.extractors.register(YouTubeExtractor);
             console.log(`✅ YouTube extractor loaded manually`);
+          } else {
+            console.log(`✅ YouTube extractor found in store after manual check`);
           }
         } catch (error) {
           console.log(`⚠️ Failed to load YouTube extractor manually: ${error.message}`);
