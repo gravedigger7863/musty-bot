@@ -80,7 +80,10 @@ client.player = new Player(client, {
   leaveOnEmptyCooldown: 0,
   skipOnEmptyCooldown: 0,
   bufferingTimeout: 30000,
-  connectionTimeout: 30000
+  connectionTimeout: 30000,
+  // Add these options to help with duration parsing
+  useLegacyFFmpeg: false,
+  opusEncoder: 'mediaplex'
 });
 
 // Register extractors for v7.1
@@ -141,6 +144,8 @@ client.player.events.on('connectionError', (queue, error) => {
 
 client.player.events.on('trackStart', (queue, track) => {
   console.log(`[Player] Now playing: ${track.title} by ${track.author} in ${queue.guild.name}`);
+  console.log(`[Player] Track duration: ${track.duration} (${typeof track.duration})`);
+  console.log(`[Player] Track durationMS: ${track.durationMS}`);
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`🎶 Now playing: **${track.title}** by ${track.author}`).catch(console.error);
   }
@@ -148,6 +153,8 @@ client.player.events.on('trackStart', (queue, track) => {
 
 client.player.events.on('trackEnd', (queue, track) => {
   console.log(`[Player] Finished: ${track.title} in ${queue.guild.name}`);
+  console.log(`[Player] Track ended - duration was: ${track.duration} (${typeof track.duration})`);
+  console.log(`[Player] Track ended - durationMS was: ${track.durationMS}`);
 });
 
 client.player.events.on('trackAdd', (queue, track) => {

@@ -62,8 +62,16 @@ module.exports = {
         });
 
         console.log(`[Play Command] Successfully queued: ${result.track.title}`);
-        console.log(`[Play Command] Track duration: ${result.track.duration}ms`);
+        console.log(`[Play Command] Track duration: ${result.track.duration} (${typeof result.track.duration})`);
+        console.log(`[Play Command] Track durationMS: ${result.track.durationMS}`);
         console.log(`[Play Command] Track source: ${result.track.source}`);
+        console.log(`[Play Command] Track raw data:`, {
+          title: result.track.title,
+          duration: result.track.duration,
+          durationMS: result.track.durationMS,
+          source: result.track.source,
+          url: result.track.url
+        });
         
         if (result.track) {
           await interaction.editReply(`🎶 Now playing **${result.track.title}** by ${result.track.author || 'Unknown Artist'}`);
