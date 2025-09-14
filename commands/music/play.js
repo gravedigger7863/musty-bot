@@ -79,7 +79,7 @@ module.exports = {
           // Small delay to ensure connection is fully ready
           await new Promise(resolve => setTimeout(resolve, 500));
         } else {
-          console.log(`[Play Command] Already connected to voice channel`);
+          console.log(`[Play Command] Already connected to voice channel (${queue.node.connection.state?.status || 'unknown'})`);
         }
         
         // Add track to queue
