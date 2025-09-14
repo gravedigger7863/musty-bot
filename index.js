@@ -197,15 +197,26 @@ client.player.events.on('emptyQueue', (queue) => {
   console.log(`[Player] Queue size when empty: ${queue.tracks.size}`);
   console.log(`[Player] Is playing when empty: ${queue.node.isPlaying()}`);
   console.log(`[Player] Current track when empty: ${queue.currentTrack?.title || 'None'}`);
-  if (queue.metadata?.channel) {
+  
+  // Only send message if there's no current track playing
+  if (!queue.currentTrack && queue.metadata?.channel) {
     queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
+  } else if (queue.currentTrack) {
+    console.log(`[Player] Queue empty but current track still playing: ${queue.currentTrack.title}`);
   }
 });
 
 client.player.events.on('emptyChannel', (queue) => {
   console.log(`[Player] Channel empty in ${queue.guild.name}`);
-  if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`👋 Left voice channel - no one is listening!`).catch(console.error);
+  console.log(`[Player] Current track when channel empty: ${queue.currentTrack?.title || 'None'}`);
+  
+  // Only leave if there's no current track playing
+  if (!queue.currentTrack) {
+    if (queue.metadata?.channel) {
+      queue.metadata.channel.send(`👋 Left voice channel - no one is listening!`).catch(console.error);
+    }
+  } else {
+    console.log(`[Player] Channel empty but current track still playing: ${queue.currentTrack.title}`);
   }
 });
 

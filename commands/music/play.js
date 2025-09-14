@@ -65,9 +65,10 @@ module.exports = {
         const queue = interaction.client.player.nodes.get(interaction.guild.id);
         if (queue) {
           console.log(`[Play Command] Queue exists: true`);
-          console.log(`[Play Command] Queue size: ${queue.tracks.size}`);
-          console.log(`[Play Command] Is playing: ${queue.node.isPlaying()}`);
+          console.log(`[Play Command] Queue size (tracks waiting): ${queue.tracks.size}`);
           console.log(`[Play Command] Current track: ${queue.currentTrack?.title || 'None'}`);
+          console.log(`[Play Command] Is playing: ${queue.node.isPlaying()}`);
+          console.log(`[Play Command] Total tracks in queue: ${queue.tracks.size + (queue.currentTrack ? 1 : 0)}`);
         } else {
           console.log(`[Play Command] Queue exists: false`);
         }
