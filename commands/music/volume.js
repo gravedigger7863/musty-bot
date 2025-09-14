@@ -16,7 +16,7 @@ module.exports = {
     }
 
     const queue = interaction.client.player.nodes.get(interaction.guild.id);
-    if (!queue || !queue.currentTrack) {
+    if (!queue || !queue.current) {
       return interaction.editReply({ content: '⚠️ No music is currently playing.' });
     }
 

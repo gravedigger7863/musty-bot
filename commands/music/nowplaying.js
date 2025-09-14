@@ -31,11 +31,11 @@ module.exports = {
     }
 
     const queue = interaction.client.player.nodes.get(interaction.guild.id);
-    if (!queue || !queue.currentTrack) {
+    if (!queue || !queue.current) {
       return interaction.editReply({ content: '⚠️ No music is currently playing.' });
     }
 
-    const track = queue.currentTrack;
+    const track = queue.current;
 
     const embed = {
       color: 0x1db954,

@@ -20,10 +20,10 @@ module.exports = {
 
     if (!query) {
       const queue = interaction.client.player.nodes.get(interaction.guild.id);
-      if (!queue || !queue.currentTrack) {
+      if (!queue || !queue.current) {
         return interaction.editReply('⚠️ No song is playing, and you didn\'t provide one.');
       }
-      query = queue.currentTrack.title;
+      query = queue.current.title;
     }
 
     let lyrics = await lyricsFinder("", query) || "❌ Lyrics not found.";
