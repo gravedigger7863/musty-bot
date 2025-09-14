@@ -68,8 +68,53 @@ module.exports = {
           });
           console.log(`[Play Command] Connecting to voice channel`);
           await queue.connect(voiceChannel);
+          
+          // Wait for connection to be fully ready
+          console.log(`[Play Command] Waiting for voice connection to be ready...`);
+          await new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+              reject(new Error('Voice connection timeout'));
+            }, 10000);
+            
+            const checkConnection = () => {
+              if (queue.connection && queue.connection.state.status === 'ready') {
+                clearTimeout(timeout);
+                console.log(`[Play Command] Voice connection is ready!`);
+                resolve();
+              } else {
+                setTimeout(checkConnection, 100);
+              }
+            };
+            
+            checkConnection();
+          });
         } else {
           console.log(`[Play Command] Using existing queue`);
+          
+          // Ensure connection is still active
+          if (!queue.connection || queue.connection.state.status !== 'ready') {
+            console.log(`[Play Command] Reconnecting to voice channel`);
+            await queue.connect(voiceChannel);
+            
+            // Wait for reconnection to be ready
+            await new Promise((resolve, reject) => {
+              const timeout = setTimeout(() => {
+                reject(new Error('Voice reconnection timeout'));
+              }, 10000);
+              
+              const checkConnection = () => {
+                if (queue.connection && queue.connection.state.status === 'ready') {
+                  clearTimeout(timeout);
+                  console.log(`[Play Command] Voice reconnection is ready!`);
+                  resolve();
+                } else {
+                  setTimeout(checkConnection, 100);
+                }
+              };
+              
+              checkConnection();
+            });
+          }
         }
         
         // Add track to queue

@@ -148,6 +148,10 @@ client.player.nodes.create = function(guild, options) {
         selfMute: false
       };
       
+      // Ensure Discord Player recognizes the connection
+      this._connection = connection;
+      this._voiceConnection = connection;
+      
       console.log(`[Voice Connection] Connected successfully with selfDeaf: false, selfMute: false`);
       return connection;
       
