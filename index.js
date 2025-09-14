@@ -1,57 +1,10 @@
 require('dotenv').config();
 
-// Set timeout environment variables to prevent negative timeouts
-process.env.NODE_OPTIONS = '--max-old-space-size=4096';
-process.env.UV_THREADPOOL_SIZE = '16';
-
-// Force use of native Opus encoder instead of OpusScript
-process.env.DP_FORCE_NATIVE_OPUS = 'true';
-process.env.DP_DISABLE_OPUSSCRIPT = 'true';
-process.env.DP_USE_NATIVE_OPUS = 'true';
-
-// Additional Opus configuration
-process.env.OPUS_APPLICATION = 'voip';
-process.env.OPUS_BITRATE = '128000';
-process.env.OPUS_FRAME_SIZE = '960';
-
-// Prevent OpusScript from being loaded at runtime
-const originalRequire = require;
-require = function(id) {
-  if (id === 'opusscript' || id.includes('opusscript')) {
-    console.log('Blocked OpusScript from loading, using mediaplex instead');
-    return { encode: () => Buffer.alloc(0) }; // Return dummy encoder
-  }
-  return originalRequire.apply(this, arguments);
-};
-
-// Override setTimeout to prevent negative timeouts
-const originalSetTimeout = global.setTimeout;
-global.setTimeout = (callback, delay, ...args) => {
-  if (typeof delay === 'number' && delay < 0) {
-    console.log('Preventing negative timeout, using 1000ms instead');
-    delay = 1000;
-  }
-  return originalSetTimeout(callback, delay, ...args);
-};
-
-const { Client, Collection, GatewayIntentBits } = require('discord.js');
+const { Client, GatewayIntentBits, Collection } = require('discord.js');
+const { Manager } = require('erela.js');
 const fs = require('fs');
 const path = require('path');
-const { Player, GuildQueueEvent } = require('discord-player');
-// Import extractors from the main package
-const { DefaultExtractors } = require('@discord-player/extractor');
-// Import additional extractors for more sources
-const { DeezerExtractor } = require('discord-player-deezer');
-const { SpotifyExtractor } = require('discord-player-spotify');
-const { YtDlpExtractor } = require('discord-player-ytdlp');
-const ffmpeg = require('ffmpeg-static');
-const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const express = require('express');
-
-// Use the more reliable FFmpeg path
-const ffmpegPath = ffmpegInstaller.path || ffmpeg;
-
-console.log('FFmpeg path:', ffmpegPath);
 
 // --- Client Setup ---
 const client = new Client({
@@ -59,675 +12,76 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildVoiceStates, // 🔑 ABSOLUTELY REQUIRED for voice connection state - ENABLED IN PORTAL
+    GatewayIntentBits.GuildVoiceStates, // Required for voice connection
   ],
-  rest: {
-    rejectOnRateLimit: (rateLimitData) => {
-      console.log(`[Rate Limit] Hit rate limit: ${rateLimitData.method} ${rateLimitData.url} - Retry after: ${rateLimitData.retryAfter}ms`);
-      return false; // Don't throw, just log
-    }
-  }
 });
 
 client.commands = new Collection();
 
-// Initialize Discord Player v7 with enhanced audio streaming configuration
-client.player = new Player(client, {
-  ytdlOptions: {
-    quality: 'highestaudio',
-    highWaterMark: 1 << 25,
-    filter: 'audioonly',
-    format: 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
-    timeout: 60000,
-    requestOptions: {
-      timeout: 60000,
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
+// --- Lavalink Manager Setup ---
+client.manager = new Manager({
+  nodes: [
+    {
+      host: process.env.LAVALINK_HOST || '94.130.97.149', // Your VPS IP
+      port: parseInt(process.env.LAVALINK_PORT) || 2333,
+      password: process.env.LAVALINK_PASSWORD || 'youshallnotpass',
     }
+  ],
+  send: (id, payload) => {
+    const guild = client.guilds.cache.get(id);
+    if (guild) guild.shard.send(payload);
   },
-  // Enhanced extractor configuration for better audio streaming
-  extractors: {
-    enabled: true,
-    providers: ['youtube', 'spotify', 'soundcloud', 'apple', 'deezer', 'ytdlp']
-  },
-  // Global voice connection options for v7
-  skipFFmpeg: false,
-  useLegacyFFmpeg: false,
-  // CRITICAL: Ensure bot is never deafened or muted
-  selfDeaf: false,
-  selfMute: false,
-  // Debug options for VPS troubleshooting
-  leaveOnEmpty: true,
-  leaveOnEnd: true,
-  leaveOnStop: true,
-  // Additional configuration to prevent immediate track finishing
-  bufferingTimeout: 30000,
-  connectionTimeout: 30000,
-  // Audio streaming configuration
-  volume: 50,
-  // SoundCloud specific configuration
-  onBeforeCreateStream: async (track, source, _queue) => {
-    console.log(`[Stream] Creating stream for: ${track.title} from ${track.source}`);
-    console.log(`[Stream] Track URL: ${track.url}`);
-    console.log(`[Stream] Source: ${source}`);
-    
-    // For SoundCloud tracks, we need to ensure proper stream URL generation
-    if (track.source === 'soundcloud') {
-      console.log(`[Stream] SoundCloud track detected - ensuring proper stream URL`);
-      
-      // Check if track has proper stream metadata
-      if (track.__metadata && track.__metadata.streamable) {
-        console.log(`[Stream] Track is streamable: ${track.__metadata.streamable}`);
-      } else {
-        console.log(`[Stream] ⚠️ Track may not be streamable - this could cause immediate finishing`);
-      }
-      
-      // Check for track authorization
-      if (track.__metadata && track.__metadata.track_authorization) {
-        console.log(`[Stream] Track has authorization token`);
-      } else {
-        console.log(`[Stream] ⚠️ No authorization token - this may cause streaming issues`);
-      }
-      
-      // Check for ad-supported content
-      if (track.__metadata && track.__metadata.monetization_model === 'AD_SUPPORTED') {
-        console.log(`[Stream] ⚠️ WARNING: Track is ad-supported - this often causes streaming issues`);
-        console.log(`[Stream] Ad-supported tracks may have restricted streaming access`);
-      }
-      
-      // Check license type
-      if (track.__metadata && track.__metadata.license) {
-        console.log(`[Stream] Track license: ${track.__metadata.license}`);
-        if (track.__metadata.license === 'all-rights-reserved') {
-          console.log(`[Stream] ⚠️ Track has all-rights-reserved license - may have streaming restrictions`);
-        }
-      }
+  autoPlay: false,
+  plugins: [],
+});
+
+// --- Event Handlers ---
+client.on('ready', () => {
+  console.log(`✅ ${client.user.tag} is ready with Lavalink!`);
+  console.log(`🎵 Connected to ${client.manager.nodes.size} Lavalink node(s)`);
+});
+
+client.manager.on('nodeConnect', node => {
+  console.log(`🔗 Lavalink node "${node.options.identifier}" connected`);
+});
+
+client.manager.on('nodeError', (node, error) => {
+  console.error(`❌ Lavalink node "${node.options.identifier}" error:`, error);
+});
+
+client.manager.on('trackStart', (player, track) => {
+  const channel = client.channels.cache.get(player.textChannel);
+  if (channel) {
+    channel.send(`🎵 Now playing: **${track.title}** by ${track.author}`);
+  }
+});
+
+client.manager.on('trackEnd', (player, track, reason) => {
+  console.log(`🏁 Track ended: ${track.title} (${reason})`);
+});
+
+client.manager.on('trackError', (player, track, error) => {
+  console.error(`❌ Track error: ${error.message}`);
+  const channel = client.channels.cache.get(player.textChannel);
+  if (channel) {
+    channel.send(`❌ Track error: ${error.message}`);
+  }
+});
+
+client.manager.on('queueEnd', (player) => {
+  const channel = client.channels.cache.get(player.textChannel);
+  if (channel) {
+    channel.send(`🎵 Queue finished! Thanks for listening!`);
+  }
+});
+
+client.manager.on('playerMove', (player, oldChannel, newChannel) => {
+  if (!newChannel) {
+    player.destroy();
+    const channel = client.channels.cache.get(player.textChannel);
+    if (channel) {
+      channel.send(`👋 Left voice channel - no one is listening!`);
     }
-    
-    return source;
-  },
-  onAfterCreateStream: async (track, stream, _queue) => {
-    console.log(`[Stream] Stream created successfully for: ${track.title}`);
-    console.log(`[Stream] Stream type: ${typeof stream}`);
-    console.log(`[Stream] Stream readable: ${stream && typeof stream.read === 'function'}`);
-    
-    // For SoundCloud tracks, add additional validation
-    if (track.source === 'soundcloud') {
-      console.log(`[Stream] SoundCloud stream validation:`);
-      console.log(`[Stream] - Stream object: ${stream ? 'Present' : 'Missing'}`);
-      console.log(`[Stream] - Stream readable: ${stream && typeof stream.read === 'function'}`);
-      console.log(`[Stream] - Stream destroyed: ${stream && stream.destroyed}`);
-      console.log(`[Stream] - Stream readable state: ${stream && stream.readable}`);
-      
-      // Check if this is an ad-supported track that might fail
-      if (track.__metadata && track.__metadata.monetization_model === 'AD_SUPPORTED') {
-        console.log(`[Stream] ⚠️ Ad-supported track - monitoring for streaming issues`);
-      }
-    }
-    
-    // Validate stream is actually readable
-    if (!stream || typeof stream.read !== 'function') {
-      console.log(`[Stream] ❌ Invalid stream created - this will cause immediate track finishing`);
-      throw new Error('Invalid stream created for track');
-    }
-    
-    return stream;
-  }
-});
-
-// Configure Discord Player for proper voice connections (v7.1 API)
-client.player.events.on('connection', (queue) => {
-  console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
-  
-  // Wait a moment for voice state to be available
-  setTimeout(() => {
-    const voiceState = queue.connection?.voice;
-    if (voiceState) {
-      console.log(`[Player] ✅ Voice connection established - Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
-      
-      // CRITICAL: Ensure bot is not deafened or muted
-      if (voiceState.deaf) {
-        console.log(`[Player] ⚠️ WARNING: Bot is deafened - this will prevent audio playback!`);
-      }
-      if (voiceState.mute) {
-        console.log(`[Player] ⚠️ WARNING: Bot is muted - this will prevent audio playback!`);
-      }
-    } else {
-      console.log(`[Player] ⚠️ Voice state not available - this is normal during connection establishment`);
-    }
-  }, 1000);
-});
-
-// Register extractors for v7.1 - Enhanced approach with SoundCloud bridge
-(async () => {
-  try {
-    // Wait for player to be ready
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    console.log('🔍 Registering extractors with bridge support...');
-    
-    // Load default extractors
-    await client.player.extractors.loadMulti(DefaultExtractors);
-    
-    // Check if YouTube extractor is already loaded from default extractors
-    const hasYouTubeExtractor = client.player.extractors.store.has('com.discord-player.youtubeextractor');
-    if (hasYouTubeExtractor) {
-      console.log('✅ YouTube extractor already loaded from default extractors');
-    } else {
-      console.log('⚠️ YouTube extractor not found in default extractors');
-    }
-    
-    // Load Deezer extractor with proper configuration
-    try {
-      console.log(`[Deezer] Attempting to register Deezer extractor...`);
-      console.log(`[Deezer] Extractor type: ${DeezerExtractor.constructor.name}`);
-      console.log(`[Deezer] Has identifier: ${DeezerExtractor.identifier ? 'Yes' : 'No'}`);
-      
-      // Validate extractor before registration
-      if (!DeezerExtractor || !DeezerExtractor.identifier) {
-        throw new Error('DeezerExtractor is undefined or missing identifier property');
-      }
-      
-      // Register Deezer extractor directly (it's already a class)
-      client.player.extractors.register(DeezerExtractor);
-      console.log('✅ Deezer extractor loaded successfully with audio streaming configuration');
-    } catch (error) {
-      console.log('⚠️ Deezer extractor failed to load:', error.message);
-      console.log('⚠️ Deezer extractor error details:', error);
-      console.log('⚠️ Deezer functionality will not be available');
-    }
-    
-    // Load Spotify extractor with proper configuration
-    try {
-      console.log(`[Spotify] Attempting to register Spotify extractor...`);
-      console.log(`[Spotify] Extractor type: ${SpotifyExtractor.constructor.name}`);
-      console.log(`[Spotify] Has identifier: ${SpotifyExtractor.identifier ? 'Yes' : 'No'}`);
-      
-      // Validate extractor before registration
-      if (!SpotifyExtractor || !SpotifyExtractor.identifier) {
-        throw new Error('SpotifyExtractor is undefined or missing identifier property');
-      }
-      
-      // Register Spotify extractor directly (it's already a class)
-      client.player.extractors.register(SpotifyExtractor);
-      console.log('✅ Spotify extractor loaded successfully with audio streaming configuration');
-    } catch (error) {
-      console.log('⚠️ Spotify extractor failed to load:', error.message);
-      console.log('⚠️ Spotify extractor error details:', error);
-      console.log('⚠️ Spotify functionality will not be available');
-    }
-    
-    // Load yt-dlp extractor (more reliable YouTube) with platform-specific binary
-    try {
-      // Determine the correct yt-dlp binary path based on platform
-      const isWindows = process.platform === 'win32';
-      const fs = require('fs');
-      const path = require('path');
-      const { execSync } = require('child_process');
-      
-      let ytdlpExists = false;
-      let absoluteYtdlpPath = null;
-      
-      if (isWindows) {
-        const ytdlpPath = './yt-dlp.exe';
-        console.log(`[yt-dlp] Platform: ${process.platform}, checking for: ${ytdlpPath}`);
-        
-        if (fs.existsSync(ytdlpPath)) {
-          absoluteYtdlpPath = path.resolve(ytdlpPath);
-          ytdlpExists = true;
-          console.log(`[yt-dlp] Found yt-dlp at: ${absoluteYtdlpPath}`);
-        } else {
-          console.log(`[yt-dlp] yt-dlp.exe not found in current directory`);
-        }
-      } else {
-        // On Linux, check if yt-dlp is in PATH and get absolute path
-        console.log(`[yt-dlp] Platform: ${process.platform}, checking for yt-dlp in PATH`);
-        
-        try {
-          const whichOutput = execSync('which yt-dlp', { encoding: 'utf8', timeout: 5000 }).trim();
-          if (whichOutput && fs.existsSync(whichOutput)) {
-            absoluteYtdlpPath = whichOutput;
-            ytdlpExists = true;
-            console.log(`[yt-dlp] Found yt-dlp at: ${absoluteYtdlpPath}`);
-          }
-        } catch (whichError) {
-          console.log(`[yt-dlp] yt-dlp not found in PATH: ${whichError.message}`);
-        }
-        
-        // Try common installation paths on Linux if not found in PATH
-        if (!ytdlpExists) {
-          const commonPaths = ['/usr/local/bin/yt-dlp', '/usr/bin/yt-dlp', '/opt/yt-dlp/yt-dlp'];
-          for (const commonPath of commonPaths) {
-            if (fs.existsSync(commonPath)) {
-              absoluteYtdlpPath = commonPath;
-              ytdlpExists = true;
-              console.log(`[yt-dlp] Found yt-dlp at common path: ${absoluteYtdlpPath}`);
-              break;
-            }
-          }
-        }
-      }
-      
-      if (ytdlpExists && absoluteYtdlpPath) {
-        console.log(`[yt-dlp] Binary found, creating extractor...`);
-        
-        // Create yt-dlp extractor with proper configuration
-        try {
-          console.log(`[yt-dlp] Creating extractor with absolute path: ${absoluteYtdlpPath}`);
-          
-          // Double-check the path exists before creating extractor
-          if (!fs.existsSync(absoluteYtdlpPath)) {
-            throw new Error(`yt-dlp binary not found at: ${absoluteYtdlpPath}`);
-          }
-          
-          const ytdlpExtractor = new YtDlpExtractor({
-            ytdlpPath: absoluteYtdlpPath,
-            timeout: 30000
-          });
-          
-          console.log(`[yt-dlp] Extractor created, type: ${ytdlpExtractor.constructor.name}`);
-          console.log(`[yt-dlp] Has identifier: ${ytdlpExtractor.identifier ? 'Yes' : 'No'}`);
-          console.log(`[yt-dlp] Identifier value: ${ytdlpExtractor.identifier || 'undefined'}`);
-          
-          // Validate extractor before registration
-          if (!ytdlpExtractor.identifier) {
-            throw new Error('YtDlpExtractor missing required identifier property');
-          }
-          
-          // Wrap registration in try/catch to catch undefined errors
-          try {
-            client.player.extractors.register(ytdlpExtractor);
-            console.log('✅ yt-dlp extractor loaded successfully');
-          } catch (registrationError) {
-            console.error('Failed to register yt-dlp extractor:', registrationError.message);
-            console.error('Registration error details:', registrationError);
-            throw registrationError;
-          }
-        } catch (constructorError) {
-          console.log(`[yt-dlp] Constructor error: ${constructorError.message}`);
-          console.log(`[yt-dlp] Error details:`, constructorError);
-          console.log(`[yt-dlp] Skipping yt-dlp extractor due to configuration error`);
-          console.log(`[yt-dlp] Will rely on default YouTube extractor instead`);
-          // Don't try to register a malformed extractor - this causes the identifier error
-        }
-      } else {
-        console.log(`[yt-dlp] yt-dlp binary not found, skipping yt-dlp extractor`);
-        console.log(`[yt-dlp] Will rely on default YouTube extractor instead`);
-        console.log(`[yt-dlp] To install yt-dlp on Linux: sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && sudo chmod +x /usr/local/bin/yt-dlp`);
-      }
-    } catch (error) {
-      console.log('⚠️ yt-dlp extractor failed to load:', error.message);
-      console.log('⚠️ This is expected on VPS if yt-dlp is not installed system-wide');
-    }
-    
-    console.log(`✅ Extractors registered successfully`);
-    
-    // Verify extractors are loaded
-    const loadedExtractors = client.player.extractors.store;
-    console.log(`✅ Loaded extractors: ${Array.from(loadedExtractors.keys()).join(', ')}`);
-    console.log(`✅ Extractor store size: ${loadedExtractors.size}`);
-    
-    // Log all available extractor keys for debugging
-    console.log(`🔍 Available extractor keys:`);
-    for (const [key, extractor] of loadedExtractors.entries()) {
-      console.log(`  - ${key}: ${extractor.constructor.name}`);
-    }
-    
-    // Check for SoundCloud extractor with different possible keys
-    let soundcloudExtractor = loadedExtractors.get('com.discord-player.soundcloudextractor') || 
-                             loadedExtractors.get('soundcloud') ||
-                             loadedExtractors.get('SoundCloudExtractor');
-    
-    if (soundcloudExtractor) {
-      console.log(`✅ SoundCloud extractor loaded successfully`);
-      console.log(`✅ SoundCloud extractor type: ${soundcloudExtractor.constructor.name}`);
-      
-      // Try to enable bridge mode for SoundCloud
-      try {
-        if (typeof soundcloudExtractor.enableBridge === 'function') {
-          await soundcloudExtractor.enableBridge();
-          console.log(`✅ SoundCloud bridge enabled - URLs will be converted to audio format`);
-        } else if (soundcloudExtractor.bridge) {
-          soundcloudExtractor.bridge = true;
-          console.log(`✅ SoundCloud bridge enabled via bridge property`);
-        } else {
-          console.log(`⚠️ SoundCloud bridge not available - using standard mode`);
-        }
-      } catch (error) {
-        console.log(`⚠️ SoundCloud bridge failed to enable: ${error.message}`);
-      }
-    } else {
-      console.log(`⚠️ SoundCloud extractor not found - checking all extractors...`);
-      for (const [key, extractor] of loadedExtractors.entries()) {
-        if (key.toLowerCase().includes('soundcloud') || extractor.constructor.name.toLowerCase().includes('soundcloud')) {
-          console.log(`🔍 Found potential SoundCloud extractor: ${key} (${extractor.constructor.name})`);
-          soundcloudExtractor = extractor;
-          break;
-        }
-      }
-    }
-    
-    // Check for YouTube extractor with different possible keys
-    let youtubeExtractor = loadedExtractors.get('com.discord-player.youtubeextractor') || 
-                          loadedExtractors.get('youtube') ||
-                          loadedExtractors.get('YouTubeExtractor');
-    
-    if (youtubeExtractor) {
-      console.log(`✅ YouTube extractor loaded successfully`);
-      console.log(`✅ YouTube extractor type: ${youtubeExtractor.constructor.name}`);
-    } else {
-      console.log(`⚠️ YouTube extractor not found - checking all extractors...`);
-      for (const [key, extractor] of loadedExtractors.entries()) {
-        if (key.toLowerCase().includes('youtube') || extractor.constructor.name.toLowerCase().includes('youtube')) {
-          console.log(`🔍 Found potential YouTube extractor: ${key} (${extractor.constructor.name})`);
-          youtubeExtractor = extractor;
-          break;
-        }
-      }
-      
-      // If still no YouTube extractor found, it's likely not available
-      if (!youtubeExtractor) {
-        console.log(`⚠️ No YouTube extractor found - YouTube functionality may be limited`);
-        console.log(`⚠️ This is normal if YouTube extractor is not loaded from default extractors`);
-      }
-    }
-    
-    global.extractorsLoaded = true;
-    console.log('🎉 All extractors loaded successfully!');
-  } catch (error) {
-    console.error('❌ Failed to register extractors:', error.message);
-    console.error('❌ Extractor error details:', error.stack);
-    global.extractorsLoaded = false;
-    
-    // Don't let extractor errors crash the bot
-    console.log('⚠️ Bot will continue without some extractors - this may affect music playback');
-  }
-})();
-
-// Enhanced event handlers for 2025
-client.player.events.on('error', (queue, error) => {
-  console.error(`[Player Error] ${queue.guild.name}:`, error.message);
-  console.error(`[Player Error] Full error:`, error);
-  
-  // Handle extractor errors specifically
-  if (error.message && error.message.includes('Could not extract stream')) {
-    console.error(`[Player Error] Extractor error detected - this may indicate missing or misconfigured extractors`);
-    console.error(`[Player Error] Available extractors:`, global.extractorsLoaded ? 'Loaded' : 'Not loaded');
-    console.error(`[Player Error] Extractor store:`, client.player.extractors.store ? Array.from(client.player.extractors.store.keys()) : 'No store available');
-  }
-  
-  // Handle SoundCloud specific errors
-  if (error.message && (error.message.includes('soundcloud') || error.message.includes('SoundCloud'))) {
-    console.error(`[Player Error] SoundCloud error detected`);
-    console.error(`[Player Error] Current track:`, queue.currentTrack?.title || 'None');
-    console.error(`[Player Error] Track URL:`, queue.currentTrack?.url || 'No URL');
-    console.error(`[Player Error] Track streamable:`, queue.currentTrack?.__metadata?.streamable || 'Unknown');
-    console.error(`[Player Error] Track license:`, queue.currentTrack?.__metadata?.license || 'Unknown');
-  }
-  
-  // Handle stream download/playback errors
-  if (error.message && (error.message.includes('stream') || error.message.includes('download') || error.message.includes('ENOTFOUND') || error.message.includes('ECONNRESET'))) {
-    console.error(`[Player Error] Stream error detected - this will cause immediate track finishing`);
-    console.error(`[Player Error] Current track:`, queue.currentTrack?.title || 'None');
-    console.error(`[Player Error] Track URL:`, queue.currentTrack?.url || 'No URL');
-    console.error(`[Player Error] Track source:`, queue.currentTrack?.source || 'Unknown');
-    
-    // For SoundCloud tracks, provide more specific error info
-    if (queue.currentTrack?.source === 'soundcloud') {
-      console.error(`[Player Error] SoundCloud track streaming failed - this is often due to:`);
-      console.error(`[Player Error] 1. Track not streamable (streamable: false)`);
-      console.error(`[Player Error] 2. Missing authorization token`);
-      console.error(`[Player Error] 3. Ad-supported content restrictions`);
-      console.error(`[Player Error] 4. Regional restrictions`);
-    }
-  }
-  
-  // Handle Opus encoder errors gracefully
-  if (error.message && (error.message.includes('Cannot convert "undefined" to int') || error.message.includes('OpusScript'))) {
-    console.log(`[Player Error] Opus encoder error detected, skipping track...`);
-    if (queue.node.isPlaying()) {
-      queue.node.skip();
-    }
-    return;
-  }
-  
-  // Handle FFmpeg errors
-  if (error.message && error.message.includes('ffmpeg')) {
-    console.error(`[Player Error] FFmpeg error detected - check FFmpeg installation on VPS`);
-  }
-  
-  if (queue.metadata?.channel) {
-    let errorMessage = `❌ Music player error: ${error.message}`;
-    
-    // Provide more helpful error messages for SoundCloud
-    if (queue.currentTrack?.source === 'soundcloud' && error.message.includes('stream')) {
-      errorMessage = `❌ SoundCloud track streaming failed. This track may not be available for streaming or has restrictions. Try a different track.`;
-    }
-    
-    queue.metadata.channel.send(errorMessage).catch(console.error);
-  }
-});
-
-client.player.events.on('playerError', (queue, error) => {
-  console.error(`[Player Error] ${queue.guild.name}:`, error.message);
-  
-  // Handle Opus encoder errors gracefully
-  if (error.message && (error.message.includes('Cannot convert "undefined" to int') || error.message.includes('OpusScript'))) {
-    console.log(`[Player Error] Opus encoder error detected, skipping track...`);
-    if (queue.node.isPlaying()) {
-      queue.node.skip();
-    }
-    return;
-  }
-  
-  if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`❌ Track playback error: ${error.message}`).catch(console.error);
-  }
-});
-
-client.player.events.on('connectionError', (queue, error) => {
-  console.error(`[Connection Error] ${queue.guild.name}:`, error.message);
-  if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`❌ Voice connection error: ${error.message}`).catch(console.error);
-  }
-});
-
-client.player.events.on(GuildQueueEvent.PlayerStart, (queue, track) => {
-  console.log(`[Player] 🎵 PLAYER START EVENT TRIGGERED`);
-  console.log(`[Player] Now playing: ${track.title} by ${track.author} in ${queue.guild.name}`);
-  console.log(`[Player] Track duration: ${track.duration} (${track.durationMS}ms)`);
-  console.log(`[Player] Queue size: ${queue.tracks.size}`);
-  console.log(`[Player] Is playing: ${queue.node.isPlaying()}`);
-  console.log(`[Player] Voice connection: ${queue.connection ? 'Connected' : 'Not connected'}`);
-  console.log(`[Player] Current track: ${queue.currentTrack?.title || 'None'}`);
-  console.log(`[Player] Track ID: ${track.id || 'No ID'}`);
-  console.log(`[Player] Track URL: ${track.url || 'No URL'}`);
-  
-  // Additional debugging for track start
-  console.log(`[Player] Track source: ${track.source || 'Unknown'}`);
-  console.log(`[Player] Track stream URL: ${track.raw?.url || track.url || 'No stream URL'}`);
-  console.log(`[Player] Track format: ${track.raw?.format || 'Unknown format'}`);
-  console.log(`[Player] Track quality: ${track.raw?.quality || 'Unknown quality'}`);
-  
-  // Check if track has valid duration
-  if (!track.durationMS || track.durationMS <= 0) {
-    console.log(`[Player] ⚠️ WARNING: Track has invalid duration (${track.durationMS}ms)`);
-  }
-  
-  // Send "Now Playing" message to channel
-  if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`🎶 Now playing: **${track.title}** by ${track.author}`).catch(console.error);
-  }
-});
-
-// Add debugging for when tracks are added to queue
-client.player.events.on('trackAdd', (queue, track) => {
-  console.log(`[Player] Added to queue: ${track.title} in ${queue.guild.name}`);
-  console.log(`[Player] Queue size after add: ${queue.tracks.size}`);
-  console.log(`[Player] Is playing: ${queue.node.isPlaying()}`);
-  console.log(`[Player] Current track: ${queue.currentTrack?.title || 'None'}`);
-  console.log(`[Player] Track ID: ${track.id || 'No ID'}`);
-  console.log(`[Player] Track URL: ${track.url || 'No URL'}`);
-  
-  // Only show "Added to queue" message if there are multiple tracks (not the currently playing one)
-  if (queue.metadata?.channel && queue.tracks.size > 1) {
-    queue.metadata.channel.send(`🎵 Added to queue: **${track.title}** by ${track.author}`).catch(console.error);
-  }
-});
-
-// Add event handler for when tracks are actually playing (not just started)
-client.player.events.on('playerUpdate', (queue, oldState, newState) => {
-  if (oldState.status !== newState.status) {
-    console.log(`[Player] Status changed: ${oldState.status} -> ${newState.status}`);
-    console.log(`[Player] Current track: ${queue.currentTrack?.title || 'None'}`);
-    console.log(`[Player] Is playing: ${queue.node.isPlaying()}`);
-    console.log(`[Player] Position: ${queue.node.getTimestamp()?.current || 'Unknown'}`);
-  }
-});
-
-// Add comprehensive debug logging for queue and connection issues
-client.player.events.on('debug', (message) => {
-  console.log(`[Player Debug] ${message}`);
-});
-
-// Add connection stability event handlers
-client.player.events.on('connectionCreate', (queue) => {
-  console.log(`[Player] ✅ Voice connection established in ${queue.guild.name}`);
-  console.log(`[Player] Connection state: ${queue.connection?.state || 'Unknown'}`);
-  console.log(`[Player] Voice channel: ${queue.connection?.joinConfig?.channelId || 'Unknown'}`);
-});
-
-client.player.events.on('connectionDestroy', (queue) => {
-  console.log(`[Player] ❌ Voice connection destroyed in ${queue.guild.name}`);
-  console.log(`[Player] Reason: ${queue.connection?.state || 'Unknown'}`);
-});
-
-// Add queue-specific event handlers
-client.player.events.on('queueEnd', (queue) => {
-  console.log(`[Player] 📭 Queue ended in ${queue.guild.name}`);
-  console.log(`[Player] Final queue size: ${queue.tracks.size}`);
-  console.log(`[Player] Is playing when queue ends: ${queue.node.isPlaying()}`);
-  console.log(`[Player] Current track when queue ends: ${queue.currentTrack?.title || 'None'}`);
-});
-
-// Add track loading validation
-client.player.events.on('trackLoad', (queue, track) => {
-  console.log(`[Player] 📥 Track loaded: ${track.title}`);
-  console.log(`[Player] Track source: ${track.source}`);
-  console.log(`[Player] Track duration: ${track.duration} (${track.durationMS}ms)`);
-  console.log(`[Player] Track URL: ${track.url}`);
-  console.log(`[Player] Track format: ${track.raw?.format || 'Unknown'}`);
-  console.log(`[Player] Track quality: ${track.raw?.quality || 'Unknown'}`);
-  
-  // Validate track has proper duration
-  if (!track.durationMS || track.durationMS <= 0) {
-    console.log(`[Player] ⚠️ WARNING: Track has invalid duration - this may cause immediate finishing`);
-  }
-});
-
-client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
-  console.log(`[Player] 🏁 PLAYER FINISH EVENT TRIGGERED`);
-  console.log(`[Player] Finished: ${track.title} in ${queue.guild.name}`);
-  console.log(`[Player] Track ended - duration was: ${track.duration} (${track.durationMS}ms)`);
-  console.log(`[Player] Queue size before cleanup: ${queue.tracks.size}`);
-  console.log(`[Player] Is playing after track end: ${queue.node.isPlaying()}`);
-  console.log(`[Player] Voice connection: ${queue.connection ? 'Connected' : 'Not connected'}`);
-  console.log(`[Player] Current track after finish: ${queue.currentTrack?.title || 'None'}`);
-  
-  // Additional debugging for track finish reasons
-  console.log(`[Player] Track finish reason: ${track.finishReason || 'Unknown'}`);
-  console.log(`[Player] Track source: ${track.source || 'Unknown'}`);
-  console.log(`[Player] Track stream URL: ${track.url || 'No URL'}`);
-  console.log(`[Player] Track duration in seconds: ${Math.floor(track.durationMS / 1000)}s`);
-  console.log(`[Player] Track position when finished: ${queue.node.getTimestamp()?.current || 'Unknown'}`);
-  
-  // Log track finish details
-  console.log(`[Player] Track finished - duration was: ${track.duration} (${track.durationMS}ms)`);
-  console.log(`[Player] Track source: ${track.source || 'Unknown'}`);
-  console.log(`[Player] Track URL: ${track.url || 'No URL'}`);
-  
-  // Check if this is an immediate finish (less than 5 seconds)
-  const trackDuration = track.durationMS || 0;
-  if (trackDuration > 0 && trackDuration < 5000) {
-    console.log(`[Player] ⚠️ WARNING: Track finished very quickly (${trackDuration}ms) - possible streaming issue`);
-    console.log(`[Player] This suggests either: 1) Stream failed to load, 2) Voice connection dropped, or 3) Track format issue`);
-    
-    // If this is an immediate finish, try to prevent the queue from getting stuck
-    if (queue.tracks.size === 0 && !queue.node.isPlaying()) {
-      console.log(`[Player] Queue is empty and not playing after immediate finish - this is normal`);
-    }
-  }
-  
-  // Check if queue is actually playing to prevent ghost replays
-  if (!queue.node.isPlaying()) {
-    console.log(`[Player] Queue is not playing, track finished normally`);
-  } else {
-    console.log(`[Player] Queue is still playing, track finished but continuing`);
-  }
-  
-  // The track has finished - Discord Player should automatically handle queue progression
-  // We just need to ensure proper cleanup and messaging
-  
-  // Don't send empty message here - let EmptyQueue event handle it
-  console.log(`[Player] Track finished, queue size: ${queue.tracks.size}`);
-});
-
-
-client.player.events.on('trackError', (queue, error) => {
-  console.error(`[Track Error] ${queue.guild.name}:`, error.message);
-  console.error(`[Track Error] Full error:`, error);
-  console.error(`[Track Error] Current track: ${queue.currentTrack?.title || 'None'}`);
-  console.error(`[Track Error] Is playing: ${queue.node.isPlaying()}`);
-  
-  // Handle specific streaming errors that cause immediate track finishing
-  if (error.message && (
-    error.message.includes('stream') || 
-    error.message.includes('format') || 
-    error.message.includes('codec') ||
-    error.message.includes('ffmpeg') ||
-    error.message.includes('opus')
-  )) {
-    console.error(`[Track Error] Streaming error detected - this may cause immediate track finishing`);
-  }
-  
-  if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`❌ Track error: ${error.message}`).catch(console.error);
-  }
-});
-
-client.player.events.on(GuildQueueEvent.EmptyQueue, (queue) => {
-  console.log(`[Player] Queue empty in ${queue.guild.name}`);
-  console.log(`[Player] Queue size when empty: ${queue.tracks.size}`);
-  console.log(`[Player] Is playing when empty: ${queue.node.isPlaying()}`);
-  console.log(`[Player] Current track when empty: ${queue.currentTrack?.title || 'None'}`);
-  
-  // This event fires when the queue becomes empty
-  // If we're not currently playing anything, show the empty message
-  if (!queue.node.isPlaying() && queue.metadata?.channel) {
-    console.log(`[Player] Queue is empty and not playing, showing empty message from EmptyQueue event`);
-    queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
-  }
-});
-
-client.player.events.on(GuildQueueEvent.EmptyChannel, (queue) => {
-  console.log(`[Player] Channel empty in ${queue.guild.name}`);
-  console.log(`[Player] Current track when channel empty: ${queue.currentTrack?.title || 'None'}`);
-  console.log(`[Player] Is playing when channel empty: ${queue.node.isPlaying()}`);
-  
-  if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`👋 Left voice channel - no one is listening!`).catch(console.error);
-  }
-});
-
-client.player.events.on(GuildQueueEvent.QueueEnd, (queue) => {
-  console.log(`[Player] Queue ended in ${queue.guild.name}`);
-  console.log(`[Player] Final queue size: ${queue.tracks.size}`);
-  console.log(`[Player] Is playing when queue ends: ${queue.node.isPlaying()}`);
-  console.log(`[Player] Current track when queue ends: ${queue.currentTrack?.title || 'None'}`);
-  
-  if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`🎵 Queue finished! Thanks for listening!`).catch(console.error);
   }
 });
 
@@ -762,64 +116,13 @@ for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
   }
 }
 
-// --- Crash Handling ---
-process.on('unhandledRejection', err => {
-  console.error('Unhandled Rejection:', err);
-  // Don't exit on unhandled rejections for music bots
-});
-
-process.on('uncaughtException', err => {
-  console.error('Uncaught Exception:', err);
-  // Handle Opus encoder errors gracefully
-  if (err.message && (err.message.includes('Cannot convert "undefined" to int') || err.message.includes('OpusScript') || err.message.includes('opusscript'))) {
-    console.log('Opus encoder error detected, continuing...');
-    return;
-  }
-  // Handle timeout warnings
-  if (err.message && err.message.includes('TimeoutNegativeWarning')) {
-    console.log('Timeout warning detected, continuing...');
-    return;
-  }
-  // Handle other common music bot errors
-  if (err.message && (err.message.includes('ENOTFOUND') || err.message.includes('ECONNRESET') || err.message.includes('ETIMEDOUT'))) {
-    console.log('Network error detected, continuing...');
-    return;
-  }
-  // For other critical errors, exit
-  process.exit(1);
-});
-
-// --- Process Monitoring ---
-const processId = process.pid;
-console.log(`[Process] Starting bot with PID: ${processId}`);
-
-// Monitor for duplicate processes
-setInterval(() => {
-  const { exec } = require('child_process');
-  exec('tasklist | findstr node', (error, stdout) => {
-    if (stdout) {
-      const nodeProcesses = stdout.split('\n').filter(line => line.includes('node.exe'));
-      if (nodeProcesses.length > 1) {
-        console.warn(`[Process] WARNING: ${nodeProcesses.length} Node.js processes detected!`);
-        nodeProcesses.forEach(proc => {
-          const parts = proc.trim().split(/\s+/);
-          const pid = parts[1];
-          if (pid && pid !== processId.toString()) {
-            console.warn(`[Process] Other Node.js process found: PID ${pid}`);
-          }
-        });
-      }
-    }
-  });
-}, 30000); // Check every 30 seconds
-
 // --- Login ---
 client.login(process.env.DISCORD_TOKEN);
 
 // --- Uptime server ---
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Musty Bot 2025 is alive! 🎵'));
+app.get('/', (req, res) => res.send('Musty Bot 2025 with Lavalink is alive! 🎵'));
 app.listen(PORT, () => console.log(`Uptime server running on port ${PORT}`));
 
 module.exports = client;
