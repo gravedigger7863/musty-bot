@@ -229,10 +229,8 @@ client.player.events.on('connection', (queue) => {
         throw new Error('DeezerExtractor is undefined or missing identifier property');
       }
       
-      // Create Deezer extractor (no configuration options needed)
-      const deezerExtractor = new DeezerExtractor();
-      
-      client.player.extractors.register(deezerExtractor);
+      // Register Deezer extractor directly (it's already a class)
+      client.player.extractors.register(DeezerExtractor);
       console.log('✅ Deezer extractor loaded successfully with audio streaming configuration');
     } catch (error) {
       console.log('⚠️ Deezer extractor failed to load:', error.message);
@@ -251,10 +249,8 @@ client.player.events.on('connection', (queue) => {
         throw new Error('SpotifyExtractor is undefined or missing identifier property');
       }
       
-      // Create Spotify extractor (no configuration options needed)
-      const spotifyExtractor = new SpotifyExtractor();
-      
-      client.player.extractors.register(spotifyExtractor);
+      // Register Spotify extractor directly (it's already a class)
+      client.player.extractors.register(SpotifyExtractor);
       console.log('✅ Spotify extractor loaded successfully with audio streaming configuration');
     } catch (error) {
       console.log('⚠️ Spotify extractor failed to load:', error.message);
@@ -430,30 +426,10 @@ client.player.events.on('connection', (queue) => {
         }
       }
       
-      // If still no YouTube extractor found, try to load it manually
+      // If still no YouTube extractor found, it's likely not available
       if (!youtubeExtractor) {
-        console.log(`🔄 No YouTube extractor found, attempting to load manually...`);
-        try {
-          const { YouTubeExtractor } = require('@discord-player/extractor');
-          
-          // Validate the extractor before attempting to register
-          if (!YouTubeExtractor || !YouTubeExtractor.identifier) {
-            throw new Error('YouTubeExtractor is undefined or missing identifier property');
-          }
-          
-          // Check if it's already registered before trying to register again
-          if (!client.player.extractors.store.has('com.discord-player.youtubeextractor')) {
-            console.log(`[YouTube] Registering extractor with identifier: ${YouTubeExtractor.identifier}`);
-            client.player.extractors.register(YouTubeExtractor);
-            console.log(`✅ YouTube extractor loaded manually`);
-          } else {
-            console.log(`✅ YouTube extractor found in store after manual check`);
-          }
-        } catch (error) {
-          console.log(`⚠️ Failed to load YouTube extractor manually: ${error.message}`);
-          console.log(`⚠️ YouTube extractor error details:`, error);
-          console.log(`⚠️ This may cause YouTube playback issues`);
-        }
+        console.log(`⚠️ No YouTube extractor found - YouTube functionality may be limited`);
+        console.log(`⚠️ This is normal if YouTube extractor is not loaded from default extractors`);
       }
     }
     
