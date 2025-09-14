@@ -201,7 +201,8 @@ module.exports = {
           console.log(`[Play Command] Starting playback of playlist`);
           
           // Ensure voice connection is ready before playing playlist
-          if (queue.connection && queue.connection.state === VoiceConnectionStatus.Ready) {
+          const connectionState = queue.connection?.state?.status || queue.connection?.state;
+          if (queue.connection && (connectionState === VoiceConnectionStatus.Ready || connectionState === 'ready')) {
             console.log(`[Play Command] Voice connection is ready, starting playlist playback`);
             try {
               await queue.node.play();
@@ -211,7 +212,7 @@ module.exports = {
               return replyToUser(interaction, "❌ Failed to start playlist playback. Please try again.");
             }
           } else {
-            console.log(`[Play Command] ⚠️ Voice connection not ready for playlist, state: ${queue.connection?.state?.status || 'Unknown'}`);
+            console.log(`[Play Command] ⚠️ Voice connection not ready for playlist, state: ${connectionState || 'Unknown'}`);
             return replyToUser(interaction, "❌ Voice connection not ready. Please try again.");
           }
         }
@@ -233,7 +234,8 @@ module.exports = {
           console.log(`[Play Command] Starting playback of single track`);
           
           // Final check that voice connection is ready before playing
-          if (queue.connection && queue.connection.state === VoiceConnectionStatus.Ready) {
+          const connectionState = queue.connection?.state?.status || queue.connection?.state;
+          if (queue.connection && (connectionState === VoiceConnectionStatus.Ready || connectionState === 'ready')) {
             console.log(`[Play Command] Voice connection is ready, starting playback`);
             try {
               await queue.node.play();
@@ -243,7 +245,7 @@ module.exports = {
               return replyToUser(interaction, "❌ Failed to start playback. Please try again.");
             }
           } else {
-            console.log(`[Play Command] ⚠️ Voice connection not ready, state: ${queue.connection?.state?.status || 'Unknown'}`);
+            console.log(`[Play Command] ⚠️ Voice connection not ready, state: ${connectionState || 'Unknown'}`);
             return replyToUser(interaction, "❌ Voice connection not ready. Please try again.");
           }
         } else {
