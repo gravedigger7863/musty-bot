@@ -92,7 +92,7 @@ client.player.events.on('connection', (queue) => {
   setTimeout(() => {
     const voiceState = queue.connection?.voice;
     if (voiceState) {
-      console.log(`[Player] ✅ Voice connection state: ${voiceState.state} - Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
+      console.log(`[Player] ✅ Voice connection established - Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
     } else {
       console.log(`[Player] ⚠️ Voice state not available - this is normal during connection establishment`);
     }
@@ -167,7 +167,7 @@ client.player.events.on(GuildQueueEvent.PlayerStart, (queue, track) => {
   console.log(`[Player] Track duration: ${track.duration} (${track.durationMS}ms)`);
   console.log(`[Player] Queue size: ${queue.tracks.size}`);
   console.log(`[Player] Is playing: ${queue.node.isPlaying()}`);
-  console.log(`[Player] Voice connection state: ${queue.connection?.voice?.state || 'undefined'}`);
+  console.log(`[Player] Voice connection: ${queue.connection ? 'Connected' : 'Not connected'}`);
   console.log(`[Player] Current track: ${queue.currentTrack?.title || 'None'}`);
   console.log(`[Player] Track ID: ${track.id || 'No ID'}`);
   console.log(`[Player] Track URL: ${track.url || 'No URL'}`);
@@ -197,7 +197,7 @@ client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
   console.log(`[Player] Track ended - duration was: ${track.duration} (${track.durationMS}ms)`);
   console.log(`[Player] Queue size before cleanup: ${queue.tracks.size}`);
   console.log(`[Player] Is playing after track end: ${queue.node.isPlaying()}`);
-  console.log(`[Player] Voice connection state: ${queue.connection?.voice?.state || 'undefined'}`);
+  console.log(`[Player] Voice connection: ${queue.connection ? 'Connected' : 'Not connected'}`);
   console.log(`[Player] Current track after finish: ${queue.currentTrack?.title || 'None'}`);
   
   // The track has finished - Discord Player should automatically handle queue progression
