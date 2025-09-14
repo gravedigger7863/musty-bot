@@ -32,7 +32,7 @@ const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { Player, GuildQueueEvent } = require('discord-player');
-const { DefaultExtractors } = require('@discord-player/extractor');
+// Extractors will be loaded using loadDefault() method
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const express = require('express');
@@ -111,7 +111,7 @@ client.player.events.on('connection', (queue) => {
     await new Promise(resolve => setTimeout(resolve, 1000));
     
     // Use the correct v7.1 method to load extractors
-    await client.player.extractors.loadMulti(DefaultExtractors);
+    await client.player.extractors.loadDefault();
     console.log(`✅ Extractors registered successfully`);
     
     // Verify extractors are loaded
@@ -127,6 +127,7 @@ client.player.events.on('connection', (queue) => {
     // Try alternative registration method
     try {
       console.log('Attempting alternative extractor registration...');
+      const { DefaultExtractors } = require('@discord-player/extractor');
       for (const extractor of DefaultExtractors) {
         await client.player.extractors.register(extractor, {});
         console.log(`✅ Registered extractor: ${extractor.name || 'Unknown'}`);
