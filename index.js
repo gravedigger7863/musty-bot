@@ -108,34 +108,40 @@ client.player.events.on('connection', (queue) => {
 (async () => {
   try {
     // Wait for player to be ready
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
-    // Use the correct v7.1 method to load extractors
-    await client.player.extractors.loadDefault();
+    console.log('🔍 Attempting to load extractors...');
+    console.log('🔍 Player extractors object:', typeof client.player.extractors);
+    console.log('🔍 Available methods:', Object.getOwnPropertyNames(client.player.extractors.__proto__));
+    
+    // Try different methods to load extractors
+    if (typeof client.player.extractors.loadDefault === 'function') {
+      console.log('🔍 Using loadDefault() method...');
+      await client.player.extractors.loadDefault();
+    } else if (typeof client.player.extractors.load === 'function') {
+      console.log('🔍 Using load() method...');
+      await client.player.extractors.load();
+    } else {
+      console.log('🔍 Trying manual registration...');
+      const { DefaultExtractors } = require('@discord-player/extractor');
+      for (const extractor of DefaultExtractors) {
+        await client.player.extractors.register(extractor, {});
+        console.log(`✅ Registered extractor: ${extractor.name || 'Unknown'}`);
+      }
+    }
+    
     console.log(`✅ Extractors registered successfully`);
     
     // Verify extractors are loaded
     const loadedExtractors = client.player.extractors.store;
     console.log(`✅ Loaded extractors: ${Array.from(loadedExtractors.keys()).join(', ')}`);
+    console.log(`✅ Extractor store size: ${loadedExtractors.size}`);
     
     global.extractorsLoaded = true;
   } catch (error) {
     console.error('Failed to register extractors:', error);
     console.error('Extractor error details:', error.stack);
     global.extractorsLoaded = false;
-    
-    // Try alternative registration method
-    try {
-      console.log('Attempting alternative extractor registration...');
-      const { DefaultExtractors } = require('@discord-player/extractor');
-      for (const extractor of DefaultExtractors) {
-        await client.player.extractors.register(extractor, {});
-        console.log(`✅ Registered extractor: ${extractor.name || 'Unknown'}`);
-      }
-      global.extractorsLoaded = true;
-    } catch (altError) {
-      console.error('Alternative extractor registration also failed:', altError);
-    }
   }
 })();
 
