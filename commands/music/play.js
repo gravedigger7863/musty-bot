@@ -64,16 +64,8 @@ module.exports = {
         if (!queue) {
           console.log(`[Play Command] Creating new queue`);
           queue = interaction.client.player.nodes.create(interaction.guild, {
-            metadata: { channel: interaction.channel },
-            leaveOnEnd: false,
-            leaveOnEmpty: false,
-            leaveOnStop: false,
-            skipOnEmpty: false,
+            metadata: { channel: interaction.channel }
           });
-        }
-        
-        // Connect to voice channel if not already connected
-        if (!queue.connection) {
           console.log(`[Play Command] Connecting to voice channel`);
           await queue.connect(voiceChannel);
         }
@@ -82,7 +74,7 @@ module.exports = {
         console.log(`[Play Command] Adding track to queue`);
         queue.addTrack(track);
         
-        // Start playing if not already playing
+        // Only play if not already playing
         if (!queue.node.isPlaying()) {
           console.log(`[Play Command] Starting playback`);
           await queue.node.play();
