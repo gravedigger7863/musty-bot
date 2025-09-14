@@ -11,7 +11,6 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    await interaction.deferReply();
     const query = interaction.options.getString("query");
     const voiceChannel = interaction.member?.voice?.channel;
 
