@@ -209,18 +209,9 @@ client.player.events.on('connection', (queue) => {
     // Load default extractors
     await client.player.extractors.loadMulti(DefaultExtractors);
     
-    // Load Deezer extractor with enhanced configuration
+    // Load Deezer extractor
     try {
-      const deezerExtractor = new DeezerExtractor({
-        // Enhanced configuration for better reliability
-        requestOptions: {
-          timeout: 30000,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
-        }
-      });
-      client.player.extractors.register(deezerExtractor);
+      client.player.extractors.register(DeezerExtractor);
       console.log('✅ Deezer extractor loaded successfully');
     } catch (error) {
       console.log('⚠️ Deezer extractor failed to load:', error.message);
@@ -236,14 +227,7 @@ client.player.events.on('connection', (queue) => {
       
       const ytdlpExtractor = new YtDlpExtractor({
         ytdlpPath: ytdlpPath,
-        timeout: 30000,
-        // Additional options for better reliability
-        requestOptions: {
-          timeout: 30000,
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-          }
-        }
+        timeout: 30000
       });
       client.player.extractors.register(ytdlpExtractor);
       console.log('✅ yt-dlp extractor loaded successfully');
