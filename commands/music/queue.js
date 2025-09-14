@@ -31,7 +31,7 @@ module.exports = {
         response += `...and ${tracks.length - 10} more`;
       }
     } else {
-      response += `\n🚫 No more songs in the queue.`;
+      response += `\n📜 **Queue:** No more songs in the queue. Add more with /play!`;
     }
 
     await interaction.editReply(response);

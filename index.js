@@ -174,6 +174,16 @@ client.player.events.on('trackEnd', (queue, track) => {
   console.log(`[Player] Track ended - duration was: ${track.duration} (${track.durationMS}ms)`);
   console.log(`[Player] Queue size after track end: ${queue.tracks.size}`);
   console.log(`[Player] Is playing after track end: ${queue.node.isPlaying()}`);
+  
+  // If there are no more tracks in the queue after this one ends, show the empty message
+  if (queue.tracks.size === 0 && queue.metadata?.channel) {
+    setTimeout(() => {
+      // Double-check that we're still not playing anything
+      if (!queue.node.isPlaying() && queue.tracks.size === 0) {
+        queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
+      }
+    }, 1000); // Small delay to ensure the track has fully ended
+  }
 });
 
 
@@ -190,20 +200,24 @@ client.player.events.on('emptyQueue', (queue) => {
   console.log(`[Player] Is playing when empty: ${queue.node.isPlaying()}`);
   console.log(`[Player] Current track when empty: ${queue.currentTrack?.title || 'None'}`);
   
-  // Don't delete the queue immediately - let it stay for a bit in case more tracks are added
-  // Only delete if no current track is playing
-  if (!queue.currentTrack) {
-    console.log(`[Player] No current track, will delete queue in 30 seconds if no activity`);
+  // Only show "queue is empty" message if there's no current track playing
+  // If there's a current track, it means we just moved from queue to playing
+  if (!queue.currentTrack || !queue.node.isPlaying()) {
+    console.log(`[Player] No current track playing, will delete queue in 30 seconds if no activity`);
+    
+    // Don't delete the queue immediately - let it stay for a bit in case more tracks are added
     setTimeout(() => {
       if (!queue.currentTrack && queue.tracks.size === 0) {
         console.log(`[Player] Deleting empty queue after timeout`);
         queue.delete();
       }
     }, 30000); // 30 second delay
-  }
-  
-  if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
+    
+    if (queue.metadata?.channel) {
+      queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
+    }
+  } else {
+    console.log(`[Player] Track is still playing, not showing empty queue message`);
   }
 });
 
