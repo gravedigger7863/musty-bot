@@ -173,6 +173,14 @@ client.player.events.on('error', (queue, error) => {
     console.error(`[Player Error] Extractor store:`, client.player.extractors.store ? Array.from(client.player.extractors.store.keys()) : 'No store available');
   }
   
+  // Handle stream download/playback errors
+  if (error.message && (error.message.includes('stream') || error.message.includes('download') || error.message.includes('ENOTFOUND') || error.message.includes('ECONNRESET'))) {
+    console.error(`[Player Error] Stream error detected - this will cause immediate track finishing`);
+    console.error(`[Player Error] Current track:`, queue.currentTrack?.title || 'None');
+    console.error(`[Player Error] Track URL:`, queue.currentTrack?.url || 'No URL');
+    console.error(`[Player Error] Track source:`, queue.currentTrack?.source || 'Unknown');
+  }
+  
   // Handle Opus encoder errors gracefully
   if (error.message && (error.message.includes('Cannot convert "undefined" to int') || error.message.includes('OpusScript'))) {
     console.log(`[Player Error] Opus encoder error detected, skipping track...`);
@@ -325,13 +333,10 @@ client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
   console.log(`[Player] Track duration in seconds: ${Math.floor(track.durationMS / 1000)}s`);
   console.log(`[Player] Track position when finished: ${queue.node.getTimestamp()?.current || 'Unknown'}`);
   
-  // Get more detailed finish reason from the queue node
-  try {
-    const finishReason = queue.node.getPlayerFinishReason();
-    console.log(`[Player] Detailed finish reason: ${finishReason || 'Unknown'}`);
-  } catch (error) {
-    console.log(`[Player] Could not get detailed finish reason: ${error.message}`);
-  }
+  // Log track finish details
+  console.log(`[Player] Track finished - duration was: ${track.duration} (${track.durationMS}ms)`);
+  console.log(`[Player] Track source: ${track.source || 'Unknown'}`);
+  console.log(`[Player] Track URL: ${track.url || 'No URL'}`);
   
   // Check if this is an immediate finish (less than 5 seconds)
   const trackDuration = track.durationMS || 0;

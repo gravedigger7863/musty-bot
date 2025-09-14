@@ -120,6 +120,18 @@ module.exports = {
           console.log(`[Play Command] Source: ${track.source}`);
           console.log(`[Play Command] Duration: ${track.duration} (${track.durationMS}ms)`);
           
+          // Debug stream URLs to identify invalid streams
+          console.log(`[Play Command] Track URL: ${track.url}`);
+          console.log(`[Play Command] Stream URL: ${track.raw?.url || 'No stream URL'}`);
+          console.log(`[Play Command] Track format: ${track.raw?.format || 'Unknown'}`);
+          console.log(`[Play Command] Track quality: ${track.raw?.quality || 'Unknown'}`);
+          
+          // Validate track has proper duration
+          if (!track.durationMS || track.durationMS <= 0) {
+            console.log(`[Play Command] ⚠️ WARNING: Track has invalid duration - this will cause immediate finishing`);
+            return replyToUser(interaction, "❌ Track has invalid duration. Try a different source.");
+          }
+          
           // Check if it's a playlist
           if (track.playlist) {
             return replyToUser(interaction, `🎵 Added **${track.playlist.tracks.length} tracks** from **${track.playlist.title}** to the queue!`);
@@ -128,6 +140,7 @@ module.exports = {
           }
         } else {
           console.log(`[Play Command] ❌ Playback failed: ${result.error || 'Unknown error'}`);
+          console.log(`[Play Command] Full error details:`, result);
           return replyToUser(interaction, "❌ Something went wrong, please try again.");
         }
       } catch (error) {
