@@ -152,7 +152,7 @@ module.exports = {
           if (queue.connection && queue.connection.state === VoiceConnectionStatus.Ready) {
             console.log(`[Play Command] ✅ Voice connection verified as Ready`);
           } else {
-            console.log(`[Play Command] ⚠️ Voice connection state: ${JSON.stringify(queue.connection?.state) || 'Unknown'}`);
+            console.log(`[Play Command] ⚠️ Voice connection state: ${queue.connection?.state?.status || 'Unknown'}`);
           }
           
         } catch (error) {
@@ -163,7 +163,7 @@ module.exports = {
         }
       } else {
         console.log(`[Play Command] Using existing voice connection`);
-        console.log(`[Play Command] Connection state: ${JSON.stringify(queue.connection?.state) || 'Unknown'}`);
+        console.log(`[Play Command] Connection state: ${queue.connection?.state?.status || 'Unknown'}`);
         
         // Check if existing connection is still ready
         if (queue.connection && queue.connection.state !== VoiceConnectionStatus.Ready) {
@@ -211,7 +211,7 @@ module.exports = {
               return replyToUser(interaction, "❌ Failed to start playlist playback. Please try again.");
             }
           } else {
-            console.log(`[Play Command] ⚠️ Voice connection not ready for playlist, state: ${JSON.stringify(queue.connection?.state) || 'Unknown'}`);
+            console.log(`[Play Command] ⚠️ Voice connection not ready for playlist, state: ${queue.connection?.state?.status || 'Unknown'}`);
             return replyToUser(interaction, "❌ Voice connection not ready. Please try again.");
           }
         }
@@ -243,7 +243,7 @@ module.exports = {
               return replyToUser(interaction, "❌ Failed to start playback. Please try again.");
             }
           } else {
-            console.log(`[Play Command] ⚠️ Voice connection not ready, state: ${JSON.stringify(queue.connection?.state) || 'Unknown'}`);
+            console.log(`[Play Command] ⚠️ Voice connection not ready, state: ${queue.connection?.state?.status || 'Unknown'}`);
             return replyToUser(interaction, "❌ Voice connection not ready. Please try again.");
           }
         } else {
