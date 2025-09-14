@@ -117,7 +117,15 @@ client.player.events.on('connection', (queue) => {
     // Use the correct v7.1 method to load extractors
     console.log('🔍 Using loadMulti() method with DefaultExtractors...');
     console.log('🔍 DefaultExtractors count:', DefaultExtractors.length);
-    await client.player.extractors.loadMulti(DefaultExtractors);
+    
+    // Load extractors with proper configuration
+    await client.player.extractors.loadMulti(DefaultExtractors, {
+      // Add any necessary configuration options
+      bridgeProvider: 'youtube',
+      bridgeProviderOptions: {
+        // YouTube-specific options if needed
+      }
+    });
     
     console.log(`✅ Extractors registered successfully`);
     
