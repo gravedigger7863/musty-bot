@@ -30,7 +30,7 @@ module.exports = {
       });
     }
     
-    await interaction.deferReply();
+    // Interaction is already deferred by interactionCreate event
     
     try {
       // Get or create player

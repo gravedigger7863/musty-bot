@@ -5,9 +5,7 @@ module.exports = {
     .setName("skip")
     .setDescription("Skip the current song"),
   async execute(interaction, client) {
-    if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferReply();
-    }
+    // Interaction is already deferred by interactionCreate event
 
     const player = client.manager.players.get(interaction.guild.id);
 

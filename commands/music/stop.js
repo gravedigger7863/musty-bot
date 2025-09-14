@@ -5,9 +5,7 @@ module.exports = {
     .setName("stop")
     .setDescription("Stop the music and clear the queue"),
   async execute(interaction, client) {
-    if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferReply();
-    }
+    // Interaction is already deferred by interactionCreate event
 
     const player = client.manager.players.get(interaction.guild.id);
     if (!player) {
