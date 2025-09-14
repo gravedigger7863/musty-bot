@@ -224,13 +224,30 @@ client.player.events.on(GuildQueueEvent.QueueEnd, (queue) => {
 
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
-  // Check voice state after a short delay to allow connection to settle
-  setTimeout(() => {
+  
+  // Monitor voice connection state changes
+  const checkVoiceState = () => {
     const voiceState = queue.connection?.voice;
     if (voiceState) {
-      console.log(`[Player] Voice connection state - Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
+      console.log(`[Player] Voice connection state - Ready: ${voiceState.state === 'ready'}, Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
+      
+      if (voiceState.state === 'ready') {
+        console.log(`[Player] Voice connection is now ready for playback!`);
+      }
     } else {
       console.log(`[Player] Voice connection state - Voice state not available yet`);
+    }
+  };
+  
+  // Check immediately and then every 500ms for up to 10 seconds
+  checkVoiceState();
+  let attempts = 0;
+  const interval = setInterval(() => {
+    attempts++;
+    checkVoiceState();
+    
+    if (attempts >= 20 || (queue.connection?.voice?.state === 'ready')) {
+      clearInterval(interval);
     }
   }, 500);
 });

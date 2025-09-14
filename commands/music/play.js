@@ -41,10 +41,30 @@ module.exports = {
       if (!queue.connection) {
         console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
         await queue.connect(voiceChannel);
-        console.log(`[Play Command] Connected, waiting briefly before playing...`);
+        console.log(`[Play Command] Connected, waiting for voice connection to be ready...`);
 
-        // Small delay to ensure connection is ready
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Wait for voice connection to be ready with proper state checking
+        let attempts = 0;
+        const maxAttempts = 30; // 30 seconds max wait
+        
+        while (attempts < maxAttempts) {
+          if (queue.connection && queue.connection.voice && queue.connection.voice.state === 'ready') {
+            console.log(`[Play Command] Voice connection is ready after ${attempts * 0.5}s`);
+            break;
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between checks
+          attempts++;
+          
+          if (attempts % 10 === 0) {
+            console.log(`[Play Command] Still waiting for voice connection... (${attempts * 0.5}s)`);
+          }
+        }
+        
+        if (attempts >= maxAttempts) {
+          console.log(`[Play Command] Voice connection timeout after ${maxAttempts * 0.5}s`);
+          return interaction.editReply("❌ Failed to connect to voice channel. Please try again.");
+        }
       }
 
       // Add track to queue
