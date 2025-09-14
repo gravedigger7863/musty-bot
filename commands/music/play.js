@@ -128,7 +128,7 @@ module.exports = {
               connectionReady = true;
               console.log(`[Play Command] ✅ Voice connection ready for audio after ${attempts * 500}ms`);
             } else {
-              console.log(`[Play Command] Voice state check ${attempts}/${maxAttempts}: ${voiceState?.state || 'undefined'}`);
+              console.log(`[Play Command] Voice state check ${attempts}/${maxAttempts}: ${voiceState?.state || 'connecting...'}`);
             }
           }
           
@@ -227,7 +227,7 @@ module.exports = {
             connectionReady = true;
             console.log(`[Play Command] ✅ Voice connection ready for audio after ${attempts * 500}ms`);
           } else {
-            console.log(`[Play Command] Voice state check ${attempts}/${maxAttempts}: ${voiceState?.state || 'undefined'}`);
+            console.log(`[Play Command] Voice state check ${attempts}/${maxAttempts}: ${voiceState?.state || 'connecting...'}`);
           }
         }
         

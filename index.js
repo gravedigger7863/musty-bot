@@ -79,22 +79,24 @@ client.player = new Player(client, {
   selfDeaf: false,
   selfMute: false,
   // Debug options for VPS troubleshooting
-  leaveOnEmpty: false,
-  leaveOnEnd: false,
-  leaveOnStop: false
+  leaveOnEmpty: true,
+  leaveOnEnd: true,
+  leaveOnStop: true
 });
 
 // Configure Discord Player for proper voice connections (v7.1 API)
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
   
-  // Simple voice state check - Discord Player handles the rest
-  const voiceState = queue.connection?.voice;
-  if (voiceState) {
-    console.log(`[Player] ✅ Voice connection state: ${voiceState.state} - Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
-  } else {
-    console.log(`[Player] ⚠️ Voice state not available - check GUILD_VOICE_STATES intent and bot permissions`);
-  }
+  // Wait a moment for voice state to be available
+  setTimeout(() => {
+    const voiceState = queue.connection?.voice;
+    if (voiceState) {
+      console.log(`[Player] ✅ Voice connection state: ${voiceState.state} - Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
+    } else {
+      console.log(`[Player] ⚠️ Voice state not available - this is normal during connection establishment`);
+    }
+  }, 1000);
 });
 
 // Register extractors for v7.1
@@ -193,16 +195,15 @@ client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
   console.log(`[Player] 🏁 PLAYER FINISH EVENT TRIGGERED`);
   console.log(`[Player] Finished: ${track.title} in ${queue.guild.name}`);
   console.log(`[Player] Track ended - duration was: ${track.duration} (${track.durationMS}ms)`);
-  console.log(`[Player] Queue size after track end: ${queue.tracks.size}`);
+  console.log(`[Player] Queue size before cleanup: ${queue.tracks.size}`);
   console.log(`[Player] Is playing after track end: ${queue.node.isPlaying()}`);
   console.log(`[Player] Voice connection state: ${queue.connection?.voice?.state || 'undefined'}`);
   console.log(`[Player] Current track after finish: ${queue.currentTrack?.title || 'None'}`);
   
-  // The track has finished - Discord Player should automatically advance to next track
-  // or end the queue if no more tracks. We don't need to manually handle this.
-  // Just log the state and let Discord Player handle the queue progression.
+  // The track has finished - Discord Player should automatically handle queue progression
+  // We just need to ensure proper cleanup and messaging
   
-  // Only show empty message if queue is truly empty and not playing
+  // Show empty message if queue is truly empty and not playing
   if (queue.tracks.size === 0 && !queue.node.isPlaying() && queue.metadata?.channel) {
     console.log(`[Player] Queue is empty and not playing, showing empty message`);
     queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
