@@ -40,6 +40,8 @@ const path = require('path');
 const { Player, GuildQueueEvent } = require('discord-player');
 // Import extractors from the main package
 const { DefaultExtractors } = require('@discord-player/extractor');
+// Import YouTube extractor separately since it's not in DefaultExtractors
+const { YouTubeExtractor } = require('@discord-player/extractor');
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const express = require('express');
@@ -203,8 +205,16 @@ client.player.events.on('connection', (queue) => {
     
     console.log('🔍 Registering extractors with bridge support...');
     
-    // Use the simple loadMulti method as per Discord Player docs
+    // Load default extractors
     await client.player.extractors.loadMulti(DefaultExtractors);
+    
+    // Load YouTube extractor separately
+    try {
+      await client.player.extractors.load(YouTubeExtractor);
+      console.log('✅ YouTube extractor loaded successfully');
+    } catch (error) {
+      console.log('⚠️ YouTube extractor failed to load:', error.message);
+    }
     
     console.log(`✅ Extractors registered successfully`);
     

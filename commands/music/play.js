@@ -116,48 +116,9 @@ module.exports = {
           }
         });
 
-        // If SoundCloud track fails, try YouTube as fallback
-        if (!result.success) {
-          console.log(`[Play Command] SoundCloud failed, trying YouTube fallback for: ${query}`);
-          await replyToUser(interaction, "⏳ SoundCloud track failed, trying YouTube...");
-          
-          // Try different YouTube search methods
-          const youtubeQueries = [
-            `ytsearch:${query}`,
-            `youtube:${query}`,
-            `yt:${query}`,
-            query // Fallback to original query
-          ];
-          
-          for (const youtubeQuery of youtubeQueries) {
-            console.log(`[Play Command] Trying YouTube search with: ${youtubeQuery}`);
-            
-            try {
-              result = await player.play(voiceChannel, youtubeQuery, {
-                requestedBy: interaction.user,
-                nodeOptions: {
-                  metadata: { channel: interaction.channel },
-                  leaveOnEnd: true,
-                  leaveOnEmpty: true,
-                  leaveOnStop: true,
-                  selfDeaf: false,
-                  selfMute: false,
-                  bufferingTimeout: 30000,
-                  connectionTimeout: 30000,
-                  volume: 50,
-                  autoplay: false
-                }
-              });
-              
-              if (result.success) {
-                console.log(`[Play Command] ✅ YouTube fallback successful with: ${youtubeQuery}`);
-                break;
-              }
-            } catch (error) {
-              console.log(`[Play Command] YouTube query failed: ${youtubeQuery} - ${error.message}`);
-            }
-          }
-        }
+        // Note: Fallback logic removed to prevent double playback
+        // The issue is that SoundCloud tracks are still finishing immediately
+        // even with bridge enabled, so we need to focus on fixing the root cause
 
         if (result.success) {
           const { track, queue } = result;
@@ -190,11 +151,11 @@ module.exports = {
             
             // Check for monetization issues
             if (track.__metadata && track.__metadata.monetization_model === 'AD_SUPPORTED') {
-              console.log(`[Play Command] ⚠️ Track is ad-supported - will likely fail to stream`);
-              console.log(`[Play Command] Ad-supported tracks often fail to stream properly`);
+              console.log(`[Play Command] ⚠️ Track is ad-supported - blocking to prevent streaming issues`);
+              console.log(`[Play Command] Ad-supported tracks consistently fail to stream properly`);
               
-              // Don't block, but warn user and let the fallback system handle it
-              console.log(`[Play Command] Allowing playback attempt, fallback will handle failure`);
+              // Block ad-supported tracks completely
+              return replyToUser(interaction, "❌ This SoundCloud track is ad-supported and cannot be streamed. Please try a different track or search for a non-ad-supported version.");
             }
             
             // Check for all-rights-reserved license
