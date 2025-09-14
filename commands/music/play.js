@@ -120,10 +120,9 @@ module.exports = {
       let queue = player.nodes.get(interaction.guild.id);
       if (!queue) {
         console.log(`[Play Command] Creating new queue`);
-        queue = player.nodes.create(interaction.guild, {
+        queue = player.nodes.create(voiceChannel, {
           metadata: { channel: interaction.channel },
-          volume: 80,
-          leaveOnEnd: false,
+          leaveOnEnd: true,
           leaveOnEmpty: true,
           leaveOnStop: true,
           selfDeaf: false,
@@ -137,12 +136,12 @@ module.exports = {
         await queue.connect(voiceChannel);
         console.log(`[Play Command] ✅ Connected to voice channel`);
         
-        // Wait for voice connection to be ready
+        // Wait for voice connection to be ready (increased to 30s for VPS)
         try {
-          await entersState(queue.connection, VoiceConnectionStatus.Ready, 10_000);
+          await entersState(queue.connection, VoiceConnectionStatus.Ready, 30_000);
           console.log(`[Play Command] ✅ Voice connection ready`);
         } catch (error) {
-          console.log(`[Play Command] ❌ Voice connection not ready after 10s`);
+          console.log(`[Play Command] ❌ Voice connection not ready after 30s`);
           queue.delete();
           return replyToUser(interaction, `❌ Could not establish voice connection! Please try again.`);
         }
@@ -151,18 +150,37 @@ module.exports = {
       // Handle playlists vs single tracks
       if (searchResult.playlist) {
         console.log(`[Play Command] Adding playlist: ${searchResult.playlist.title} with ${searchResult.tracks.length} tracks`);
-        queue.addTrack(searchResult.tracks);
+        
+        // Validate playlist tracks have playable URLs
+        const validTracks = searchResult.tracks.filter(track => track.url);
+        if (validTracks.length === 0) {
+          return replyToUser(interaction, `❌ No tracks in playlist have playable URLs.`);
+        }
+        
+        if (validTracks.length < searchResult.tracks.length) {
+          console.log(`[Play Command] Filtered out ${searchResult.tracks.length - validTracks.length} tracks without URLs`);
+        }
+        
+        queue.addTrack(validTracks);
         
         // Start playing if not already playing
         if (!queue.node.isPlaying()) {
           await queue.node.play();
         }
         
-        return replyToUser(interaction, `🎵 Added **${searchResult.tracks.length} tracks** from **${searchResult.playlist.title}** to the queue!`);
+        return replyToUser(interaction, `🎵 Added **${validTracks.length} tracks** from **${searchResult.playlist.title}** to the queue!`);
       } else {
         // Handle single track
         const track = searchResult.tracks[0];
         console.log(`[Play Command] Adding single track: ${track.title} by ${track.author}`);
+        console.log(`[Play Command] Track URL: ${track.url || 'No URL'}`);
+        console.log(`[Play Command] Track duration: ${track.duration || 'Unknown'}`);
+        
+        // Validate track has playable URL
+        if (!track.url) {
+          console.log(`[Play Command] ❌ Track has no playable URL`);
+          return replyToUser(interaction, `❌ Track has no playable URL. Try a different source.`);
+        }
         
         // Check for duplicates
         const existingTrack = queue.tracks.find(t => 
@@ -179,8 +197,11 @@ module.exports = {
         
         // Start playing if not already playing
         if (!queue.node.isPlaying()) {
+          console.log(`[Play Command] Starting playback...`);
           await queue.node.play();
           console.log(`[Play Command] ✅ Started playback`);
+        } else {
+          console.log(`[Play Command] Queue already playing, track added to queue`);
         }
         
         return replyToUser(interaction, `🎶 Added **${track.title}** to the queue!`);
