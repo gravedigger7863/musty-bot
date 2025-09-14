@@ -32,7 +32,7 @@ const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { Player, GuildQueueEvent } = require('discord-player');
-// Extractors will be loaded using loadDefault() method
+const { DefaultExtractors } = require('@discord-player/extractor');
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const express = require('express');
@@ -114,21 +114,10 @@ client.player.events.on('connection', (queue) => {
     console.log('🔍 Player extractors object:', typeof client.player.extractors);
     console.log('🔍 Available methods:', Object.getOwnPropertyNames(client.player.extractors.__proto__));
     
-    // Try different methods to load extractors
-    if (typeof client.player.extractors.loadDefault === 'function') {
-      console.log('🔍 Using loadDefault() method...');
-      await client.player.extractors.loadDefault();
-    } else if (typeof client.player.extractors.load === 'function') {
-      console.log('🔍 Using load() method...');
-      await client.player.extractors.load();
-    } else {
-      console.log('🔍 Trying manual registration...');
-      const { DefaultExtractors } = require('@discord-player/extractor');
-      for (const extractor of DefaultExtractors) {
-        await client.player.extractors.register(extractor, {});
-        console.log(`✅ Registered extractor: ${extractor.name || 'Unknown'}`);
-      }
-    }
+    // Use the correct v7.1 method to load extractors
+    console.log('🔍 Using loadMulti() method with DefaultExtractors...');
+    console.log('🔍 DefaultExtractors count:', DefaultExtractors.length);
+    await client.player.extractors.loadMulti(DefaultExtractors);
     
     console.log(`✅ Extractors registered successfully`);
     
