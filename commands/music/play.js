@@ -97,16 +97,16 @@ module.exports = {
       
       try {
         // Try multiple search engines in order of preference
-        // Note: yt-dlp-extractor may not be available on all platforms
+        // Optimized order: most reliable sources first
         const searchEngines = [
           'auto',           // Try all sources automatically
+          'com.retrouser955.discord-player.deezr-ext', // Deezer (most reliable)
           'ytdlp-extractor', // yt-dlp YouTube (if available)
-          'com.retrouser955.discord-player.deezr-ext', // Deezer
           'spotify',        // Spotify
           'apple',          // Apple Music
-          'soundcloud',     // SoundCloud (but will be filtered)
           'vimeo',          // Vimeo
-          'reverbnation'    // Reverbnation
+          'reverbnation',   // Reverbnation
+          'soundcloud'      // SoundCloud (last, will be filtered for ad-supported)
         ];
         let searchResult = null;
         let selectedTrack = null;
