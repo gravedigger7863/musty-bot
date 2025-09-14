@@ -117,7 +117,7 @@ client.player.events.on('connection', (queue) => {
   }, 1000);
 });
 
-// Register extractors for v7.1 - Simple approach
+// Register extractors for v7.1 - Enhanced approach with SoundCloud focus
 (async () => {
   try {
     // Wait for player to be ready
@@ -134,6 +134,14 @@ client.player.events.on('connection', (queue) => {
     const loadedExtractors = client.player.extractors.store;
     console.log(`✅ Loaded extractors: ${Array.from(loadedExtractors.keys()).join(', ')}`);
     console.log(`✅ Extractor store size: ${loadedExtractors.size}`);
+    
+    // Specifically check SoundCloud extractor
+    const soundcloudExtractor = loadedExtractors.get('com.discord-player.soundcloudextractor');
+    if (soundcloudExtractor) {
+      console.log(`✅ SoundCloud extractor loaded successfully`);
+    } else {
+      console.log(`⚠️ SoundCloud extractor not found - this may cause SoundCloud track issues`);
+    }
     
     global.extractorsLoaded = true;
   } catch (error) {
@@ -251,6 +259,46 @@ client.player.events.on('playerUpdate', (queue, oldState, newState) => {
   }
 });
 
+// Add comprehensive debug logging for queue and connection issues
+client.player.events.on('debug', (message) => {
+  console.log(`[Player Debug] ${message}`);
+});
+
+// Add connection stability event handlers
+client.player.events.on('connectionCreate', (queue) => {
+  console.log(`[Player] ✅ Voice connection established in ${queue.guild.name}`);
+  console.log(`[Player] Connection state: ${queue.connection?.state || 'Unknown'}`);
+  console.log(`[Player] Voice channel: ${queue.connection?.joinConfig?.channelId || 'Unknown'}`);
+});
+
+client.player.events.on('connectionDestroy', (queue) => {
+  console.log(`[Player] ❌ Voice connection destroyed in ${queue.guild.name}`);
+  console.log(`[Player] Reason: ${queue.connection?.state || 'Unknown'}`);
+});
+
+// Add queue-specific event handlers
+client.player.events.on('queueEnd', (queue) => {
+  console.log(`[Player] 📭 Queue ended in ${queue.guild.name}`);
+  console.log(`[Player] Final queue size: ${queue.tracks.size}`);
+  console.log(`[Player] Is playing when queue ends: ${queue.node.isPlaying()}`);
+  console.log(`[Player] Current track when queue ends: ${queue.currentTrack?.title || 'None'}`);
+});
+
+// Add track loading validation
+client.player.events.on('trackLoad', (queue, track) => {
+  console.log(`[Player] 📥 Track loaded: ${track.title}`);
+  console.log(`[Player] Track source: ${track.source}`);
+  console.log(`[Player] Track duration: ${track.duration} (${track.durationMS}ms)`);
+  console.log(`[Player] Track URL: ${track.url}`);
+  console.log(`[Player] Track format: ${track.raw?.format || 'Unknown'}`);
+  console.log(`[Player] Track quality: ${track.raw?.quality || 'Unknown'}`);
+  
+  // Validate track has proper duration
+  if (!track.durationMS || track.durationMS <= 0) {
+    console.log(`[Player] ⚠️ WARNING: Track has invalid duration - this may cause immediate finishing`);
+  }
+});
+
 client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
   console.log(`[Player] 🏁 PLAYER FINISH EVENT TRIGGERED`);
   console.log(`[Player] Finished: ${track.title} in ${queue.guild.name}`);
@@ -267,10 +315,19 @@ client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
   console.log(`[Player] Track duration in seconds: ${Math.floor(track.durationMS / 1000)}s`);
   console.log(`[Player] Track position when finished: ${queue.node.getTimestamp()?.current || 'Unknown'}`);
   
+  // Get more detailed finish reason from the queue node
+  try {
+    const finishReason = queue.node.getPlayerFinishReason();
+    console.log(`[Player] Detailed finish reason: ${finishReason || 'Unknown'}`);
+  } catch (error) {
+    console.log(`[Player] Could not get detailed finish reason: ${error.message}`);
+  }
+  
   // Check if this is an immediate finish (less than 5 seconds)
   const trackDuration = track.durationMS || 0;
   if (trackDuration > 0 && trackDuration < 5000) {
     console.log(`[Player] ⚠️ WARNING: Track finished very quickly (${trackDuration}ms) - possible streaming issue`);
+    console.log(`[Player] This suggests either: 1) Stream failed to load, 2) Voice connection dropped, or 3) Track format issue`);
     
     // If this is an immediate finish, try to prevent the queue from getting stuck
     if (queue.tracks.size === 0 && !queue.node.isPlaying()) {
