@@ -21,6 +21,13 @@ module.exports = {
     // Check bot permissions in the voice channel
     const botMember = interaction.guild.members.me;
     const permissions = voiceChannel.permissionsFor(botMember);
+    console.log(`[Play Command] Bot permissions in voice channel:`, {
+      Connect: permissions.has('Connect'),
+      Speak: permissions.has('Speak'),
+      ViewChannel: permissions.has('ViewChannel'),
+      allPermissions: permissions.toArray()
+    });
+    
     if (!permissions.has(['Connect', 'Speak'])) {
       return interaction.editReply("❌ I don't have permission to connect or speak in this voice channel!");
     }
