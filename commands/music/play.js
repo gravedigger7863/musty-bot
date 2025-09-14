@@ -70,16 +70,19 @@ module.exports = {
           console.log(`[Play Command] Using existing queue`);
         }
         
-        // Connect to voice channel using v7.1 API
+        // Connect to voice channel using Discord Player's built-in method
         if (!queue.node.connection) {
-          console.log(`[Play Command] Connecting to voice channel using v7.1 API`);
+          console.log(`[Play Command] Connecting to voice channel...`);
           await queue.node.connect(voiceChannel);
           console.log(`[Play Command] Voice connection established`);
           
-          // Small delay to ensure connection is fully ready
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Wait for connection to be fully ready
+          console.log(`[Play Command] Waiting for connection to be fully ready...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          console.log(`[Play Command] Connection ready, proceeding with playback`);
         } else {
-          console.log(`[Play Command] Already connected to voice channel (${queue.node.connection.state?.status || 'unknown'})`);
+          console.log(`[Play Command] Already connected to voice channel`);
         }
         
         // Add track to queue
@@ -90,10 +93,9 @@ module.exports = {
         // Small delay to ensure track is processed
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Debug connection state before playing (v7.1 API)
-        console.log(`[Play Command] Connection debug (v7.1):`);
+        // Debug connection state before playing
+        console.log(`[Play Command] Connection debug:`);
         console.log(`[Play Command] - queue.node.connection: ${!!queue.node.connection}`);
-        console.log(`[Play Command] - queue.node.connection.state: ${queue.node.connection?.state?.status || 'undefined'}`);
         console.log(`[Play Command] - queue.node.isPlaying(): ${queue.node.isPlaying()}`);
         
         // Only play if not already playing

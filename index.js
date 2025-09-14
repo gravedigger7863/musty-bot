@@ -77,83 +77,15 @@ client.player = new Player(client, {
   useLegacyFFmpeg: false
 });
 
-// Override Discord Player's voice connection to ensure proper audio transmission (v7.1 API)
-const { joinVoiceChannel } = require('@discordjs/voice');
-
-// Store original connect method
-const originalConnect = client.player.nodes.create;
-
-client.player.nodes.create = function(guild, options) {
-  const queue = originalConnect.call(this, guild, options);
+// Configure Discord Player for proper voice connections (v7.1 API)
+client.player.events.on('connection', (queue) => {
+  console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
   
-  // Override the node.connect method for v7.1 API
-  const originalNodeConnect = queue.node.connect;
-  queue.node.connect = async function(voiceChannel, options = {}) {
-    console.log(`[Voice Connection] Establishing voice connection using v7.1 API...`);
-    
-    try {
-      // Create voice connection with proper options
-      const connection = joinVoiceChannel({
-        channelId: voiceChannel.id,
-        guildId: voiceChannel.guild.id,
-        adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-        selfDeaf: false,  // CRITICAL: Ensure bot is not deafened
-        selfMute: false   // CRITICAL: Ensure bot is not muted
-      });
-      
-      // Wait for connection to be ready
-      connection.on('stateChange', (oldState, newState) => {
-        console.log(`[Voice Connection] State changed: ${oldState.status} -> ${newState.status}`);
-        if (newState.status === 'ready') {
-          console.log(`[Voice Connection] Ready! SelfDeaf: ${newState.selfDeaf}, SelfMute: ${newState.selfMute}`);
-        }
-      });
-      
-      // Wait for the connection to be ready before returning
-      await new Promise((resolve, reject) => {
-        const timeout = setTimeout(() => {
-          reject(new Error('Voice connection timeout'));
-        }, 10000);
-        
-        connection.on('stateChange', (oldState, newState) => {
-          if (newState.status === 'ready') {
-            clearTimeout(timeout);
-            resolve();
-          } else if (newState.status === 'disconnected') {
-            clearTimeout(timeout);
-            reject(new Error('Voice connection disconnected'));
-          }
-        });
-        
-        // If already ready, resolve immediately
-        if (connection.state.status === 'ready') {
-          clearTimeout(timeout);
-          resolve();
-        }
-      });
-      
-      // Set the connection on the node for Discord Player v7.1
-      this.connection = connection;
-      
-      // Set the voice state for Discord Player v7.1
-      this.voiceState = {
-        deaf: false,
-        mute: false,
-        selfDeaf: false,
-        selfMute: false
-      };
-      
-      console.log(`[Voice Connection] Connected successfully with selfDeaf: false, selfMute: false`);
-      return connection;
-      
-    } catch (error) {
-      console.error(`[Voice Connection] Failed to connect:`, error);
-      throw error;
-    }
-  };
-  
-  return queue;
-};
+  // Ensure the bot is not deafened or muted
+  if (queue.connection && queue.connection.voice) {
+    console.log(`[Player] Voice state - Deafened: ${queue.connection.voice.deaf}, Muted: ${queue.connection.voice.mute}`);
+  }
+});
 
 // Register extractors for v7.1
 (async () => {
