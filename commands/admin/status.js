@@ -6,8 +6,8 @@ module.exports = {
     .setDescription("Check bot status and extractor information"),
   async execute(interaction) {
     try {
-      const extractorCount = interaction.client.player.extractors.size;
-      const extractorNames = Array.from(interaction.client.player.extractors.keys());
+      const extractorCount = interaction.client.player.extractors.length;
+      const extractorNames = interaction.client.player.extractors.map(ext => ext.identifier);
       const extractorsLoaded = global.extractorsLoaded || false;
       
       let statusMessage = `🤖 **Bot Status**\n`;

@@ -32,7 +32,7 @@ const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { Player } = require('discord-player');
-const { DefaultExtractors } = require('@discord-player/extractor');
+const { YouTubeExtractor, SpotifyExtractor, SoundCloudExtractor } = require('@discord-player/extractor');
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const express = require('express');
@@ -90,39 +90,23 @@ client.player = new Player(client, {
   }
 });
 
-// Load extractors using the correct method
+// Register extractors using the correct v6+ method
 (async () => {
   try {
-    // Use the correct loadMulti method as shown in the error
-    await client.player.extractors.loadMulti(DefaultExtractors);
-    console.log(`✅ Loaded default extractors: ${client.player.extractors.size}`);
+    // Register extractors individually
+    client.player.extractors.register(YouTubeExtractor, {});
+    console.log(`✅ Registered YouTubeExtractor`);
     
-    // If that doesn't work, try loading individually
-    if (client.player.extractors.size === 0) {
-      console.log(`[Extractors] Default loading failed, trying individual extractors...`);
-      const extractors = [
-        'YouTubeExtractor',
-        'SpotifyExtractor', 
-        'SoundCloudExtractor',
-        'VimeoExtractor',
-        'AttachmentExtractor',
-        'ReverbNationExtractor'
-      ];
-      
-      for (const extractorName of extractors) {
-        try {
-          await client.player.extractors.load(extractorName);
-          console.log(`✅ Loaded extractor: ${extractorName}`);
-        } catch (extractorError) {
-          console.warn(`⚠️ Failed to load extractor ${extractorName}:`, extractorError.message);
-        }
-      }
-    }
+    client.player.extractors.register(SpotifyExtractor, {});
+    console.log(`✅ Registered SpotifyExtractor`);
     
-    console.log(`✅ Total extractors loaded: ${client.player.extractors.size}`);
+    client.player.extractors.register(SoundCloudExtractor, {});
+    console.log(`✅ Registered SoundCloudExtractor`);
+    
+    console.log(`✅ Total extractors registered: ${client.player.extractors.length}`);
     global.extractorsLoaded = true;
   } catch (error) {
-    console.error('Failed to load extractors:', error);
+    console.error('Failed to register extractors:', error);
     global.extractorsLoaded = false;
   }
 })();

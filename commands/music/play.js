@@ -26,7 +26,7 @@ module.exports = {
       }
 
       // Check if extractors are loaded
-      if (!global.extractorsLoaded || interaction.client.player.extractors.size === 0) {
+      if (!global.extractorsLoaded || interaction.client.player.extractors.length === 0) {
         console.log(`[Play Command] Extractors not loaded yet, waiting...`);
         return await interaction.editReply({ 
           content: "⏳ Music system is still loading, please try again in a moment..."
@@ -39,10 +39,10 @@ module.exports = {
       });
 
       console.log(`[Play Command] Searching for: ${query}`);
-      console.log(`[Play Command] Available extractors: ${interaction.client.player.extractors.size}`);
+      console.log(`[Play Command] Available extractors: ${interaction.client.player.extractors.length}`);
       
       // List available extractors for debugging
-      const extractorNames = Array.from(interaction.client.player.extractors.keys());
+      const extractorNames = interaction.client.player.extractors.map(ext => ext.identifier);
       console.log(`[Play Command] Available extractor names: ${extractorNames.join(', ')}`);
       
       // Search for track using the correct API with timeout
