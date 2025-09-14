@@ -132,34 +132,9 @@ client.player.events.on('connectionError', (queue, error) => {
 
 client.player.events.on('trackStart', (queue, track) => {
   console.log(`[Player] Now playing: ${track.title} by ${track.author} in ${queue.guild.name}`);
-  console.log(`[Player] Track duration: ${track.duration} (${typeof track.duration})`);
-  console.log(`[Player] Track durationMS: ${track.durationMS}`);
-  
-  // Set start timestamp to fix duration calculation
-  track._startTimestamp = Date.now();
-  console.log(`[Player] Set start timestamp: ${track._startTimestamp}`);
-  
-  // Mark the track as actively playing
-  track._isPlaying = true;
-  console.log(`[Player] Marked track as playing: ${track._isPlaying}`);
-  
-  // Add periodic duration check to prevent premature clearing
-  const durationCheck = setInterval(() => {
-    if (track._startTimestamp && track.durationMS) {
-      const elapsed = Date.now() - track._startTimestamp;
-      const remaining = track.durationMS - elapsed;
-      console.log(`[Player] Duration check - Elapsed: ${elapsed}ms, Remaining: ${remaining}ms`);
-      
-      if (remaining <= 0) {
-        console.log(`[Player] Track should end naturally`);
-        track._isPlaying = false;
-        clearInterval(durationCheck);
-      }
-    }
-  }, 5000); // Check every 5 seconds
-  
-  // Store the interval so we can clear it when track ends
-  track._durationCheckInterval = durationCheck;
+  console.log(`[Player] Track duration: ${track.duration} (${track.durationMS}ms)`);
+  console.log(`[Player] Queue size: ${queue.tracks.size}`);
+  console.log(`[Player] Is playing: ${queue.node.isPlaying()}`);
   
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`🎶 Now playing: **${track.title}** by ${track.author}`).catch(console.error);
@@ -179,18 +154,9 @@ client.player.events.on('trackAdd', (queue, track) => {
 
 client.player.events.on('trackEnd', (queue, track) => {
   console.log(`[Player] Finished: ${track.title} in ${queue.guild.name}`);
-  console.log(`[Player] Track ended - duration was: ${track.duration} (${typeof track.duration})`);
-  console.log(`[Player] Track ended - durationMS was: ${track.durationMS}`);
-  
-  // Mark the track as no longer playing
-  track._isPlaying = false;
-  console.log(`[Player] Marked track as finished: ${track._isPlaying}`);
-  
-  // Clear the duration check interval
-  if (track._durationCheckInterval) {
-    clearInterval(track._durationCheckInterval);
-    console.log(`[Player] Cleared duration check interval`);
-  }
+  console.log(`[Player] Track ended - duration was: ${track.duration} (${track.durationMS}ms)`);
+  console.log(`[Player] Queue size after track end: ${queue.tracks.size}`);
+  console.log(`[Player] Is playing after track end: ${queue.node.isPlaying()}`);
 });
 
 
@@ -206,30 +172,19 @@ client.player.events.on('emptyQueue', (queue) => {
   console.log(`[Player] Queue size when empty: ${queue.tracks.size}`);
   console.log(`[Player] Is playing when empty: ${queue.node.isPlaying()}`);
   console.log(`[Player] Current track when empty: ${queue.currentTrack?.title || 'None'}`);
-  console.log(`[Player] Track is playing (custom): ${queue.currentTrack?._isPlaying || false}`);
   
-  // Only send message if there's no current track playing OR the track is marked as finished
-  if (!queue.currentTrack || (queue.currentTrack && !queue.currentTrack._isPlaying)) {
-    if (queue.metadata?.channel) {
-      queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
-    }
-  } else if (queue.currentTrack && queue.currentTrack._isPlaying) {
-    console.log(`[Player] Queue empty but current track still playing: ${queue.currentTrack.title}`);
+  if (queue.metadata?.channel) {
+    queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
   }
 });
 
 client.player.events.on('emptyChannel', (queue) => {
   console.log(`[Player] Channel empty in ${queue.guild.name}`);
   console.log(`[Player] Current track when channel empty: ${queue.currentTrack?.title || 'None'}`);
-  console.log(`[Player] Track is playing (custom): ${queue.currentTrack?._isPlaying || false}`);
+  console.log(`[Player] Is playing when channel empty: ${queue.node.isPlaying()}`);
   
-  // Only leave if there's no current track playing OR the track is marked as finished
-  if (!queue.currentTrack || (queue.currentTrack && !queue.currentTrack._isPlaying)) {
-    if (queue.metadata?.channel) {
-      queue.metadata.channel.send(`👋 Left voice channel - no one is listening!`).catch(console.error);
-    }
-  } else {
-    console.log(`[Player] Channel empty but current track still playing: ${queue.currentTrack.title}`);
+  if (queue.metadata?.channel) {
+    queue.metadata.channel.send(`👋 Left voice channel - no one is listening!`).catch(console.error);
   }
 });
 

@@ -41,70 +41,64 @@ module.exports = {
       console.log(`[Play Command] Searching for: ${query}`);
       console.log(`[Play Command] Extractors registered successfully.`);
       
-      // Use the v7 API to play music
+      // Use proper Discord Player v7 API
       try {
-        const result = await interaction.client.player.play(voiceChannel, query, {
-          nodeOptions: {
-            metadata: { channel: interaction.channel }
-          }
-        });
-
-        console.log(`[Play Command] Successfully queued: ${result.track.title}`);
-        console.log(`[Play Command] Track duration: ${result.track.duration} (${typeof result.track.duration})`);
-        console.log(`[Play Command] Track durationMS: ${result.track.durationMS}`);
-        console.log(`[Play Command] Track source: ${result.track.source}`);
-        console.log(`[Play Command] Track raw data:`, {
-          title: result.track.title,
-          duration: result.track.duration,
-          durationMS: result.track.durationMS,
-          source: result.track.source,
-          url: result.track.url
+        // Search for the track
+        const searchResult = await interaction.client.player.search(query, {
+          requestedBy: interaction.user,
         });
         
-        // Manually set the track as playing since trackStart event might not fire
-        result.track._isPlaying = true;
-        result.track._startTimestamp = Date.now();
-        console.log(`[Play Command] Manually set track as playing: ${result.track._isPlaying}`);
-        
-        // Add a periodic check to maintain track state
-        const trackStateCheck = setInterval(() => {
-          const currentQueue = interaction.client.player.nodes.get(interaction.guild.id);
-          if (currentQueue && currentQueue.currentTrack && currentQueue.currentTrack._isPlaying) {
-            const elapsed = Date.now() - currentQueue.currentTrack._startTimestamp;
-            const remaining = currentQueue.currentTrack.durationMS - elapsed;
-            console.log(`[Play Command] Track state check - Elapsed: ${elapsed}ms, Remaining: ${remaining}ms`);
-            
-            if (remaining <= 0) {
-              console.log(`[Play Command] Track should end naturally`);
-              currentQueue.currentTrack._isPlaying = false;
-              clearInterval(trackStateCheck);
-            }
-          } else {
-            clearInterval(trackStateCheck);
-          }
-        }, 10000); // Check every 10 seconds
-        
-        // Store the interval for cleanup
-        result.track._stateCheckInterval = trackStateCheck;
-        
-        // Check queue status after adding track
-        const queue = interaction.client.player.nodes.get(interaction.guild.id);
-        if (queue) {
-          console.log(`[Play Command] Queue exists: true`);
-          console.log(`[Play Command] Queue size (tracks waiting): ${queue.tracks.size}`);
-          console.log(`[Play Command] Current track: ${queue.currentTrack?.title || 'None'}`);
-          console.log(`[Play Command] Is playing: ${queue.node.isPlaying()}`);
-          console.log(`[Play Command] Track is playing (custom): ${queue.currentTrack?._isPlaying || false}`);
-          console.log(`[Play Command] Total tracks in queue: ${queue.tracks.size + (queue.currentTrack ? 1 : 0)}`);
-        } else {
-          console.log(`[Play Command] Queue exists: false`);
+        if (!searchResult || !searchResult.tracks || searchResult.tracks.length === 0) {
+          console.log(`[Play Command] No tracks found for query: ${query}`);
+          return await interaction.editReply('❌ No tracks found. Please try a different search term or check if the URL is valid.');
         }
         
-        if (result.track) {
-          await interaction.editReply(`🎶 Now playing **${result.track.title}** by ${result.track.author || 'Unknown Artist'}`);
-        } else {
-          await interaction.editReply(`🎵 **${result.track.title}** by ${result.track.author || 'Unknown Artist'} added to queue`);
+        const track = searchResult.tracks[0];
+        console.log(`[Play Command] Found track: ${track.title} by ${track.author}`);
+        console.log(`[Play Command] Track duration: ${track.duration} (${track.durationMS}ms)`);
+        console.log(`[Play Command] Track source: ${track.source}`);
+        
+        // Get or create queue
+        let queue = interaction.client.player.nodes.get(interaction.guild.id);
+        
+        if (!queue) {
+          console.log(`[Play Command] Creating new queue`);
+          queue = interaction.client.player.nodes.create(interaction.guild, {
+            metadata: { channel: interaction.channel },
+            leaveOnEnd: false,
+            leaveOnEmpty: false,
+            leaveOnStop: false,
+            skipOnEmpty: false,
+          });
         }
+        
+        // Connect to voice channel if not already connected
+        if (!queue.connection) {
+          console.log(`[Play Command] Connecting to voice channel`);
+          await queue.connect(voiceChannel);
+        }
+        
+        // Add track to queue
+        console.log(`[Play Command] Adding track to queue`);
+        queue.addTrack(track);
+        
+        // Start playing if not already playing
+        if (!queue.node.isPlaying()) {
+          console.log(`[Play Command] Starting playback`);
+          await queue.node.play();
+        }
+        
+        console.log(`[Play Command] Successfully queued: ${track.title}`);
+        console.log(`[Play Command] Queue size: ${queue.tracks.size}`);
+        console.log(`[Play Command] Is playing: ${queue.node.isPlaying()}`);
+        console.log(`[Play Command] Current track: ${queue.currentTrack?.title || 'None'}`);
+        
+        if (queue.tracks.size > 1) {
+          await interaction.editReply(`🎵 **${track.title}** by ${track.author || 'Unknown Artist'} added to queue`);
+        } else {
+          await interaction.editReply(`🎶 Now playing **${track.title}** by ${track.author || 'Unknown Artist'}`);
+        }
+        
       } catch (playError) {
         console.error(`[Play Command] Playback failed:`, playError);
         await interaction.editReply(`❌ Failed to play music: ${playError.message || 'Unknown error'}`);

@@ -2,13 +2,17 @@ const { SlashCommandBuilder } = require('discord.js');
 
 function progressBar(queue) {
   const total = queue.currentTrack.durationMS;
-  const current = queue.node.getTimestamp().current.value;
+  const timestamp = queue.node.getTimestamp();
   const barLength = 20;
+
+  if (!timestamp || !timestamp.current) return '◼️'.repeat(barLength);
+
+  const current = timestamp.current.value;
+  const percent = timestamp.current.label;
 
   if (!current) return '◼️'.repeat(barLength);
 
-  const percent = queue.node.getTimestamp().current.label;
-  const position = Math.floor((queue.node.getTimestamp().current.value / total) * barLength);
+  const position = Math.floor((current / total) * barLength);
 
   let bar = '';
   for (let i = 0; i < barLength; i++) {
