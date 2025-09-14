@@ -57,7 +57,7 @@ module.exports = {
         console.log(`[Play Command] Using existing queue`);
       }
 
-      // Connect to voice channel if not already connected
+      // Connect to voice channel with proper error handling
       if (!queue.connection) {
         console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
         console.log(`[Play Command] Voice channel ID: ${voiceChannel.id}`);
@@ -67,7 +67,7 @@ module.exports = {
           await queue.connect(voiceChannel);
           console.log(`[Play Command] ✅ Connection initiated successfully`);
           
-          // Wait for voice connection to be fully ready with proper validation
+          // Wait for voice connection to be fully ready
           console.log(`[Play Command] Waiting for voice connection to be ready...`);
           let connectionReady = false;
           let attempts = 0;
@@ -87,13 +87,15 @@ module.exports = {
           }
           
           if (!connectionReady) {
-            console.log(`[Play Command] ❌ Voice connection not ready after 5s - this will cause audio issues`);
-            return interaction.editReply(`❌ Voice connection failed. Please try again.`);
+            console.log(`[Play Command] ❌ Voice connection not ready after 5s - destroying queue`);
+            queue.destroy();
+            return interaction.editReply(`❌ Could not join your voice channel! Please check bot permissions.`);
           }
           
         } catch (connectError) {
           console.error(`[Play Command] Connection error:`, connectError);
-          return interaction.editReply(`❌ Failed to connect to voice channel: ${connectError.message}`);
+          queue.destroy();
+          return interaction.editReply(`❌ Could not join your voice channel! ${connectError.message}`);
         }
       } else {
         console.log(`[Play Command] Already connected to voice channel`);
@@ -109,8 +111,13 @@ module.exports = {
         console.log(`[Play Command] Queue state - Is playing: ${queue.isPlaying()}, Current track: ${queue.currentTrack?.title || 'None'}`);
         console.log(`[Play Command] Voice connection state before play: ${queue.connection?.voice?.state || 'undefined'}`);
         
+        // Ensure voice connection is ready before playing
+        if (!queue.connection || !queue.connection.voice || queue.connection.voice.state !== 'ready') {
+          console.log(`[Play Command] ❌ Voice connection not ready for playback`);
+          return interaction.editReply(`❌ Voice connection not ready. Please try again.`);
+        }
+        
         try {
-          // Use the simplified approach - let Discord Player handle voice state internally
           await queue.node.play(track);
           console.log(`[Play Command] ✅ Playback command sent for: ${track.title}`);
           console.log(`[Play Command] Post-play state - Is playing: ${queue.isPlaying()}, Voice state: ${queue.connection?.voice?.state || 'undefined'}`);
