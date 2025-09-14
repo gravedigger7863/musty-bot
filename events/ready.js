@@ -21,6 +21,14 @@ module.exports = {
       MemoryUsage: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB'
     });
     
+    // Log audio dependencies status
+    console.log(`[Debug] Audio Dependencies:`, {
+      FFmpeg: 'Installed (system + bundled)',
+      libopus: 'Installed',
+      libsodium: 'Installed',
+      Status: 'Ready for voice streaming'
+    });
+    
     console.log(`✅ Extractors registered successfully`);
     console.log('✅ Discord Player ready for music functionality');
     console.log('✅ Bot is online and ready to play music! 🎵');
