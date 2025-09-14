@@ -223,48 +223,58 @@ client.player.events.on('connection', (queue) => {
       console.log(`[Deezer] Extractor type: ${DeezerExtractor.constructor.name}`);
       console.log(`[Deezer] Has identifier: ${DeezerExtractor.identifier ? 'Yes' : 'No'}`);
       
+      // Validate extractor before registration
+      if (!DeezerExtractor || !DeezerExtractor.identifier) {
+        throw new Error('DeezerExtractor is undefined or missing identifier property');
+      }
+      
       client.player.extractors.register(DeezerExtractor);
       console.log('✅ Deezer extractor loaded successfully');
     } catch (error) {
       console.log('⚠️ Deezer extractor failed to load:', error.message);
       console.log('⚠️ Deezer extractor error details:', error);
+      console.log('⚠️ Deezer functionality will not be available');
     }
     
     // Load yt-dlp extractor (more reliable YouTube) with platform-specific binary
     try {
       // Determine the correct yt-dlp binary path based on platform
       const isWindows = process.platform === 'win32';
-      const ytdlpPath = isWindows ? './yt-dlp.exe' : 'yt-dlp'; // Use system yt-dlp on Linux
-      
-      console.log(`[yt-dlp] Platform: ${process.platform}, using path: ${ytdlpPath}`);
-      
-      // Check if yt-dlp binary exists and get absolute path
       const fs = require('fs');
       const path = require('path');
       const { execSync } = require('child_process');
       
       let ytdlpExists = false;
-      let absoluteYtdlpPath = ytdlpPath;
+      let absoluteYtdlpPath = null;
       
       if (isWindows) {
-        ytdlpExists = fs.existsSync(ytdlpPath);
-        if (ytdlpExists) {
+        const ytdlpPath = './yt-dlp.exe';
+        console.log(`[yt-dlp] Platform: ${process.platform}, checking for: ${ytdlpPath}`);
+        
+        if (fs.existsSync(ytdlpPath)) {
           absoluteYtdlpPath = path.resolve(ytdlpPath);
+          ytdlpExists = true;
+          console.log(`[yt-dlp] Found yt-dlp at: ${absoluteYtdlpPath}`);
+        } else {
+          console.log(`[yt-dlp] yt-dlp.exe not found in current directory`);
         }
       } else {
         // On Linux, check if yt-dlp is in PATH and get absolute path
+        console.log(`[yt-dlp] Platform: ${process.platform}, checking for yt-dlp in PATH`);
+        
         try {
-          const whichOutput = execSync('which yt-dlp', { encoding: 'utf8' }).trim();
-          if (whichOutput) {
+          const whichOutput = execSync('which yt-dlp', { encoding: 'utf8', timeout: 5000 }).trim();
+          if (whichOutput && fs.existsSync(whichOutput)) {
             absoluteYtdlpPath = whichOutput;
             ytdlpExists = true;
             console.log(`[yt-dlp] Found yt-dlp at: ${absoluteYtdlpPath}`);
           }
-        } catch {
-          ytdlpExists = false;
-          console.log(`[yt-dlp] yt-dlp not found in PATH`);
-          
-          // Try common installation paths on Linux
+        } catch (whichError) {
+          console.log(`[yt-dlp] yt-dlp not found in PATH: ${whichError.message}`);
+        }
+        
+        // Try common installation paths on Linux if not found in PATH
+        if (!ytdlpExists) {
           const commonPaths = ['/usr/local/bin/yt-dlp', '/usr/bin/yt-dlp', '/opt/yt-dlp/yt-dlp'];
           for (const commonPath of commonPaths) {
             if (fs.existsSync(commonPath)) {
@@ -277,14 +287,14 @@ client.player.events.on('connection', (queue) => {
         }
       }
       
-      if (ytdlpExists) {
+      if (ytdlpExists && absoluteYtdlpPath) {
         console.log(`[yt-dlp] Binary found, creating extractor...`);
         
         // Create yt-dlp extractor with proper configuration
         try {
           console.log(`[yt-dlp] Creating extractor with absolute path: ${absoluteYtdlpPath}`);
           
-          // Validate the path exists before creating extractor
+          // Double-check the path exists before creating extractor
           if (!fs.existsSync(absoluteYtdlpPath)) {
             throw new Error(`yt-dlp binary not found at: ${absoluteYtdlpPath}`);
           }
@@ -297,6 +307,11 @@ client.player.events.on('connection', (queue) => {
           console.log(`[yt-dlp] Extractor created, type: ${ytdlpExtractor.constructor.name}`);
           console.log(`[yt-dlp] Has identifier: ${ytdlpExtractor.identifier ? 'Yes' : 'No'}`);
           console.log(`[yt-dlp] Identifier value: ${ytdlpExtractor.identifier || 'undefined'}`);
+          
+          // Validate extractor before registration
+          if (!ytdlpExtractor.identifier) {
+            throw new Error('YtDlpExtractor missing required identifier property');
+          }
           
           // Wrap registration in try/catch to catch undefined errors
           try {
@@ -315,8 +330,9 @@ client.player.events.on('connection', (queue) => {
           // Don't try to register a malformed extractor - this causes the identifier error
         }
       } else {
-        console.log(`[yt-dlp] Binary not found at ${ytdlpPath}, skipping yt-dlp extractor`);
+        console.log(`[yt-dlp] yt-dlp binary not found, skipping yt-dlp extractor`);
         console.log(`[yt-dlp] Will rely on default YouTube extractor instead`);
+        console.log(`[yt-dlp] To install yt-dlp on Linux: sudo curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp && sudo chmod +x /usr/local/bin/yt-dlp`);
       }
     } catch (error) {
       console.log('⚠️ yt-dlp extractor failed to load:', error.message);
@@ -393,8 +409,15 @@ client.player.events.on('connection', (queue) => {
         console.log(`🔄 No YouTube extractor found, attempting to load manually...`);
         try {
           const { YouTubeExtractor } = require('@discord-player/extractor');
+          
+          // Validate the extractor before attempting to register
+          if (!YouTubeExtractor || !YouTubeExtractor.identifier) {
+            throw new Error('YouTubeExtractor is undefined or missing identifier property');
+          }
+          
           // Check if it's already registered before trying to register again
           if (!client.player.extractors.store.has('com.discord-player.youtubeextractor')) {
+            console.log(`[YouTube] Registering extractor with identifier: ${YouTubeExtractor.identifier}`);
             client.player.extractors.register(YouTubeExtractor);
             console.log(`✅ YouTube extractor loaded manually`);
           } else {
@@ -402,15 +425,21 @@ client.player.events.on('connection', (queue) => {
           }
         } catch (error) {
           console.log(`⚠️ Failed to load YouTube extractor manually: ${error.message}`);
+          console.log(`⚠️ YouTube extractor error details:`, error);
+          console.log(`⚠️ This may cause YouTube playback issues`);
         }
       }
     }
     
     global.extractorsLoaded = true;
+    console.log('🎉 All extractors loaded successfully!');
   } catch (error) {
-    console.error('Failed to register extractors:', error);
-    console.error('Extractor error details:', error.stack);
+    console.error('❌ Failed to register extractors:', error.message);
+    console.error('❌ Extractor error details:', error.stack);
     global.extractorsLoaded = false;
+    
+    // Don't let extractor errors crash the bot
+    console.log('⚠️ Bot will continue without some extractors - this may affect music playback');
   }
 })();
 
