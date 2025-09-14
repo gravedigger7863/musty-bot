@@ -205,11 +205,8 @@ client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
   // The track has finished - Discord Player should automatically handle queue progression
   // We just need to ensure proper cleanup and messaging
   
-  // Show empty message if queue is truly empty and not playing
-  if (queue.tracks.size === 0 && !queue.node.isPlaying() && queue.metadata?.channel) {
-    console.log(`[Player] Queue is empty and not playing, showing empty message`);
-    queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
-  }
+  // Don't send empty message here - let EmptyQueue event handle it
+  console.log(`[Player] Track finished, queue size: ${queue.tracks.size}`);
 });
 
 
