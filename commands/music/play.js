@@ -112,6 +112,31 @@ module.exports = {
           console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
           await queue.connect(voiceChannel);
           console.log(`[Play Command] ✅ Connected to voice channel`);
+          
+          // Wait for voice connection to be fully ready for audio streaming
+          console.log(`[Play Command] Waiting for voice connection to be ready for audio...`);
+          let connectionReady = false;
+          let attempts = 0;
+          const maxAttempts = 20; // 10 seconds total
+          
+          while (!connectionReady && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            attempts++;
+            
+            const voiceState = queue.connection?.voice;
+            if (voiceState && voiceState.state === 'ready') {
+              connectionReady = true;
+              console.log(`[Play Command] ✅ Voice connection ready for audio after ${attempts * 500}ms`);
+            } else {
+              console.log(`[Play Command] Voice state check ${attempts}/${maxAttempts}: ${voiceState?.state || 'undefined'}`);
+            }
+          }
+          
+          if (!connectionReady) {
+            console.log(`[Play Command] ❌ Voice connection not ready after 10s - destroying queue`);
+            queue.destroy();
+            return replyToUser(interaction, `❌ Could not establish stable voice connection! Please try again.`);
+          }
         }
 
         // Add all tracks from playlist
@@ -120,6 +145,13 @@ module.exports = {
 
         // Start playing if not already playing
         if (!queue.node.isPlaying()) {
+          // Final check that voice connection is still ready before playing
+          const voiceState = queue.connection?.voice;
+          if (!voiceState || voiceState.state !== 'ready') {
+            console.log(`[Play Command] ❌ Voice connection not ready for playlist playback: ${voiceState?.state || 'undefined'}`);
+            return replyToUser(interaction, `❌ Voice connection not ready for playback. Please try again.`);
+          }
+          
           await queue.node.play();
           console.log(`[Play Command] ✅ Started playing playlist`);
         }
@@ -179,6 +211,31 @@ module.exports = {
         console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
         await queue.connect(voiceChannel);
         console.log(`[Play Command] ✅ Connected to voice channel`);
+        
+        // Wait for voice connection to be fully ready for audio streaming
+        console.log(`[Play Command] Waiting for voice connection to be ready for audio...`);
+        let connectionReady = false;
+        let attempts = 0;
+        const maxAttempts = 20; // 10 seconds total
+        
+        while (!connectionReady && attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          attempts++;
+          
+          const voiceState = queue.connection?.voice;
+          if (voiceState && voiceState.state === 'ready') {
+            connectionReady = true;
+            console.log(`[Play Command] ✅ Voice connection ready for audio after ${attempts * 500}ms`);
+          } else {
+            console.log(`[Play Command] Voice state check ${attempts}/${maxAttempts}: ${voiceState?.state || 'undefined'}`);
+          }
+        }
+        
+        if (!connectionReady) {
+          console.log(`[Play Command] ❌ Voice connection not ready after 10s - destroying queue`);
+          queue.destroy();
+          return replyToUser(interaction, `❌ Could not establish stable voice connection! Please try again.`);
+        }
       }
 
       // Add track to queue
@@ -188,6 +245,14 @@ module.exports = {
       // Play track if not already playing
       if (!queue.node.isPlaying()) {
         console.log(`[Play Command] Starting playback for: ${track.title}`);
+        
+        // Final check that voice connection is still ready before playing
+        const voiceState = queue.connection?.voice;
+        if (!voiceState || voiceState.state !== 'ready') {
+          console.log(`[Play Command] ❌ Voice connection not ready for playback: ${voiceState?.state || 'undefined'}`);
+          return replyToUser(interaction, `❌ Voice connection not ready for playback. Please try again.`);
+        }
+        
         await queue.node.play();
         console.log(`[Play Command] ✅ Playback started`);
         
