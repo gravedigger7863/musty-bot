@@ -10,7 +10,7 @@ const { Player } = require('discord-player');
 
 // Test configuration
 const TEST_GUILD_ID = process.env.TEST_GUILD_ID || 'your-guild-id-here';
-const TEST_VOICE_CHANNEL_ID = process.env.TEST_VOICE_CHANNEL_ID || 'your-voice-channel-id-here';
+const TEST_VOICE_CHANNEL_ID = process.env.TEST_VOICE_CHANNEL_ID || '1414507895990779921';
 const TEST_TRACK_URL = process.env.TEST_TRACK_URL || 'https://www.youtube.com/watch?v=dQw4w9WgXcQ'; // Rick Roll for testing
 
 console.log('🧪 Music Bot Test Script');
