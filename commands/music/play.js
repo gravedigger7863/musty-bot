@@ -91,29 +91,12 @@ module.exports = {
         } else {
           console.log(`[Play Command] Using existing queue`);
           
-          // Ensure connection is still active
-          if (!queue.connection || queue.connection.state.status !== 'ready') {
-            console.log(`[Play Command] Reconnecting to voice channel`);
+          // Ensure connection exists
+          if (!queue.connection) {
+            console.log(`[Play Command] No connection found, reconnecting to voice channel`);
             await queue.connect(voiceChannel);
-            
-            // Wait for reconnection to be ready
-            await new Promise((resolve, reject) => {
-              const timeout = setTimeout(() => {
-                reject(new Error('Voice reconnection timeout'));
-              }, 10000);
-              
-              const checkConnection = () => {
-                if (queue.connection && queue.connection.state.status === 'ready') {
-                  clearTimeout(timeout);
-                  console.log(`[Play Command] Voice reconnection is ready!`);
-                  resolve();
-                } else {
-                  setTimeout(checkConnection, 100);
-                }
-              };
-              
-              checkConnection();
-            });
+          } else {
+            console.log(`[Play Command] Connection exists: ${queue.connection.state?.status || 'unknown'}`);
           }
         }
         
@@ -121,6 +104,9 @@ module.exports = {
         console.log(`[Play Command] Adding track to queue`);
         queue.addTrack(track);
         console.log(`[Play Command] Track added, queue size before play: ${queue.tracks.size}`);
+        
+        // Small delay to ensure track is processed
+        await new Promise(resolve => setTimeout(resolve, 100));
         
         // Only play if not already playing
         if (!queue.node.isPlaying()) {
