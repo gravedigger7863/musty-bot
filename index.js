@@ -110,8 +110,8 @@ client.player.events.on('connection', (queue) => {
     // Wait for player to be ready
     await new Promise(resolve => setTimeout(resolve, 1000));
     
-    // Use the correct v7.1 method to register extractors
-    await client.player.extractors.register(DefaultExtractors, {});
+    // Use the correct v7.1 method to load extractors
+    await client.player.extractors.loadMulti(DefaultExtractors);
     console.log(`✅ Extractors registered successfully`);
     
     // Verify extractors are loaded
