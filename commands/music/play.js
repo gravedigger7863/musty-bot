@@ -100,8 +100,8 @@ module.exports = {
         const searchEngines = [
           'auto',           // Try all sources automatically
           'youtube',        // YouTube (most reliable)
-          'ytdlp',          // yt-dlp YouTube (more reliable)
-          'deezer',         // Deezer
+          'ytdlp-extractor', // yt-dlp YouTube (more reliable)
+          'com.retrouser955.discord-player.deezr-ext', // Deezer
           'spotify',        // Spotify
           'apple',          // Apple Music
           'soundcloud',     // SoundCloud (but will be filtered)

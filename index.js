@@ -213,7 +213,7 @@ client.player.events.on('connection', (queue) => {
     
     // Load YouTube extractor separately
     try {
-      await client.player.extractors.load(YouTubeExtractor);
+      client.player.extractors.register(YouTubeExtractor);
       console.log('✅ YouTube extractor loaded successfully');
     } catch (error) {
       console.log('⚠️ YouTube extractor failed to load:', error.message);
@@ -221,7 +221,7 @@ client.player.events.on('connection', (queue) => {
     
     // Load Deezer extractor
     try {
-      await client.player.extractors.load(DeezerExtractor);
+      client.player.extractors.register(DeezerExtractor);
       console.log('✅ Deezer extractor loaded successfully');
     } catch (error) {
       console.log('⚠️ Deezer extractor failed to load:', error.message);
@@ -229,7 +229,7 @@ client.player.events.on('connection', (queue) => {
     
     // Load yt-dlp extractor (more reliable YouTube)
     try {
-      await client.player.extractors.load(YtDlpExtractor);
+      client.player.extractors.register(YtDlpExtractor);
       console.log('✅ yt-dlp extractor loaded successfully');
     } catch (error) {
       console.log('⚠️ yt-dlp extractor failed to load:', error.message);
