@@ -74,19 +74,20 @@ client.player = new Player(client, {
   }
 });
 
-// Register extractors for v7
+// Register extractors for v7.1
 (async () => {
   try {
-    await client.player.extractors.register(YouTubeExtractor, {});
-    console.log(`✅ Registered YouTubeExtractor`);
+    // Use the v7.1 approach with loadDefault
+    await client.player.extractors.loadDefault((ext) => ext.register(client.player));
+    console.log(`✅ Loaded default extractors`);
     
-    await client.player.extractors.register(SpotifyExtractor, {});
-    console.log(`✅ Registered SpotifyExtractor`);
+    // Also register specific ones we want
+    const extractors = [YouTubeExtractor, SpotifyExtractor, SoundCloudExtractor];
+    for (const extractor of extractors) {
+      await client.player.extractors.register(extractor, {});
+    }
+    console.log(`✅ Registered ${extractors.length} specific extractors`);
     
-    await client.player.extractors.register(SoundCloudExtractor, {});
-    console.log(`✅ Registered SoundCloudExtractor`);
-    
-    console.log(`✅ All extractors registered successfully`);
     global.extractorsLoaded = true;
   } catch (error) {
     console.error('Failed to register extractors:', error);
