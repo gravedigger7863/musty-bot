@@ -67,10 +67,7 @@ module.exports = {
             metadata: { channel: interaction.channel }
           });
           console.log(`[Play Command] Connecting to voice channel`);
-          await queue.connect(voiceChannel, {
-            selfDeaf: false,
-            selfMute: false
-          });
+          await queue.connect(voiceChannel);
         } else {
           console.log(`[Play Command] Using existing queue`);
         }
