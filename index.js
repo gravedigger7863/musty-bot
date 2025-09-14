@@ -146,7 +146,7 @@ client.player.events.on('connectionError', (queue, error) => {
   }
 });
 
-client.player.events.on(GuildQueueEvent.playerStart, (queue, track) => {
+client.player.events.on('playerStart', (queue, track) => {
   console.log(`[Player] Now playing: ${track.title} by ${track.author} in ${queue.guild.name}`);
   console.log(`[Player] Track duration: ${track.duration} (${track.durationMS}ms)`);
   console.log(`[Player] Queue size: ${queue.tracks.size}`);
@@ -169,7 +169,7 @@ client.player.events.on('trackAdd', (queue, track) => {
   }
 });
 
-client.player.events.on(GuildQueueEvent.playerFinish, (queue, track) => {
+client.player.events.on('playerFinish', (queue, track) => {
   console.log(`[Player] Finished: ${track.title} in ${queue.guild.name}`);
   console.log(`[Player] Track ended - duration was: ${track.duration} (${track.durationMS}ms)`);
   console.log(`[Player] Queue size after track end: ${queue.tracks.size}`);
@@ -194,7 +194,7 @@ client.player.events.on('trackError', (queue, error) => {
   }
 });
 
-client.player.events.on(GuildQueueEvent.emptyQueue, (queue) => {
+client.player.events.on('emptyQueue', (queue) => {
   console.log(`[Player] Queue empty in ${queue.guild.name}`);
   console.log(`[Player] Queue size when empty: ${queue.tracks.size}`);
   console.log(`[Player] Is playing when empty: ${queue.node.isPlaying()}`);
@@ -205,7 +205,7 @@ client.player.events.on(GuildQueueEvent.emptyQueue, (queue) => {
   console.log(`[Player] Queue became empty, but not showing message yet`);
 });
 
-client.player.events.on(GuildQueueEvent.emptyChannel, (queue) => {
+client.player.events.on('emptyChannel', (queue) => {
   console.log(`[Player] Channel empty in ${queue.guild.name}`);
   console.log(`[Player] Current track when channel empty: ${queue.currentTrack?.title || 'None'}`);
   console.log(`[Player] Is playing when channel empty: ${queue.node.isPlaying()}`);
@@ -215,7 +215,7 @@ client.player.events.on(GuildQueueEvent.emptyChannel, (queue) => {
   }
 });
 
-client.player.events.on(GuildQueueEvent.queueEnd, (queue) => {
+client.player.events.on('queueEnd', (queue) => {
   console.log(`[Player] Queue ended in ${queue.guild.name}`);
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`🎵 Queue finished! Thanks for listening!`).catch(console.error);
