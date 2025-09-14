@@ -32,10 +32,8 @@ const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { Player, GuildQueueEvent } = require('discord-player');
-// Import individual extractors for v7.1
-const { AttachmentExtractor, VimeoExtractor, ReverbnationExtractor, AppleMusicExtractor } = require('@discord-player/extractor');
-const { SoundCloudExtractor } = require('@discord-player/soundcloud');
-const { SpotifyExtractor } = require('@discord-player/spotify');
+// Import extractors from the main package
+const { DefaultExtractors } = require('@discord-player/extractor');
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const express = require('express');
@@ -120,24 +118,11 @@ client.player.events.on('connection', (queue) => {
     // Register each extractor explicitly for v7.1
     console.log('🔍 Registering extractors explicitly...');
     
-    // Register each extractor explicitly
-    await client.player.extractors.register(SoundCloudExtractor);
-    console.log('✅ Registered SoundCloudExtractor');
-    
-    await client.player.extractors.register(AttachmentExtractor);
-    console.log('✅ Registered AttachmentExtractor');
-    
-    await client.player.extractors.register(VimeoExtractor);
-    console.log('✅ Registered VimeoExtractor');
-    
-    await client.player.extractors.register(ReverbnationExtractor);
-    console.log('✅ Registered ReverbnationExtractor');
-    
-    await client.player.extractors.register(AppleMusicExtractor);
-    console.log('✅ Registered AppleMusicExtractor');
-    
-    await client.player.extractors.register(SpotifyExtractor);
-    console.log('✅ Registered SpotifyExtractor');
+    // Register each extractor from DefaultExtractors
+    for (const ExtractorClass of DefaultExtractors) {
+      await client.player.extractors.register(ExtractorClass);
+      console.log(`✅ Registered ${ExtractorClass.name || ExtractorClass.identifier}`);
+    }
     
     console.log(`✅ Extractors registered successfully`);
     
