@@ -152,7 +152,7 @@ module.exports = {
           if (queue.connection && queue.connection.state === VoiceConnectionStatus.Ready) {
             console.log(`[Play Command] ✅ Voice connection verified as Ready`);
           } else {
-            console.log(`[Play Command] ⚠️ Voice connection state: ${queue.connection?.state || 'Unknown'}`);
+            console.log(`[Play Command] ⚠️ Voice connection state: ${JSON.stringify(queue.connection?.state) || 'Unknown'}`);
           }
           
         } catch (error) {
@@ -163,7 +163,29 @@ module.exports = {
         }
       } else {
         console.log(`[Play Command] Using existing voice connection`);
-        console.log(`[Play Command] Connection state: ${queue.connection?.state || 'Unknown'}`);
+        console.log(`[Play Command] Connection state: ${JSON.stringify(queue.connection?.state) || 'Unknown'}`);
+        
+        // Check if existing connection is still ready
+        if (queue.connection && queue.connection.state !== VoiceConnectionStatus.Ready) {
+          console.log(`[Play Command] ⚠️ Existing connection not ready, waiting for it to be ready...`);
+          try {
+            await entersState(queue.connection, VoiceConnectionStatus.Ready, 10_000);
+            console.log(`[Play Command] ✅ Existing voice connection is now ready`);
+          } catch (error) {
+            console.error(`[Play Command] ❌ Existing voice connection failed to become ready:`, error.message);
+            // Try to reconnect
+            console.log(`[Play Command] Attempting to reconnect...`);
+            try {
+              await queue.connect(voiceChannel);
+              await entersState(queue.connection, VoiceConnectionStatus.Ready, 30_000);
+              console.log(`[Play Command] ✅ Reconnected successfully`);
+            } catch (reconnectError) {
+              console.error(`[Play Command] ❌ Reconnection failed:`, reconnectError.message);
+              queue.delete();
+              return replyToUser(interaction, "❌ Voice connection lost. Please try again.");
+            }
+          }
+        }
       }
 
       if (searchResult.playlist) {
@@ -177,7 +199,21 @@ module.exports = {
         queue.addTrack(validTracks);
         if (!queue.node.isPlaying()) {
           console.log(`[Play Command] Starting playback of playlist`);
-          await queue.node.play();
+          
+          // Ensure voice connection is ready before playing playlist
+          if (queue.connection && queue.connection.state === VoiceConnectionStatus.Ready) {
+            console.log(`[Play Command] Voice connection is ready, starting playlist playback`);
+            try {
+              await queue.node.play();
+              console.log(`[Play Command] Playlist playback started successfully`);
+            } catch (playError) {
+              console.error(`[Play Command] ❌ Playlist playback failed:`, playError.message);
+              return replyToUser(interaction, "❌ Failed to start playlist playback. Please try again.");
+            }
+          } else {
+            console.log(`[Play Command] ⚠️ Voice connection not ready for playlist, state: ${JSON.stringify(queue.connection?.state) || 'Unknown'}`);
+            return replyToUser(interaction, "❌ Voice connection not ready. Please try again.");
+          }
         }
         return replyToUser(interaction, `🎵 Added **${validTracks.length} tracks** from **${searchResult.playlist.title}** to the queue!`);
       } else {
@@ -196,13 +232,18 @@ module.exports = {
         if (!queue.node.isPlaying()) {
           console.log(`[Play Command] Starting playback of single track`);
           
-          // Ensure voice connection is ready before playing
+          // Final check that voice connection is ready before playing
           if (queue.connection && queue.connection.state === VoiceConnectionStatus.Ready) {
             console.log(`[Play Command] Voice connection is ready, starting playback`);
-            await queue.node.play();
-            console.log(`[Play Command] Playback started successfully`);
+            try {
+              await queue.node.play();
+              console.log(`[Play Command] Playback started successfully`);
+            } catch (playError) {
+              console.error(`[Play Command] ❌ Playback failed:`, playError.message);
+              return replyToUser(interaction, "❌ Failed to start playback. Please try again.");
+            }
           } else {
-            console.log(`[Play Command] ⚠️ Voice connection not ready, state: ${queue.connection?.state || 'Unknown'}`);
+            console.log(`[Play Command] ⚠️ Voice connection not ready, state: ${JSON.stringify(queue.connection?.state) || 'Unknown'}`);
             return replyToUser(interaction, "❌ Voice connection not ready. Please try again.");
           }
         } else {
