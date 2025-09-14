@@ -74,9 +74,9 @@ client.player = new Player(client, {
     highWaterMark: 1 << 25,
     filter: 'audioonly',
     format: 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
-    timeout: 60000, // Increased timeout
+    timeout: 60000,
     requestOptions: {
-      timeout: 60000, // Increased timeout
+      timeout: 60000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
       }
@@ -85,7 +85,7 @@ client.player = new Player(client, {
   // Global voice connection options for v7
   skipFFmpeg: false,
   useLegacyFFmpeg: false,
-  // Ensure bot is never deafened or muted
+  // CRITICAL: Ensure bot is never deafened or muted
   selfDeaf: false,
   selfMute: false,
   // Debug options for VPS troubleshooting
@@ -95,6 +95,8 @@ client.player = new Player(client, {
   // Additional configuration to prevent immediate track finishing
   bufferingTimeout: 30000,
   connectionTimeout: 30000,
+  // Audio streaming configuration
+  volume: 50,
   // Additional extractor configuration
   extractors: {
     enabled: true,
@@ -111,6 +113,14 @@ client.player.events.on('connection', (queue) => {
     const voiceState = queue.connection?.voice;
     if (voiceState) {
       console.log(`[Player] ✅ Voice connection established - Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
+      
+      // CRITICAL: Ensure bot is not deafened or muted
+      if (voiceState.deaf) {
+        console.log(`[Player] ⚠️ WARNING: Bot is deafened - this will prevent audio playback!`);
+      }
+      if (voiceState.mute) {
+        console.log(`[Player] ⚠️ WARNING: Bot is muted - this will prevent audio playback!`);
+      }
     } else {
       console.log(`[Player] ⚠️ Voice state not available - this is normal during connection establishment`);
     }
