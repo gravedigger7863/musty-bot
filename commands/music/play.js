@@ -53,7 +53,7 @@ module.exports = {
 
       // Play track if not already playing
       if (!queue.isPlaying()) {
-        await queue.node.play();
+        await queue.node.play(track);
         console.log(`[Play Command] Playback started`);
         await interaction.editReply(`🎶 Now playing **${track.title}** by ${track.author}`);
       } else {
