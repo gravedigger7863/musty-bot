@@ -321,6 +321,19 @@ process.on('uncaughtException', err => {
 const processId = process.pid;
 console.log(`[Process] Starting bot with PID: ${processId}`);
 
+// Add timestamp to all console.log output
+const originalLog = console.log;
+console.log = function(...args) {
+  const timestamp = new Date().toISOString();
+  originalLog(`[${timestamp}]`, ...args);
+};
+
+const originalError = console.error;
+console.error = function(...args) {
+  const timestamp = new Date().toISOString();
+  originalError(`[${timestamp}]`, ...args);
+};
+
 // Monitor for duplicate processes
 setInterval(() => {
   const { exec } = require('child_process');
