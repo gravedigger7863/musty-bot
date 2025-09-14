@@ -229,12 +229,8 @@ client.player.events.on('connection', (queue) => {
         throw new Error('DeezerExtractor is undefined or missing identifier property');
       }
       
-      // Create Deezer extractor with proper configuration for audio streaming
-      const deezerExtractor = new DeezerExtractor({
-        // Add any specific configuration for better audio stream extraction
-        quality: 'high',
-        format: 'mp3'
-      });
+      // Create Deezer extractor (no configuration options needed)
+      const deezerExtractor = new DeezerExtractor();
       
       client.player.extractors.register(deezerExtractor);
       console.log('✅ Deezer extractor loaded successfully with audio streaming configuration');
@@ -255,12 +251,8 @@ client.player.events.on('connection', (queue) => {
         throw new Error('SpotifyExtractor is undefined or missing identifier property');
       }
       
-      // Create Spotify extractor with proper configuration for audio streaming
-      const spotifyExtractor = new SpotifyExtractor({
-        // Add any specific configuration for better audio stream extraction
-        quality: 'high',
-        format: 'mp3'
-      });
+      // Create Spotify extractor (no configuration options needed)
+      const spotifyExtractor = new SpotifyExtractor();
       
       client.player.extractors.register(spotifyExtractor);
       console.log('✅ Spotify extractor loaded successfully with audio streaming configuration');

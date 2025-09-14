@@ -95,13 +95,18 @@ module.exports = {
       // Use the simplified player.play() approach for v7.1
       console.log(`[Play Command] Searching for: ${query}`);
       
+      // Debug: Show available extractors
+      const availableExtractors = player.extractors.store;
+      console.log(`[Play Command] Available extractors: ${Array.from(availableExtractors.keys()).join(', ')}`);
+      
       try {
         // Try multiple search engines in order of preference
-        // Optimized order: most reliable sources first
+        // Using correct extractor names from Discord Player v7
         const searchEngines = [
           'auto',           // Try all sources automatically
-          'com.retrouser955.discord-player.deezr-ext', // Deezer (most reliable)
-          'ytdlp-extractor', // yt-dlp YouTube (if available)
+          'deezer',         // Deezer (most reliable)
+          'youtube',        // YouTube (default extractor)
+          'ytdlp',          // yt-dlp YouTube (if available)
           'spotify',        // Spotify
           'apple',          // Apple Music
           'vimeo',          // Vimeo
@@ -146,6 +151,46 @@ module.exports = {
                 }
               }
               
+              // Check if it's a Deezer track and validate stream URL
+              if (track.source === 'deezer') {
+                console.log(`[Play Command] Deezer track validation:`);
+                console.log(`[Play Command] - Track URL: ${track.url}`);
+                console.log(`[Play Command] - Stream URL: ${track.raw?.url || 'No stream URL'}`);
+                console.log(`[Play Command] - Format: ${track.raw?.format || 'Unknown'}`);
+                
+                // Check if the track URL is a webpage URL instead of audio stream
+                if (track.url && track.url.includes('deezer.com/track/') && !track.url.includes('stream')) {
+                  console.log(`[Play Command] ❌ Deezer track has webpage URL instead of stream URL - trying next source`);
+                  continue;
+                }
+                
+                // Check if raw stream URL exists and is valid
+                if (!track.raw?.url || track.raw.url === track.url) {
+                  console.log(`[Play Command] ❌ Deezer track missing valid stream URL - trying next source`);
+                  continue;
+                }
+              }
+              
+              // Check if it's a Spotify track and validate stream URL
+              if (track.source === 'spotify') {
+                console.log(`[Play Command] Spotify track validation:`);
+                console.log(`[Play Command] - Track URL: ${track.url}`);
+                console.log(`[Play Command] - Stream URL: ${track.raw?.url || 'No stream URL'}`);
+                console.log(`[Play Command] - Format: ${track.raw?.format || 'Unknown'}`);
+                
+                // Check if the track URL is a webpage URL instead of audio stream
+                if (track.url && track.url.includes('open.spotify.com/track/') && !track.url.includes('stream')) {
+                  console.log(`[Play Command] ❌ Spotify track has webpage URL instead of stream URL - trying next source`);
+                  continue;
+                }
+                
+                // Check if raw stream URL exists and is valid
+                if (!track.raw?.url || track.raw.url === track.url) {
+                  console.log(`[Play Command] ❌ Spotify track missing valid stream URL - trying next source`);
+                  continue;
+                }
+              }
+              
               // If we get here, the track is valid
               selectedTrack = track;
               searchEngineUsed = engine;
@@ -154,6 +199,7 @@ module.exports = {
             }
           } catch (error) {
             console.log(`[Play Command] ⚠️ Search failed with ${engine}: ${error.message}`);
+            console.log(`[Play Command] ⚠️ Search error details:`, error);
             continue;
           }
         }
