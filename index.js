@@ -42,6 +42,7 @@ const { Player, GuildQueueEvent } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 // Import additional extractors for more sources
 const { DeezerExtractor } = require('discord-player-deezer');
+const { SpotifyExtractor } = require('discord-player-spotify');
 const { YtDlpExtractor } = require('discord-player-ytdlp');
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
@@ -70,7 +71,7 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Initialize Discord Player v7
+// Initialize Discord Player v7 with enhanced audio streaming configuration
 client.player = new Player(client, {
   ytdlOptions: {
     quality: 'highestaudio',
@@ -81,9 +82,14 @@ client.player = new Player(client, {
     requestOptions: {
       timeout: 60000,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
     }
+  },
+  // Enhanced extractor configuration for better audio streaming
+  extractors: {
+    enabled: true,
+    providers: ['youtube', 'spotify', 'soundcloud', 'apple', 'deezer', 'ytdlp']
   },
   // Global voice connection options for v7
   skipFFmpeg: false,
@@ -100,11 +106,6 @@ client.player = new Player(client, {
   connectionTimeout: 30000,
   // Audio streaming configuration
   volume: 50,
-  // Additional extractor configuration
-  extractors: {
-    enabled: true,
-    providers: ['youtube', 'spotify', 'soundcloud', 'apple', 'deezer']
-  },
   // SoundCloud specific configuration
   onBeforeCreateStream: async (track, source, _queue) => {
     console.log(`[Stream] Creating stream for: ${track.title} from ${track.source}`);
@@ -217,7 +218,7 @@ client.player.events.on('connection', (queue) => {
       console.log('⚠️ YouTube extractor not found in default extractors');
     }
     
-    // Load Deezer extractor
+    // Load Deezer extractor with proper configuration
     try {
       console.log(`[Deezer] Attempting to register Deezer extractor...`);
       console.log(`[Deezer] Extractor type: ${DeezerExtractor.constructor.name}`);
@@ -228,12 +229,45 @@ client.player.events.on('connection', (queue) => {
         throw new Error('DeezerExtractor is undefined or missing identifier property');
       }
       
-      client.player.extractors.register(DeezerExtractor);
-      console.log('✅ Deezer extractor loaded successfully');
+      // Create Deezer extractor with proper configuration for audio streaming
+      const deezerExtractor = new DeezerExtractor({
+        // Add any specific configuration for better audio stream extraction
+        quality: 'high',
+        format: 'mp3'
+      });
+      
+      client.player.extractors.register(deezerExtractor);
+      console.log('✅ Deezer extractor loaded successfully with audio streaming configuration');
     } catch (error) {
       console.log('⚠️ Deezer extractor failed to load:', error.message);
       console.log('⚠️ Deezer extractor error details:', error);
       console.log('⚠️ Deezer functionality will not be available');
+    }
+    
+    // Load Spotify extractor with proper configuration
+    try {
+      console.log(`[Spotify] Attempting to register Spotify extractor...`);
+      console.log(`[Spotify] Extractor type: ${SpotifyExtractor.constructor.name}`);
+      console.log(`[Spotify] Has identifier: ${SpotifyExtractor.identifier ? 'Yes' : 'No'}`);
+      
+      // Validate extractor before registration
+      if (!SpotifyExtractor || !SpotifyExtractor.identifier) {
+        throw new Error('SpotifyExtractor is undefined or missing identifier property');
+      }
+      
+      // Create Spotify extractor with proper configuration for audio streaming
+      const spotifyExtractor = new SpotifyExtractor({
+        // Add any specific configuration for better audio stream extraction
+        quality: 'high',
+        format: 'mp3'
+      });
+      
+      client.player.extractors.register(spotifyExtractor);
+      console.log('✅ Spotify extractor loaded successfully with audio streaming configuration');
+    } catch (error) {
+      console.log('⚠️ Spotify extractor failed to load:', error.message);
+      console.log('⚠️ Spotify extractor error details:', error);
+      console.log('⚠️ Spotify functionality will not be available');
     }
     
     // Load yt-dlp extractor (more reliable YouTube) with platform-specific binary
