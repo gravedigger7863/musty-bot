@@ -71,19 +71,7 @@ client.player = new Player(client, {
     requestOptions: {
       timeout: 30000
     }
-  },
-  // Add player options to prevent immediate disconnection
-  skipOnEmpty: false,
-  leaveOnEmpty: false,
-  leaveOnEnd: false,
-  leaveOnStop: false,
-  leaveOnEmptyCooldown: 0,
-  skipOnEmptyCooldown: 0,
-  bufferingTimeout: 30000,
-  connectionTimeout: 30000,
-  // Add these options to help with duration parsing
-  useLegacyFFmpeg: false,
-  opusEncoder: 'mediaplex'
+  }
 });
 
 // Register extractors for v7.1
@@ -206,6 +194,9 @@ client.player.events.on('trackError', (queue, error) => {
 
 client.player.events.on('emptyQueue', (queue) => {
   console.log(`[Player] Queue empty in ${queue.guild.name}`);
+  console.log(`[Player] Queue size when empty: ${queue.tracks.size}`);
+  console.log(`[Player] Is playing when empty: ${queue.node.isPlaying()}`);
+  console.log(`[Player] Current track when empty: ${queue.currentTrack?.title || 'None'}`);
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
   }

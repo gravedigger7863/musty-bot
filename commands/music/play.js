@@ -45,20 +45,8 @@ module.exports = {
       try {
         const result = await interaction.client.player.play(voiceChannel, query, {
           nodeOptions: {
-            metadata: { channel: interaction.channel },
-            leaveOnEnd: false,
-            leaveOnEmpty: false,
-            leaveOnEmptyCooldown: 0,
-            leaveOnStop: false,
-            skipOnEmpty: false,
-            skipOnEmptyCooldown: 0,
-            selfDeaf: false,
-            selfMute: false,
-            autoSelfDeaf: false,
-            autoSelfMute: false,
-            bufferingTimeout: 30000,
-            connectionTimeout: 30000,
-          },
+            metadata: { channel: interaction.channel }
+          }
         });
 
         console.log(`[Play Command] Successfully queued: ${result.track.title}`);
