@@ -105,24 +105,16 @@ client.player.events.on('connection', (queue) => {
   }, 1000);
 });
 
-// Register extractors for v7.1
+// Register extractors for v7.1 - Simple approach
 (async () => {
   try {
     // Wait for player to be ready
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     
-    console.log('🔍 Attempting to load extractors...');
-    console.log('🔍 Player extractors object:', typeof client.player.extractors);
-    console.log('🔍 Available methods:', Object.getOwnPropertyNames(client.player.extractors.__proto__));
+    console.log('🔍 Registering extractors...');
     
-    // Register each extractor explicitly for v7.1
-    console.log('🔍 Registering extractors explicitly...');
-    
-    // Register each extractor from DefaultExtractors
-    for (const ExtractorClass of DefaultExtractors) {
-      await client.player.extractors.register(ExtractorClass);
-      console.log(`✅ Registered ${ExtractorClass.name || ExtractorClass.identifier}`);
-    }
+    // Use the simple loadMulti method as per Discord Player docs
+    await client.player.extractors.loadMulti(DefaultExtractors);
     
     console.log(`✅ Extractors registered successfully`);
     
