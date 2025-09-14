@@ -108,11 +108,19 @@ module.exports = {
         }
       }
 
-      console.log(`[Play Command] Using v7 player.play() method for: ${query}`);
+      console.log(`[Play Command] Using controlled queue management for: ${query}`);
       
-      // Use the proper v7 player.play() method which handles everything
-      const result = await player.play(voiceChannel, query, {
-        nodeOptions: {
+      // Search for tracks first
+      const searchResult = await player.search(query, { requestedBy: interaction.user });
+      if (!searchResult || !searchResult.tracks.length) {
+        return replyToUser(interaction, "❌ No tracks found.");
+      }
+
+      // Get or create queue with proper state management
+      let queue = player.nodes.get(interaction.guild.id);
+      if (!queue) {
+        console.log(`[Play Command] Creating new queue`);
+        queue = player.nodes.create(interaction.guild, {
           metadata: { channel: interaction.channel },
           volume: 80,
           leaveOnEnd: false,
@@ -120,24 +128,62 @@ module.exports = {
           leaveOnStop: true,
           selfDeaf: false,
           selfMute: false
-        },
-        requestedBy: interaction.user
-      });
-
-      if (!result) {
-        return replyToUser(interaction, "❌ No tracks found.");
+        });
       }
 
-      // Handle the result - let player events handle messaging
-      if (result.track) {
-        console.log(`[Play Command] ✅ Playing: ${result.track.title} by ${result.track.author}`);
-        return replyToUser(interaction, `🎶 Added **${result.track.title}** to the queue!`);
-      } else if (result.playlist) {
-        console.log(`[Play Command] ✅ Playing playlist: ${result.playlist.title} with ${result.tracks.length} tracks`);
-        return replyToUser(interaction, `🎵 Playing **${result.playlist.title}** with ${result.tracks.length} tracks!`);
+      // Connect to voice channel if not already connected
+      if (!queue.connection) {
+        console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
+        await queue.connect(voiceChannel);
+        console.log(`[Play Command] ✅ Connected to voice channel`);
+        
+        // Wait for voice connection to be ready
+        try {
+          await entersState(queue.connection, VoiceConnectionStatus.Ready, 10_000);
+          console.log(`[Play Command] ✅ Voice connection ready`);
+        } catch (error) {
+          console.log(`[Play Command] ❌ Voice connection not ready after 10s`);
+          queue.delete();
+          return replyToUser(interaction, `❌ Could not establish voice connection! Please try again.`);
+        }
+      }
+
+      // Handle playlists vs single tracks
+      if (searchResult.playlist) {
+        console.log(`[Play Command] Adding playlist: ${searchResult.playlist.title} with ${searchResult.tracks.length} tracks`);
+        queue.addTrack(searchResult.tracks);
+        
+        // Start playing if not already playing
+        if (!queue.node.isPlaying()) {
+          await queue.node.play();
+        }
+        
+        return replyToUser(interaction, `🎵 Added **${searchResult.tracks.length} tracks** from **${searchResult.playlist.title}** to the queue!`);
       } else {
-        console.log(`[Play Command] ✅ Added to queue: ${result.tracks.length} tracks`);
-        return replyToUser(interaction, `🎵 Added to queue!`);
+        // Handle single track
+        const track = searchResult.tracks[0];
+        console.log(`[Play Command] Adding single track: ${track.title} by ${track.author}`);
+        
+        // Check for duplicates
+        const existingTrack = queue.tracks.find(t => 
+          t.title === track.title && t.author === track.author
+        );
+        
+        if (existingTrack) {
+          return replyToUser(interaction, `🎵 **${track.title}** is already in the queue!`);
+        }
+        
+        // Add track to queue FIRST to ensure proper state
+        queue.addTrack(track);
+        console.log(`[Play Command] Track added, queue size: ${queue.tracks.size}`);
+        
+        // Start playing if not already playing
+        if (!queue.node.isPlaying()) {
+          await queue.node.play();
+          console.log(`[Play Command] ✅ Started playback`);
+        }
+        
+        return replyToUser(interaction, `🎶 Added **${track.title}** to the queue!`);
       }
 
     } catch (err) {

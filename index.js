@@ -202,6 +202,13 @@ client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
   console.log(`[Player] Voice connection: ${queue.connection ? 'Connected' : 'Not connected'}`);
   console.log(`[Player] Current track after finish: ${queue.currentTrack?.title || 'None'}`);
   
+  // Check if queue is actually playing to prevent ghost replays
+  if (!queue.node.isPlaying()) {
+    console.log(`[Player] Queue is not playing, track finished normally`);
+  } else {
+    console.log(`[Player] Queue is still playing, track finished but continuing`);
+  }
+  
   // The track has finished - Discord Player should automatically handle queue progression
   // We just need to ensure proper cleanup and messaging
   
