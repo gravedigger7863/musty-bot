@@ -40,8 +40,6 @@ const path = require('path');
 const { Player, GuildQueueEvent } = require('discord-player');
 // Import extractors from the main package
 const { DefaultExtractors } = require('@discord-player/extractor');
-// Import YouTube extractor separately since it's not in DefaultExtractors
-const { YouTubeExtractor } = require('@discord-player/extractor');
 // Import additional extractors for more sources
 const { DeezerExtractor } = require('discord-player-deezer');
 const { YtDlpExtractor } = require('discord-player-ytdlp');
@@ -211,25 +209,24 @@ client.player.events.on('connection', (queue) => {
     // Load default extractors
     await client.player.extractors.loadMulti(DefaultExtractors);
     
-    // Load YouTube extractor separately
+    // Load Deezer extractor with configuration
     try {
-      client.player.extractors.register(YouTubeExtractor);
-      console.log('✅ YouTube extractor loaded successfully');
-    } catch (error) {
-      console.log('⚠️ YouTube extractor failed to load:', error.message);
-    }
-    
-    // Load Deezer extractor
-    try {
-      client.player.extractors.register(DeezerExtractor);
+      const deezerExtractor = new DeezerExtractor({
+        // Deezer doesn't require special configuration for basic usage
+      });
+      client.player.extractors.register(deezerExtractor);
       console.log('✅ Deezer extractor loaded successfully');
     } catch (error) {
       console.log('⚠️ Deezer extractor failed to load:', error.message);
     }
     
-    // Load yt-dlp extractor (more reliable YouTube)
+    // Load yt-dlp extractor (more reliable YouTube) with configuration
     try {
-      client.player.extractors.register(YtDlpExtractor);
+      const ytdlpExtractor = new YtDlpExtractor({
+        ytdlpPath: 'yt-dlp', // Use system yt-dlp
+        timeout: 30000
+      });
+      client.player.extractors.register(ytdlpExtractor);
       console.log('✅ yt-dlp extractor loaded successfully');
     } catch (error) {
       console.log('⚠️ yt-dlp extractor failed to load:', error.message);
