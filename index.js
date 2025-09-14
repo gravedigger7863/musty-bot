@@ -209,21 +209,18 @@ client.player.events.on('connection', (queue) => {
     // Load default extractors
     await client.player.extractors.loadMulti(DefaultExtractors);
     
-    // Load Deezer extractor with configuration
+    // Load Deezer extractor
     try {
-      const deezerExtractor = new DeezerExtractor({
-        // Deezer doesn't require special configuration for basic usage
-      });
-      client.player.extractors.register(deezerExtractor);
+      client.player.extractors.register(DeezerExtractor);
       console.log('✅ Deezer extractor loaded successfully');
     } catch (error) {
       console.log('⚠️ Deezer extractor failed to load:', error.message);
     }
     
-    // Load yt-dlp extractor (more reliable YouTube) with configuration
+    // Load yt-dlp extractor (more reliable YouTube) with local binary
     try {
       const ytdlpExtractor = new YtDlpExtractor({
-        ytdlpPath: 'yt-dlp', // Use system yt-dlp
+        ytdlpPath: './yt-dlp.exe', // Use local yt-dlp binary
         timeout: 30000
       });
       client.player.extractors.register(ytdlpExtractor);
