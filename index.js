@@ -101,6 +101,46 @@ client.player = new Player(client, {
   extractors: {
     enabled: true,
     providers: ['youtube', 'spotify', 'soundcloud', 'apple', 'deezer']
+  },
+  // SoundCloud specific configuration
+  onBeforeCreateStream: async (track, source, _queue) => {
+    console.log(`[Stream] Creating stream for: ${track.title} from ${track.source}`);
+    console.log(`[Stream] Track URL: ${track.url}`);
+    console.log(`[Stream] Source: ${source}`);
+    
+    // For SoundCloud tracks, we need to ensure proper stream URL generation
+    if (track.source === 'soundcloud') {
+      console.log(`[Stream] SoundCloud track detected - ensuring proper stream URL`);
+      
+      // Check if track has proper stream metadata
+      if (track.__metadata && track.__metadata.streamable) {
+        console.log(`[Stream] Track is streamable: ${track.__metadata.streamable}`);
+      } else {
+        console.log(`[Stream] ⚠️ Track may not be streamable - this could cause immediate finishing`);
+      }
+      
+      // Check for track authorization
+      if (track.__metadata && track.__metadata.track_authorization) {
+        console.log(`[Stream] Track has authorization token`);
+      } else {
+        console.log(`[Stream] ⚠️ No authorization token - this may cause streaming issues`);
+      }
+    }
+    
+    return source;
+  },
+  onAfterCreateStream: async (track, stream, _queue) => {
+    console.log(`[Stream] Stream created successfully for: ${track.title}`);
+    console.log(`[Stream] Stream type: ${typeof stream}`);
+    console.log(`[Stream] Stream readable: ${stream && typeof stream.read === 'function'}`);
+    
+    // Validate stream is actually readable
+    if (!stream || typeof stream.read !== 'function') {
+      console.log(`[Stream] ❌ Invalid stream created - this will cause immediate track finishing`);
+      throw new Error('Invalid stream created for track');
+    }
+    
+    return stream;
   }
 });
 
@@ -173,12 +213,30 @@ client.player.events.on('error', (queue, error) => {
     console.error(`[Player Error] Extractor store:`, client.player.extractors.store ? Array.from(client.player.extractors.store.keys()) : 'No store available');
   }
   
+  // Handle SoundCloud specific errors
+  if (error.message && (error.message.includes('soundcloud') || error.message.includes('SoundCloud'))) {
+    console.error(`[Player Error] SoundCloud error detected`);
+    console.error(`[Player Error] Current track:`, queue.currentTrack?.title || 'None');
+    console.error(`[Player Error] Track URL:`, queue.currentTrack?.url || 'No URL');
+    console.error(`[Player Error] Track streamable:`, queue.currentTrack?.__metadata?.streamable || 'Unknown');
+    console.error(`[Player Error] Track license:`, queue.currentTrack?.__metadata?.license || 'Unknown');
+  }
+  
   // Handle stream download/playback errors
   if (error.message && (error.message.includes('stream') || error.message.includes('download') || error.message.includes('ENOTFOUND') || error.message.includes('ECONNRESET'))) {
     console.error(`[Player Error] Stream error detected - this will cause immediate track finishing`);
     console.error(`[Player Error] Current track:`, queue.currentTrack?.title || 'None');
     console.error(`[Player Error] Track URL:`, queue.currentTrack?.url || 'No URL');
     console.error(`[Player Error] Track source:`, queue.currentTrack?.source || 'Unknown');
+    
+    // For SoundCloud tracks, provide more specific error info
+    if (queue.currentTrack?.source === 'soundcloud') {
+      console.error(`[Player Error] SoundCloud track streaming failed - this is often due to:`);
+      console.error(`[Player Error] 1. Track not streamable (streamable: false)`);
+      console.error(`[Player Error] 2. Missing authorization token`);
+      console.error(`[Player Error] 3. Ad-supported content restrictions`);
+      console.error(`[Player Error] 4. Regional restrictions`);
+    }
   }
   
   // Handle Opus encoder errors gracefully
@@ -196,7 +254,14 @@ client.player.events.on('error', (queue, error) => {
   }
   
   if (queue.metadata?.channel) {
-    queue.metadata.channel.send(`❌ Music player error: ${error.message}`).catch(console.error);
+    let errorMessage = `❌ Music player error: ${error.message}`;
+    
+    // Provide more helpful error messages for SoundCloud
+    if (queue.currentTrack?.source === 'soundcloud' && error.message.includes('stream')) {
+      errorMessage = `❌ SoundCloud track streaming failed. This track may not be available for streaming or has restrictions. Try a different track.`;
+    }
+    
+    queue.metadata.channel.send(errorMessage).catch(console.error);
   }
 });
 

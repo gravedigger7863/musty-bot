@@ -103,12 +103,15 @@ module.exports = {
             leaveOnEnd: true,
             leaveOnEmpty: true,
             leaveOnStop: true,
-            selfDeaf: true, // Changed to true for better practice
+            selfDeaf: false, // Keep false for SoundCloud compatibility
             selfMute: false,
             bufferingTimeout: 30000,
             connectionTimeout: 30000,
             volume: 50,
-            autoplay: false
+            autoplay: false,
+            // SoundCloud specific options
+            preferBridgedMetadata: true,
+            disableFallbackStream: false
           }
         });
 
@@ -125,6 +128,26 @@ module.exports = {
           console.log(`[Play Command] Stream URL: ${track.raw?.url || 'No stream URL'}`);
           console.log(`[Play Command] Track format: ${track.raw?.format || 'Unknown'}`);
           console.log(`[Play Command] Track quality: ${track.raw?.quality || 'Unknown'}`);
+          
+          // SoundCloud specific validation
+          if (track.source === 'soundcloud') {
+            console.log(`[Play Command] SoundCloud track validation:`);
+            console.log(`[Play Command] - Streamable: ${track.__metadata?.streamable || 'Unknown'}`);
+            console.log(`[Play Command] - Has auth token: ${!!track.__metadata?.track_authorization}`);
+            console.log(`[Play Command] - Duration: ${track.durationMS}ms`);
+            console.log(`[Play Command] - License: ${track.__metadata?.license || 'Unknown'}`);
+            
+            // Check if track is actually streamable
+            if (track.__metadata && track.__metadata.streamable === false) {
+              console.log(`[Play Command] ❌ Track is not streamable`);
+              return replyToUser(interaction, "❌ This SoundCloud track is not available for streaming. Try a different track.");
+            }
+            
+            // Check for monetization issues
+            if (track.__metadata && track.__metadata.monetization_model === 'AD_SUPPORTED') {
+              console.log(`[Play Command] ⚠️ Track is ad-supported - may have streaming restrictions`);
+            }
+          }
           
           // Validate track has proper duration
           if (!track.durationMS || track.durationMS <= 0) {
