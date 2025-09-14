@@ -72,12 +72,41 @@ client.player = new Player(client, {
       timeout: 30000
     }
   },
-  // Global voice connection options
-  connection: {
-    selfDeaf: false,  // Ensure bot is not deafened by default
-    selfMute: false   // Ensure bot is not muted by default
-  }
+  // Global voice connection options for v7
+  skipFFmpeg: false,
+  useLegacyFFmpeg: false
 });
+
+// Override the voice connection to ensure bot is not deafened
+const originalConnect = client.player.nodes.create;
+client.player.nodes.create = function(guild, options) {
+  const queue = originalConnect.call(this, guild, options);
+  
+  // Override the connect method to add voice connection options
+  const originalQueueConnect = queue.connect;
+  queue.connect = async function(voiceChannel, options = {}) {
+    console.log(`[Voice Connection] Connecting with options:`, options);
+    
+    // Use @discordjs/voice directly to ensure proper voice connection
+    const { joinVoiceChannel } = require('@discordjs/voice');
+    
+    const connection = joinVoiceChannel({
+      channelId: voiceChannel.id,
+      guildId: voiceChannel.guild.id,
+      adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+      selfDeaf: false,  // CRITICAL: Ensure bot is not deafened
+      selfMute: false   // CRITICAL: Ensure bot is not muted
+    });
+    
+    // Set the connection on the queue
+    this.connection = connection;
+    
+    console.log(`[Voice Connection] Connected with selfDeaf: false, selfMute: false`);
+    return connection;
+  };
+  
+  return queue;
+};
 
 // Register extractors for v7.1
 (async () => {
@@ -179,6 +208,18 @@ client.player.events.on('emptyQueue', (queue) => {
   console.log(`[Player] Is playing when empty: ${queue.node.isPlaying()}`);
   console.log(`[Player] Current track when empty: ${queue.currentTrack?.title || 'None'}`);
   
+  // Don't delete the queue immediately - let it stay for a bit in case more tracks are added
+  // Only delete if no current track is playing
+  if (!queue.currentTrack) {
+    console.log(`[Player] No current track, will delete queue in 30 seconds if no activity`);
+    setTimeout(() => {
+      if (!queue.currentTrack && queue.tracks.size === 0) {
+        console.log(`[Player] Deleting empty queue after timeout`);
+        queue.delete();
+      }
+    }, 30000); // 30 second delay
+  }
+  
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
   }
@@ -203,7 +244,15 @@ client.player.events.on('queueEnd', (queue) => {
 
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
-  console.log(`[Player] Voice connection state - Deafened: ${queue.connection?.voice?.deaf || 'unknown'}, Muted: ${queue.connection?.voice?.mute || 'unknown'}`);
+  // Check voice state after a short delay to allow connection to settle
+  setTimeout(() => {
+    const voiceState = queue.connection?.voice;
+    if (voiceState) {
+      console.log(`[Player] Voice connection state - Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
+    } else {
+      console.log(`[Player] Voice connection state - Voice state not available yet`);
+    }
+  }, 500);
 });
 
 // --- Command Loader ---

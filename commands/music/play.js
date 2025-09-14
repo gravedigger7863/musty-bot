@@ -64,22 +64,18 @@ module.exports = {
         if (!queue) {
           console.log(`[Play Command] Creating new queue`);
           queue = interaction.client.player.nodes.create(interaction.guild, {
-            metadata: { channel: interaction.channel },
-            connection: {
-              selfDeaf: false,  // Ensure bot is not deafened
-              selfMute: false   // Ensure bot is not muted
-            }
+            metadata: { channel: interaction.channel }
           });
           console.log(`[Play Command] Connecting to voice channel`);
-          await queue.connect(voiceChannel, {
-            selfDeaf: false,  // Ensure bot is not deafened when connecting
-            selfMute: false   // Ensure bot is not muted when connecting
-          });
+          await queue.connect(voiceChannel);
+        } else {
+          console.log(`[Play Command] Using existing queue`);
         }
         
         // Add track to queue
         console.log(`[Play Command] Adding track to queue`);
         queue.addTrack(track);
+        console.log(`[Play Command] Track added, queue size before play: ${queue.tracks.size}`);
         
         // Only play if not already playing
         if (!queue.node.isPlaying()) {
@@ -88,7 +84,7 @@ module.exports = {
         }
         
         // Wait a moment for the track to be processed
-        await new Promise(resolve => setTimeout(resolve, 100));
+        await new Promise(resolve => setTimeout(resolve, 200));
         
         console.log(`[Play Command] Successfully queued: ${track.title}`);
         console.log(`[Play Command] Queue size: ${queue.tracks.size}`);
