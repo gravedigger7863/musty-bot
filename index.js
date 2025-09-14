@@ -90,11 +90,36 @@ client.player = new Player(client, {
   }
 });
 
-// Load extractors using the latest 2025 method
+// Load extractors using the correct method
 (async () => {
   try {
+    // Use the correct loadMulti method as shown in the error
     await client.player.extractors.loadMulti(DefaultExtractors);
-    console.log(`✅ Loaded ${client.player.extractors.size} extractors`);
+    console.log(`✅ Loaded default extractors: ${client.player.extractors.size}`);
+    
+    // If that doesn't work, try loading individually
+    if (client.player.extractors.size === 0) {
+      console.log(`[Extractors] Default loading failed, trying individual extractors...`);
+      const extractors = [
+        'YouTubeExtractor',
+        'SpotifyExtractor', 
+        'SoundCloudExtractor',
+        'VimeoExtractor',
+        'AttachmentExtractor',
+        'ReverbNationExtractor'
+      ];
+      
+      for (const extractorName of extractors) {
+        try {
+          await client.player.extractors.load(extractorName);
+          console.log(`✅ Loaded extractor: ${extractorName}`);
+        } catch (extractorError) {
+          console.warn(`⚠️ Failed to load extractor ${extractorName}:`, extractorError.message);
+        }
+      }
+    }
+    
+    console.log(`✅ Total extractors loaded: ${client.player.extractors.size}`);
     global.extractorsLoaded = true;
   } catch (error) {
     console.error('Failed to load extractors:', error);

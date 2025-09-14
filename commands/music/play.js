@@ -24,6 +24,14 @@ module.exports = {
           content: "⚠️ You need to join a voice channel first!"
         });
       }
+
+      // Check if extractors are loaded
+      if (!global.extractorsLoaded || interaction.client.player.extractors.size === 0) {
+        console.log(`[Play Command] Extractors not loaded yet, waiting...`);
+        return await interaction.editReply({ 
+          content: "⏳ Music system is still loading, please try again in a moment..."
+        });
+      }
       
       console.log(`[Play Command] Sending search message`);
       await interaction.editReply({ 
@@ -33,15 +41,58 @@ module.exports = {
       console.log(`[Play Command] Searching for: ${query}`);
       console.log(`[Play Command] Available extractors: ${interaction.client.player.extractors.size}`);
       
-      // Search for track using traditional API
-      const searchResult = await interaction.client.player.search(query, {
-        requestedBy: interaction.user,
-        searchEngine: 'youtube',
-      });
+      // List available extractors for debugging
+      const extractorNames = Array.from(interaction.client.player.extractors.keys());
+      console.log(`[Play Command] Available extractor names: ${extractorNames.join(', ')}`);
       
-      console.log(`[Play Command] Search result: ${searchResult ? searchResult.hasTracks() : 'null'}`);
+      // Search for track using the correct API with timeout
+      let searchResult;
+      try {
+        // Create a timeout promise
+        const searchTimeout = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Search timeout after 30 seconds')), 30000);
+        });
+        
+        // Try the new API first with timeout
+        const searchPromise = interaction.client.player.search(query, {
+          requestedBy: interaction.user,
+          searchEngine: 'youtube',
+        });
+        
+        searchResult = await Promise.race([searchPromise, searchTimeout]);
+        
+        // If that doesn't work, try the old API
+        if (!searchResult || !searchResult.tracks || searchResult.tracks.length === 0) {
+          console.log(`[Play Command] Trying alternative search method...`);
+          const altSearchPromise = interaction.client.player.search(query, {
+            requestedBy: interaction.user,
+          });
+          searchResult = await Promise.race([altSearchPromise, searchTimeout]);
+        }
+        
+        // If still no results, try without searchEngine
+        if (!searchResult || !searchResult.tracks || searchResult.tracks.length === 0) {
+          console.log(`[Play Command] Trying without searchEngine...`);
+          const finalSearchPromise = interaction.client.player.search(query, {
+            requestedBy: interaction.user,
+          });
+          searchResult = await Promise.race([finalSearchPromise, searchTimeout]);
+        }
+      } catch (searchError) {
+        console.error(`[Play Command] Search error:`, searchError);
+        if (searchError.message.includes('timeout')) {
+          return await interaction.editReply(`❌ Search timed out. Please try again with a shorter query.`);
+        }
+        return await interaction.editReply(`❌ Search failed: ${searchError.message}`);
+      }
       
-      if (!searchResult || !searchResult.hasTracks()) {
+      console.log(`[Play Command] Search result type: ${typeof searchResult}`);
+      console.log(`[Play Command] Search result constructor: ${searchResult?.constructor?.name}`);
+      console.log(`[Play Command] Search result hasTracks: ${searchResult?.hasTracks?.() || 'no hasTracks method'}`);
+      console.log(`[Play Command] Search result tracks length: ${searchResult?.tracks?.length || 'no tracks property'}`);
+      console.log(`[Play Command] Search result keys: ${searchResult ? Object.keys(searchResult) : 'null'}`);
+      
+      if (!searchResult || !searchResult.tracks || searchResult.tracks.length === 0) {
         console.log(`[Play Command] No tracks found for query: ${query}`);
         return await interaction.editReply('❌ No tracks found. Please try a different search term or check if the URL is valid.');
       }
