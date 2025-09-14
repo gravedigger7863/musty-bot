@@ -147,10 +147,13 @@ client.player.events.on('connectionError', (queue, error) => {
 });
 
 client.player.events.on(GuildQueueEvent.PlayerStart, (queue, track) => {
+  console.log(`[Player] 🎵 PLAYER START EVENT TRIGGERED`);
   console.log(`[Player] Now playing: ${track.title} by ${track.author} in ${queue.guild.name}`);
   console.log(`[Player] Track duration: ${track.duration} (${track.durationMS}ms)`);
   console.log(`[Player] Queue size: ${queue.tracks.size}`);
   console.log(`[Player] Is playing: ${queue.node.isPlaying()}`);
+  console.log(`[Player] Voice connection state: ${queue.connection?.voice?.state || 'undefined'}`);
+  console.log(`[Player] Current track: ${queue.currentTrack?.title || 'None'}`);
   
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`🎶 Now playing: **${track.title}** by ${track.author}`).catch(console.error);
@@ -170,17 +173,23 @@ client.player.events.on('trackAdd', (queue, track) => {
 });
 
 client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
+  console.log(`[Player] 🏁 PLAYER FINISH EVENT TRIGGERED`);
   console.log(`[Player] Finished: ${track.title} in ${queue.guild.name}`);
   console.log(`[Player] Track ended - duration was: ${track.duration} (${track.durationMS}ms)`);
   console.log(`[Player] Queue size after track end: ${queue.tracks.size}`);
   console.log(`[Player] Is playing after track end: ${queue.node.isPlaying()}`);
+  console.log(`[Player] Voice connection state: ${queue.connection?.voice?.state || 'undefined'}`);
   
   // If there are no more tracks in the queue after this one ends, show the empty message
   if (queue.tracks.size === 0 && queue.metadata?.channel) {
+    console.log(`[Player] Queue is empty, scheduling empty message...`);
     setTimeout(() => {
       // Double-check that we're still not playing anything
       if (!queue.node.isPlaying() && queue.tracks.size === 0) {
+        console.log(`[Player] Sending empty queue message`);
         queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
+      } else {
+        console.log(`[Player] Not sending empty message - still playing or queue has tracks`);
       }
     }, 1000); // Small delay to ensure the track has fully ended
   }
@@ -232,11 +241,13 @@ client.player.events.on('connection', (queue) => {
       console.log(`[Player] Voice connection state - Ready: ${voiceState.state === 'ready'}, Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
       
       if (voiceState.state === 'ready') {
-        console.log(`[Player] Voice connection is now ready for playback!`);
+        console.log(`[Player] ✅ Voice connection is now ready for playback!`);
+        return true;
       }
     } else {
       console.log(`[Player] Voice connection state - Voice state not available yet`);
     }
+    return false;
   };
   
   // Check immediately and then every 500ms for up to 10 seconds
@@ -244,10 +255,15 @@ client.player.events.on('connection', (queue) => {
   let attempts = 0;
   const interval = setInterval(() => {
     attempts++;
-    checkVoiceState();
+    const isReady = checkVoiceState();
     
-    if (attempts >= 20 || (queue.connection?.voice?.state === 'ready')) {
+    if (attempts >= 20 || isReady) {
       clearInterval(interval);
+      if (isReady) {
+        console.log(`[Player] Voice connection monitoring completed - Ready!`);
+      } else {
+        console.log(`[Player] Voice connection monitoring completed - Timeout after 10s`);
+      }
     }
   }, 500);
 });

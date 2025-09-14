@@ -40,31 +40,43 @@ module.exports = {
       // Connect to voice channel if not already connected
       if (!queue.connection) {
         console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
-        await queue.connect(voiceChannel);
-        console.log(`[Play Command] Connected, waiting for voice connection to be ready...`);
-
-        // Wait for voice connection to be ready with proper state checking
-        let attempts = 0;
-        const maxAttempts = 30; // 30 seconds max wait
+        console.log(`[Play Command] Voice channel ID: ${voiceChannel.id}`);
+        console.log(`[Play Command] Guild ID: ${interaction.guild.id}`);
         
-        while (attempts < maxAttempts) {
-          if (queue.connection && queue.connection.voice && queue.connection.voice.state === 'ready') {
-            console.log(`[Play Command] Voice connection is ready after ${attempts * 0.5}s`);
-            break;
+        try {
+          await queue.connect(voiceChannel);
+          console.log(`[Play Command] Connection initiated, checking state...`);
+          
+          // Wait for voice connection to be ready with better state checking
+          let attempts = 0;
+          const maxAttempts = 20; // 10 seconds max wait
+          
+          while (attempts < maxAttempts) {
+            const connection = queue.connection;
+            const voiceState = connection?.voice;
+            
+            console.log(`[Play Command] Attempt ${attempts + 1}/${maxAttempts} - Connection exists: ${!!connection}, Voice state: ${voiceState?.state || 'undefined'}`);
+            
+            if (connection && voiceState && voiceState.state === 'ready') {
+              console.log(`[Play Command] ✅ Voice connection is ready after ${attempts * 0.5}s`);
+              break;
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between checks
+            attempts++;
           }
           
-          await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between checks
-          attempts++;
-          
-          if (attempts % 10 === 0) {
-            console.log(`[Play Command] Still waiting for voice connection... (${attempts * 0.5}s)`);
+          if (attempts >= maxAttempts) {
+            console.log(`[Play Command] ❌ Voice connection timeout after ${maxAttempts * 0.5}s`);
+            console.log(`[Play Command] Final state - Connection: ${!!queue.connection}, Voice: ${queue.connection?.voice?.state || 'undefined'}`);
+            return interaction.editReply("❌ Failed to connect to voice channel. Please try again.");
           }
+        } catch (connectError) {
+          console.error(`[Play Command] Connection error:`, connectError);
+          return interaction.editReply(`❌ Failed to connect to voice channel: ${connectError.message}`);
         }
-        
-        if (attempts >= maxAttempts) {
-          console.log(`[Play Command] Voice connection timeout after ${maxAttempts * 0.5}s`);
-          return interaction.editReply("❌ Failed to connect to voice channel. Please try again.");
-        }
+      } else {
+        console.log(`[Play Command] Already connected to voice channel`);
       }
 
       // Add track to queue
@@ -74,10 +86,20 @@ module.exports = {
       // Play track if not already playing
       if (!queue.isPlaying()) {
         console.log(`[Play Command] About to start playback for: ${track.title}`);
-        await queue.node.play(track);
-        console.log(`[Play Command] Playback started for: ${track.title}`);
-        await interaction.editReply(`🎶 Starting playback...`);
+        console.log(`[Play Command] Queue state - Is playing: ${queue.isPlaying()}, Current track: ${queue.currentTrack?.title || 'None'}`);
+        console.log(`[Play Command] Voice connection state before play: ${queue.connection?.voice?.state || 'undefined'}`);
+        
+        try {
+          await queue.node.play(track);
+          console.log(`[Play Command] ✅ Playback command sent for: ${track.title}`);
+          console.log(`[Play Command] Post-play state - Is playing: ${queue.isPlaying()}, Voice state: ${queue.connection?.voice?.state || 'undefined'}`);
+          await interaction.editReply(`🎶 Starting playback...`);
+        } catch (playError) {
+          console.error(`[Play Command] Playback error:`, playError);
+          return interaction.editReply(`❌ Failed to start playback: ${playError.message}`);
+        }
       } else {
+        console.log(`[Play Command] Queue is already playing, adding to queue instead`);
         await interaction.editReply(`🎵 **${track.title}** added to the queue (position ${queue.tracks.size})`);
       }
     } catch (err) {
