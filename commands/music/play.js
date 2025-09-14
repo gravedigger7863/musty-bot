@@ -132,13 +132,7 @@ module.exports = {
 
         // Start playing if not already playing
         if (!queue.node.isPlaying()) {
-          // Final check that voice connection is still ready before playing
-          const voiceState = queue.connection?.voice;
-          if (!voiceState || voiceState.state !== 'ready') {
-            console.log(`[Play Command] ❌ Voice connection not ready for playlist playback: ${voiceState?.state || 'undefined'}`);
-            return replyToUser(interaction, `❌ Voice connection not ready for playback. Please try again.`);
-          }
-          
+          // Voice connection is already verified as ready by entersState() above
           await queue.node.play();
           console.log(`[Play Command] ✅ Started playing playlist`);
         }
@@ -219,13 +213,7 @@ module.exports = {
       if (!queue.node.isPlaying()) {
         console.log(`[Play Command] Starting playback for: ${track.title}`);
         
-        // Final check that voice connection is still ready before playing
-        const voiceState = queue.connection?.voice;
-        if (!voiceState || voiceState.state !== 'ready') {
-          console.log(`[Play Command] ❌ Voice connection not ready for playback: ${voiceState?.state || 'undefined'}`);
-          return replyToUser(interaction, `❌ Voice connection not ready for playback. Please try again.`);
-        }
-        
+        // Voice connection is already verified as ready by entersState() above
         await queue.node.play();
         console.log(`[Play Command] ✅ Playback started`);
         
