@@ -84,38 +84,13 @@ client.player = new Player(client, {
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
   
-  // Monitor voice connection state changes with reduced logging
-  const checkVoiceState = () => {
-    const voiceState = queue.connection?.voice;
-    if (voiceState) {
-      if (voiceState.state === 'ready') {
-        console.log(`[Player] ✅ Voice connection is ready - Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
-        return true;
-      } else {
-        console.log(`[Player] Voice connection state: ${voiceState.state} (not ready yet)`);
-      }
-    } else {
-      console.log(`[Player] Voice connection state - Voice state not available yet`);
-    }
-    return false;
-  };
-  
-  // Check immediately and then every 1 second for up to 10 seconds (reduced frequency)
-  checkVoiceState();
-  let attempts = 0;
-  const interval = setInterval(() => {
-    attempts++;
-    const isReady = checkVoiceState();
-    
-    if (attempts >= 10 || isReady) {
-      clearInterval(interval);
-      if (isReady) {
-        console.log(`[Player] Voice connection monitoring completed - Ready!`);
-      } else {
-        console.log(`[Player] Voice connection monitoring completed - Timeout after 10s`);
-      }
-    }
-  }, 1000);
+  // Simple voice state check - Discord Player handles the rest
+  const voiceState = queue.connection?.voice;
+  if (voiceState) {
+    console.log(`[Player] ✅ Voice connection state: ${voiceState.state} - Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
+  } else {
+    console.log(`[Player] ⚠️ Voice state not available - check GUILD_VOICE_STATES intent and bot permissions`);
+  }
 });
 
 // Register extractors for v7.1

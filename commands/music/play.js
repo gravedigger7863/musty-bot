@@ -18,6 +18,13 @@ module.exports = {
     if (!voiceChannel) return interaction.editReply("⚠️ You need to join a voice channel first!");
     if (!interaction.client.player) return interaction.editReply("⏳ Music system not ready yet, try again later.");
 
+    // Check bot permissions in the voice channel
+    const botMember = interaction.guild.members.me;
+    const permissions = voiceChannel.permissionsFor(botMember);
+    if (!permissions.has(['Connect', 'Speak'])) {
+      return interaction.editReply("❌ I don't have permission to connect or speak in this voice channel!");
+    }
+
     try {
       console.log(`[Play Command] Searching for: ${query}`);
       
@@ -51,31 +58,14 @@ module.exports = {
           await queue.connect(voiceChannel);
           console.log(`[Play Command] ✅ Connection initiated successfully`);
           
-          // Wait for voice connection to be ready with proper state monitoring
-          let connectionReady = false;
-          let attempts = 0;
-          const maxAttempts = 20; // 10 seconds total
+          // Give the connection a moment to establish (Discord Player handles voice state internally)
+          await new Promise(resolve => setTimeout(resolve, 1000));
           
-          while (!connectionReady && attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            attempts++;
-            
-            const voiceState = queue.connection?.voice;
-            if (voiceState) {
-              console.log(`[Play Command] Voice connection state - Attempt ${attempts}/${maxAttempts}: ${voiceState.state}`);
-              if (voiceState.state === 'ready') {
-                connectionReady = true;
-                console.log(`[Play Command] ✅ Voice connection is ready after ${attempts * 500}ms`);
-                break;
-              }
-            } else {
-              console.log(`[Play Command] Voice connection state - Attempt ${attempts}/${maxAttempts}: undefined (intent issue?)`);
-            }
-          }
-          
-          if (!connectionReady) {
-            console.log(`[Play Command] ❌ Voice connection not ready after 10s - this will cause playback issues`);
-            console.log(`[Play Command] Check: 1) GUILD_VOICE_STATES intent enabled, 2) Bot has Connect+Speak permissions`);
+          const voiceState = queue.connection?.voice;
+          if (voiceState) {
+            console.log(`[Play Command] ✅ Voice connection state: ${voiceState.state}`);
+          } else {
+            console.log(`[Play Command] ⚠️ Voice state not available - check GUILD_VOICE_STATES intent and bot permissions`);
           }
           
         } catch (connectError) {
@@ -96,12 +86,7 @@ module.exports = {
         console.log(`[Play Command] Queue state - Is playing: ${queue.isPlaying()}, Current track: ${queue.currentTrack?.title || 'None'}`);
         console.log(`[Play Command] Voice connection state before play: ${queue.connection?.voice?.state || 'undefined'}`);
         
-        // Check if voice connection is ready before attempting playback
-        const voiceState = queue.connection?.voice;
-        if (!voiceState || voiceState.state !== 'ready') {
-          console.log(`[Play Command] ❌ Voice connection not ready (${voiceState?.state || 'undefined'}), cannot start playback`);
-          return interaction.editReply(`❌ Voice connection not ready. Please check bot permissions and try again.`);
-        }
+        // Voice connection should be ready - Discord Player handles voice state internally
         
         try {
           await queue.node.play(track);
