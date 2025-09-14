@@ -66,24 +66,20 @@ module.exports = {
           queue = interaction.client.player.nodes.create(interaction.guild, {
             metadata: { channel: interaction.channel }
           });
-          console.log(`[Play Command] Connecting to voice channel`);
-          await queue.connect(voiceChannel);
+        } else {
+          console.log(`[Play Command] Using existing queue`);
+        }
+        
+        // Connect to voice channel using v7.1 API
+        if (!queue.node.isConnected()) {
+          console.log(`[Play Command] Connecting to voice channel using v7.1 API`);
+          await queue.node.connect(voiceChannel);
           console.log(`[Play Command] Voice connection established`);
           
           // Small delay to ensure connection is fully ready
           await new Promise(resolve => setTimeout(resolve, 500));
         } else {
-          console.log(`[Play Command] Using existing queue`);
-          
-          // Ensure connection exists
-          if (!queue.connection) {
-            console.log(`[Play Command] No connection found, reconnecting to voice channel`);
-            await queue.connect(voiceChannel);
-            // Small delay to ensure reconnection is ready
-            await new Promise(resolve => setTimeout(resolve, 500));
-          } else {
-            console.log(`[Play Command] Connection exists: ${queue.connection.state?.status || 'unknown'}`);
-          }
+          console.log(`[Play Command] Already connected to voice channel`);
         }
         
         // Add track to queue
@@ -94,11 +90,11 @@ module.exports = {
         // Small delay to ensure track is processed
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Debug connection state before playing
-        console.log(`[Play Command] Connection debug:`);
-        console.log(`[Play Command] - queue.connection: ${!!queue.connection}`);
+        // Debug connection state before playing (v7.1 API)
+        console.log(`[Play Command] Connection debug (v7.1):`);
+        console.log(`[Play Command] - queue.node.isConnected(): ${queue.node.isConnected()}`);
         console.log(`[Play Command] - queue.node.connection: ${!!queue.node.connection}`);
-        console.log(`[Play Command] - queue.connection.state: ${queue.connection?.state?.status || 'undefined'}`);
+        console.log(`[Play Command] - queue.node.connection.state: ${queue.node.connection?.state?.status || 'undefined'}`);
         
         // Only play if not already playing
         if (!queue.node.isPlaying()) {

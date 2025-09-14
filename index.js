@@ -77,7 +77,7 @@ client.player = new Player(client, {
   useLegacyFFmpeg: false
 });
 
-// Override Discord Player's voice connection to ensure proper audio transmission
+// Override Discord Player's voice connection to ensure proper audio transmission (v7.1 API)
 const { joinVoiceChannel } = require('@discordjs/voice');
 
 // Store original connect method
@@ -86,10 +86,10 @@ const originalConnect = client.player.nodes.create;
 client.player.nodes.create = function(guild, options) {
   const queue = originalConnect.call(this, guild, options);
   
-  // Override the connect method
-  const originalQueueConnect = queue.connect;
-  queue.connect = async function(voiceChannel, options = {}) {
-    console.log(`[Voice Connection] Establishing voice connection...`);
+  // Override the node.connect method for v7.1 API
+  const originalNodeConnect = queue.node.connect;
+  queue.node.connect = async function(voiceChannel, options = {}) {
+    console.log(`[Voice Connection] Establishing voice connection using v7.1 API...`);
     
     try {
       // Create voice connection with proper options
@@ -132,35 +132,16 @@ client.player.nodes.create = function(guild, options) {
         }
       });
       
-      // Set the connection on the queue using Discord Player's internal structure
+      // Set the connection on the node for Discord Player v7.1
       this.connection = connection;
       
-      // Also set it on the node for Discord Player v7 compatibility
-      if (this.node) {
-        this.node.connection = connection;
-      }
-      
-      // Set the voice state for Discord Player v7
+      // Set the voice state for Discord Player v7.1
       this.voiceState = {
         deaf: false,
         mute: false,
         selfDeaf: false,
         selfMute: false
       };
-      
-      // Ensure Discord Player recognizes the connection
-      this._connection = connection;
-      this._voiceConnection = connection;
-      
-      // Set connection on the player node for Discord Player v7
-      if (this.node && this.node.player) {
-        this.node.player.connection = connection;
-      }
-      
-      // Set the guild's voice connection for Discord Player v7
-      if (this.guild) {
-        this.guild.voiceConnection = connection;
-      }
       
       console.log(`[Voice Connection] Connected successfully with selfDeaf: false, selfMute: false`);
       return connection;
