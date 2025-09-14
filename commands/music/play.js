@@ -70,43 +70,36 @@ module.exports = {
           console.log(`[Play Command] Using existing queue`);
         }
         
-        // Connect to voice channel using Discord Player's built-in method
-        if (!queue.node.connection) {
-          console.log(`[Play Command] Connecting to voice channel...`);
-          await queue.node.connect(voiceChannel);
-          console.log(`[Play Command] Voice connection established`);
-          
-          // Wait for connection to be fully ready
-          console.log(`[Play Command] Waiting for connection to be fully ready...`);
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          console.log(`[Play Command] Connection ready, proceeding with playback`);
-        } else {
-          console.log(`[Play Command] Already connected to voice channel`);
-        }
-        
-        // Add track to queue
+        // Add track to queue first
         console.log(`[Play Command] Adding track to queue`);
         queue.addTrack(track);
-        console.log(`[Play Command] Track added, queue size before play: ${queue.tracks.size}`);
+        console.log(`[Play Command] Track added, queue size: ${queue.tracks.size}`);
         
-        // Small delay to ensure track is processed
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Debug connection state before playing
-        console.log(`[Play Command] Connection debug:`);
-        console.log(`[Play Command] - queue.node.connection: ${!!queue.node.connection}`);
-        console.log(`[Play Command] - queue.node.isPlaying(): ${queue.node.isPlaying()}`);
-        
-        // Only play if not already playing
-        if (!queue.node.isPlaying()) {
-          console.log(`[Play Command] Starting playback`);
+        // Connect to voice channel and play using Discord Player v7 API
+        try {
+          console.log(`[Play Command] Connecting to voice channel and playing...`);
+          if (!queue.connection) {
+            await queue.connect(voiceChannel);
+            console.log(`[Play Command] Voice connection established`);
+            
+            // Small delay to ensure connection is fully ready
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+          
+          // Play the track
           await queue.node.play();
+          console.log(`[Play Command] Playback started successfully`);
+          
+        } catch (connectError) {
+          console.error(`[Play Command] Connection/playback failed:`, connectError);
+          queue.destroy();
+          return await interaction.editReply({ 
+            content: "❌ Could not join your voice channel or play the track!", 
+            ephemeral: true 
+          });
         }
         
-        // Wait a moment for the track to be processed
-        await new Promise(resolve => setTimeout(resolve, 200));
-        
+        // Send success message
         console.log(`[Play Command] Successfully queued: ${track.title}`);
         console.log(`[Play Command] Queue size: ${queue.tracks.size}`);
         console.log(`[Play Command] Is playing: ${queue.node.isPlaying()}`);
