@@ -217,7 +217,23 @@ module.exports = {
           console.log(`[Play Command] 🔄 Trying all available extractors as fallback...`);
           
           // Try all available extractors as fallback
-          for (const [extractorId, extractor] of availableExtractors.entries()) {
+          const extractorIds = Array.from(availableExtractors.keys());
+          console.log(`[Play Command] Available extractors for fallback: ${extractorIds.join(', ')}`);
+          
+          // Add timeout protection
+          const fallbackTimeout = setTimeout(() => {
+            console.log(`[Play Command] ⏰ Fallback search timeout reached, stopping search`);
+          }, 10000); // 10 second timeout
+          
+          let fallbackAttempts = 0;
+          const maxFallbackAttempts = extractorIds.length;
+          
+          for (const extractorId of extractorIds) {
+            fallbackAttempts++;
+            if (fallbackAttempts > maxFallbackAttempts) {
+              console.log(`[Play Command] ⚠️ Maximum fallback attempts reached, stopping search`);
+              break;
+            }
             if (extractorId === 'auto') continue; // Skip auto as we already tried it
             
             console.log(`[Play Command] Fallback search with ${extractorId}...`);
@@ -272,6 +288,7 @@ module.exports = {
                   selectedTrack = track;
                   searchEngineUsed = extractorId;
                   console.log(`[Play Command] ✅ Valid track found with ${extractorId}: ${track.title}`);
+                  clearTimeout(fallbackTimeout);
                   break;
                 }
               }
@@ -280,6 +297,9 @@ module.exports = {
               continue;
             }
           }
+          
+          // Clear timeout if we found a track or finished searching
+          clearTimeout(fallbackTimeout);
         }
         
         // Final check
