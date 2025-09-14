@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const { useMainPlayer } = require("discord-player");
 const { entersState, VoiceConnectionStatus, AudioPlayerStatus } = require("@discordjs/voice");
+const util = require("util");
 
 // Track recent track additions to prevent spam
 const recentTracks = new Map();
@@ -149,10 +150,13 @@ module.exports = {
           console.log(`[Play Command] ✅ Voice connection established successfully`);
           
           // Additional verification that connection is working
-          if (queue.connection && queue.connection.state === VoiceConnectionStatus.Ready) {
+          if (queue.connection && queue.connection.state.status === VoiceConnectionStatus.Ready) {
             console.log(`[Play Command] ✅ Voice connection verified as Ready`);
           } else {
-            console.log(`[Play Command] ⚠️ Voice connection state:`, JSON.stringify(queue.connection?.state, null, 2));
+            console.log(`[Play Command] ⚠️ Voice connection state:`, {
+              status: queue.connection?.state?.status,
+              subscriptionStatus: queue.connection?.state?.subscription?.player?.state?.status
+            });
           }
           
         } catch (error) {
@@ -163,10 +167,13 @@ module.exports = {
         }
       } else {
         console.log(`[Play Command] Using existing voice connection`);
-        console.log(`[Play Command] Connection state:`, JSON.stringify(queue.connection?.state, null, 2));
+        console.log(`[Play Command] Connection state:`, {
+          status: queue.connection?.state?.status,
+          subscriptionStatus: queue.connection?.state?.subscription?.player?.state?.status
+        });
         
         // Check if existing connection is still ready
-        if (queue.connection && queue.connection.state !== VoiceConnectionStatus.Ready) {
+        if (queue.connection && queue.connection.state.status !== VoiceConnectionStatus.Ready) {
           console.log(`[Play Command] ⚠️ Existing connection not ready, waiting for it to be ready...`);
           try {
             await entersState(queue.connection, VoiceConnectionStatus.Ready, 10_000);
