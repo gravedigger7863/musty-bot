@@ -58,66 +58,55 @@ module.exports = {
         console.log(`[Play Command] Track duration: ${track.duration} (${track.durationMS}ms)`);
         console.log(`[Play Command] Track source: ${track.source}`);
         
-        // Get or create queue
-        let queue = interaction.client.player.nodes.get(interaction.guild.id);
+        // Get or create queue using proper v7 API
+        let queue = interaction.client.player.getQueue(interaction.guild.id);
         
         if (!queue) {
           console.log(`[Play Command] Creating new queue`);
-          queue = interaction.client.player.nodes.create(interaction.guild, {
-            metadata: { channel: interaction.channel }
+          queue = interaction.client.player.createQueue(interaction.guild, {
+            metadata: { channel: interaction.channel },
+            selfDeaf: false,
+            selfMute: false
           });
         } else {
           console.log(`[Play Command] Using existing queue (size: ${queue.tracks.size})`);
         }
         
-        // Connect to voice channel first if not connected
-        try {
-          if (!queue.connection) {
-            console.log(`[Play Command] Connecting to voice channel...`);
-            await queue.connect(voiceChannel, {
-              selfDeaf: false,
-              selfMute: false
-            });
-            console.log(`[Play Command] Voice connection established with selfDeaf: false, selfMute: false`);
-            
-            // Wait for connection to be fully ready
-            console.log(`[Play Command] Waiting for connection to be fully ready...`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
-          } else {
-            console.log(`[Play Command] Already connected to voice channel`);
-          }
+        // Connect to voice channel if not connected
+        if (!queue.connection) {
+          console.log(`[Play Command] Connecting to voice channel...`);
+          await queue.connect(voiceChannel);
+          console.log(`[Play Command] Voice connection established`);
           
-          // Add track to queue after connection is established
-          console.log(`[Play Command] Adding track to queue`);
-          queue.addTrack(track);
-          console.log(`[Play Command] Track added, queue size: ${queue.tracks.size}`);
-          
-          // Only play if not already playing
-          if (!queue.node.isPlaying()) {
-            console.log(`[Play Command] Starting playback...`);
-            await queue.node.play();
-            console.log(`[Play Command] Playback started successfully`);
-          } else {
-            console.log(`[Play Command] Already playing, track added to queue`);
-          }
-          
-        } catch (connectError) {
-          console.error(`[Play Command] Connection/playback failed:`, connectError);
-          queue.destroy();
-          return await interaction.editReply({ 
-            content: "❌ Could not join your voice channel or play the track!", 
-            ephemeral: true 
-          });
+          // Wait for connection to be fully ready
+          console.log(`[Play Command] Waiting for connection to be fully ready...`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+        } else {
+          console.log(`[Play Command] Already connected to voice channel`);
+        }
+        
+        // Add track to queue
+        console.log(`[Play Command] Adding track to queue`);
+        queue.addTrack(track);
+        console.log(`[Play Command] Track added, queue size: ${queue.tracks.size}`);
+        
+        // Play if not already playing
+        if (!queue.isPlaying()) {
+          console.log(`[Play Command] Starting playback...`);
+          await queue.play();
+          console.log(`[Play Command] Playback started successfully`);
+        } else {
+          console.log(`[Play Command] Already playing, track added to queue`);
         }
         
         // Send success message
         console.log(`[Play Command] Successfully queued: ${track.title}`);
         console.log(`[Play Command] Queue size: ${queue.tracks.size}`);
-        console.log(`[Play Command] Is playing: ${queue.node.isPlaying()}`);
+        console.log(`[Play Command] Is playing: ${queue.isPlaying()}`);
         console.log(`[Play Command] Current track: ${queue.currentTrack?.title || 'None'}`);
         
         // Determine if this is now playing or queued
-        const isNowPlaying = queue.node.isPlaying() && queue.currentTrack?.title === track.title;
+        const isNowPlaying = queue.isPlaying() && queue.currentTrack?.title === track.title;
         const isQueued = queue.tracks.size > 0 && !isNowPlaying;
         
         if (isNowPlaying) {
