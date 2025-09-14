@@ -61,6 +61,32 @@ module.exports = {
           url: result.track.url
         });
         
+        // Manually set the track as playing since trackStart event might not fire
+        result.track._isPlaying = true;
+        result.track._startTimestamp = Date.now();
+        console.log(`[Play Command] Manually set track as playing: ${result.track._isPlaying}`);
+        
+        // Add a periodic check to maintain track state
+        const trackStateCheck = setInterval(() => {
+          const currentQueue = interaction.client.player.nodes.get(interaction.guild.id);
+          if (currentQueue && currentQueue.currentTrack && currentQueue.currentTrack._isPlaying) {
+            const elapsed = Date.now() - currentQueue.currentTrack._startTimestamp;
+            const remaining = currentQueue.currentTrack.durationMS - elapsed;
+            console.log(`[Play Command] Track state check - Elapsed: ${elapsed}ms, Remaining: ${remaining}ms`);
+            
+            if (remaining <= 0) {
+              console.log(`[Play Command] Track should end naturally`);
+              currentQueue.currentTrack._isPlaying = false;
+              clearInterval(trackStateCheck);
+            }
+          } else {
+            clearInterval(trackStateCheck);
+          }
+        }, 10000); // Check every 10 seconds
+        
+        // Store the interval for cleanup
+        result.track._stateCheckInterval = trackStateCheck;
+        
         // Check queue status after adding track
         const queue = interaction.client.player.nodes.get(interaction.guild.id);
         if (queue) {
@@ -68,6 +94,7 @@ module.exports = {
           console.log(`[Play Command] Queue size (tracks waiting): ${queue.tracks.size}`);
           console.log(`[Play Command] Current track: ${queue.currentTrack?.title || 'None'}`);
           console.log(`[Play Command] Is playing: ${queue.node.isPlaying()}`);
+          console.log(`[Play Command] Track is playing (custom): ${queue.currentTrack?._isPlaying || false}`);
           console.log(`[Play Command] Total tracks in queue: ${queue.tracks.size + (queue.currentTrack ? 1 : 0)}`);
         } else {
           console.log(`[Play Command] Queue exists: false`);
