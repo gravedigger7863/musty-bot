@@ -51,10 +51,33 @@ module.exports = {
           await queue.connect(voiceChannel);
           console.log(`[Play Command] ✅ Connection initiated successfully`);
           
-          // Give the connection a moment to establish
-          await new Promise(resolve => setTimeout(resolve, 2000));
+          // Wait for voice connection to be ready with proper state monitoring
+          let connectionReady = false;
+          let attempts = 0;
+          const maxAttempts = 20; // 10 seconds total
           
-          console.log(`[Play Command] Connection state after delay - Exists: ${!!queue.connection}, Voice: ${queue.connection?.voice?.state || 'undefined'}`);
+          while (!connectionReady && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+            attempts++;
+            
+            const voiceState = queue.connection?.voice;
+            if (voiceState) {
+              console.log(`[Play Command] Voice connection state - Attempt ${attempts}/${maxAttempts}: ${voiceState.state}`);
+              if (voiceState.state === 'ready') {
+                connectionReady = true;
+                console.log(`[Play Command] ✅ Voice connection is ready after ${attempts * 500}ms`);
+                break;
+              }
+            } else {
+              console.log(`[Play Command] Voice connection state - Attempt ${attempts}/${maxAttempts}: undefined (intent issue?)`);
+            }
+          }
+          
+          if (!connectionReady) {
+            console.log(`[Play Command] ❌ Voice connection not ready after 10s - this will cause playback issues`);
+            console.log(`[Play Command] Check: 1) GUILD_VOICE_STATES intent enabled, 2) Bot has Connect+Speak permissions`);
+          }
+          
         } catch (connectError) {
           console.error(`[Play Command] Connection error:`, connectError);
           return interaction.editReply(`❌ Failed to connect to voice channel: ${connectError.message}`);
@@ -72,6 +95,13 @@ module.exports = {
         console.log(`[Play Command] About to start playback for: ${track.title}`);
         console.log(`[Play Command] Queue state - Is playing: ${queue.isPlaying()}, Current track: ${queue.currentTrack?.title || 'None'}`);
         console.log(`[Play Command] Voice connection state before play: ${queue.connection?.voice?.state || 'undefined'}`);
+        
+        // Check if voice connection is ready before attempting playback
+        const voiceState = queue.connection?.voice;
+        if (!voiceState || voiceState.state !== 'ready') {
+          console.log(`[Play Command] ❌ Voice connection not ready (${voiceState?.state || 'undefined'}), cannot start playback`);
+          return interaction.editReply(`❌ Voice connection not ready. Please check bot permissions and try again.`);
+        }
         
         try {
           await queue.node.play(track);

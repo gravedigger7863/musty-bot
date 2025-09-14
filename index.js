@@ -48,7 +48,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildVoiceStates, // 🔑 Required for voice connection state
+    GatewayIntentBits.GuildVoiceStates, // 🔑 ABSOLUTELY REQUIRED for voice connection state
   ],
   rest: {
     rejectOnRateLimit: (rateLimitData) => {
@@ -84,10 +84,38 @@ client.player = new Player(client, {
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
   
-  // Ensure the bot is not deafened or muted
-  if (queue.connection && queue.connection.voice) {
-    console.log(`[Player] Voice state - Deafened: ${queue.connection.voice.deaf}, Muted: ${queue.connection.voice.mute}`);
-  }
+  // Monitor voice connection state changes with reduced logging
+  const checkVoiceState = () => {
+    const voiceState = queue.connection?.voice;
+    if (voiceState) {
+      if (voiceState.state === 'ready') {
+        console.log(`[Player] ✅ Voice connection is ready - Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
+        return true;
+      } else {
+        console.log(`[Player] Voice connection state: ${voiceState.state} (not ready yet)`);
+      }
+    } else {
+      console.log(`[Player] Voice connection state - Voice state not available yet`);
+    }
+    return false;
+  };
+  
+  // Check immediately and then every 1 second for up to 10 seconds (reduced frequency)
+  checkVoiceState();
+  let attempts = 0;
+  const interval = setInterval(() => {
+    attempts++;
+    const isReady = checkVoiceState();
+    
+    if (attempts >= 10 || isReady) {
+      clearInterval(interval);
+      if (isReady) {
+        console.log(`[Player] Voice connection monitoring completed - Ready!`);
+      } else {
+        console.log(`[Player] Voice connection monitoring completed - Timeout after 10s`);
+      }
+    }
+  }, 1000);
 });
 
 // Register extractors for v7.1
@@ -229,43 +257,6 @@ client.player.events.on(GuildQueueEvent.QueueEnd, (queue) => {
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`🎵 Queue finished! Thanks for listening!`).catch(console.error);
   }
-});
-
-client.player.events.on('connection', (queue) => {
-  console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
-  
-  // Monitor voice connection state changes
-  const checkVoiceState = () => {
-    const voiceState = queue.connection?.voice;
-    if (voiceState) {
-      console.log(`[Player] Voice connection state - Ready: ${voiceState.state === 'ready'}, Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
-      
-      if (voiceState.state === 'ready') {
-        console.log(`[Player] ✅ Voice connection is now ready for playback!`);
-        return true;
-      }
-    } else {
-      console.log(`[Player] Voice connection state - Voice state not available yet`);
-    }
-    return false;
-  };
-  
-  // Check immediately and then every 500ms for up to 10 seconds
-  checkVoiceState();
-  let attempts = 0;
-  const interval = setInterval(() => {
-    attempts++;
-    const isReady = checkVoiceState();
-    
-    if (attempts >= 20 || isReady) {
-      clearInterval(interval);
-      if (isReady) {
-        console.log(`[Player] Voice connection monitoring completed - Ready!`);
-      } else {
-        console.log(`[Player] Voice connection monitoring completed - Timeout after 10s`);
-      }
-    }
-  }, 500);
 });
 
 // --- Command Loader ---
