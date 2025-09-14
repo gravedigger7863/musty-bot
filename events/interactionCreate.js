@@ -7,17 +7,17 @@ module.exports = {
     const startTime = Date.now();
     const interactionId = interaction.id;
     
-    console.log(`[Interaction] Received: ${interactionId} (${interaction.type}) - ${interaction.commandName || interaction.customId || 'unknown'}`);
-    
-    // Check if interaction already processed or currently being processed
-    if (processedInteractions.has(interactionId) || interactionTimestamps.has(interactionId)) {
-      console.log(`[Interaction] Already processed or being processed, skipping: ${interactionId}`);
+    // IMMEDIATE duplicate check - before any logging
+    if (processedInteractions.has(interactionId)) {
+      console.log(`[Interaction] DUPLICATE DETECTED - Already processed, skipping: ${interactionId}`);
       return;
     }
 
-    // Mark interaction as being processed immediately to prevent race conditions
+    // Mark as processed IMMEDIATELY
     processedInteractions.add(interactionId);
     interactionTimestamps.set(interactionId, startTime);
+    
+    console.log(`[Interaction] Received: ${interactionId} (${interaction.type}) - ${interaction.commandName || interaction.customId || 'unknown'}`);
 
     // Check if interaction is still valid (within 2.5 seconds for safety)
     const interactionAge = startTime - interaction.createdTimestamp;
@@ -28,13 +28,14 @@ module.exports = {
 
     // Interaction already marked as being processed above
     
-    // Clean up old processed interactions (keep only last 500)
-    if (processedInteractions.size > 500) {
-      const toDelete = Array.from(processedInteractions).slice(0, 100);
+    // Clean up old processed interactions (keep only last 100)
+    if (processedInteractions.size > 100) {
+      const toDelete = Array.from(processedInteractions).slice(0, 50);
       toDelete.forEach(id => {
         processedInteractions.delete(id);
         interactionTimestamps.delete(id);
       });
+      console.log(`[Interaction] Cleaned up ${toDelete.length} old interactions`);
     }
 
     try {
