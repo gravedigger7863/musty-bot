@@ -10,7 +10,7 @@ module.exports = {
     }
 
     const queue = interaction.client.player.nodes.get(interaction.guild.id);
-    if (!queue || !queue.isPlaying()) {
+    if (!queue || !queue.node.isPlaying()) {
       return interaction.editReply("⚠️ No music is currently playing.");
     }
 

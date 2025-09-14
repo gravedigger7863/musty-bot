@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder } = require("discord.js");
 const { useMainPlayer } = require("discord-player");
+const { entersState, VoiceConnectionStatus } = require("@discordjs/voice");
 
 // Track recent track additions to prevent spam
 const recentTracks = new Map();
@@ -115,26 +116,12 @@ module.exports = {
           
           // Wait for voice connection to be fully ready for audio streaming
           console.log(`[Play Command] Waiting for voice connection to be ready for audio...`);
-          let connectionReady = false;
-          let attempts = 0;
-          const maxAttempts = 20; // 10 seconds total
-          
-          while (!connectionReady && attempts < maxAttempts) {
-            await new Promise(resolve => setTimeout(resolve, 500));
-            attempts++;
-            
-            const voiceState = queue.connection?.voice;
-            if (voiceState && voiceState.state === 'ready') {
-              connectionReady = true;
-              console.log(`[Play Command] ✅ Voice connection ready for audio after ${attempts * 500}ms`);
-            } else {
-              console.log(`[Play Command] Voice state check ${attempts}/${maxAttempts}: ${voiceState?.state || 'connecting...'}`);
-            }
-          }
-          
-          if (!connectionReady) {
+          try {
+            await entersState(queue.connection, VoiceConnectionStatus.Ready, 10_000);
+            console.log(`[Play Command] ✅ Voice connection ready for audio`);
+          } catch (error) {
             console.log(`[Play Command] ❌ Voice connection not ready after 10s - destroying queue`);
-            queue.destroy();
+            queue.delete();
             return replyToUser(interaction, `❌ Could not establish stable voice connection! Please try again.`);
           }
         }
@@ -214,26 +201,12 @@ module.exports = {
         
         // Wait for voice connection to be fully ready for audio streaming
         console.log(`[Play Command] Waiting for voice connection to be ready for audio...`);
-        let connectionReady = false;
-        let attempts = 0;
-        const maxAttempts = 20; // 10 seconds total
-        
-        while (!connectionReady && attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          attempts++;
-          
-          const voiceState = queue.connection?.voice;
-          if (voiceState && voiceState.state === 'ready') {
-            connectionReady = true;
-            console.log(`[Play Command] ✅ Voice connection ready for audio after ${attempts * 500}ms`);
-          } else {
-            console.log(`[Play Command] Voice state check ${attempts}/${maxAttempts}: ${voiceState?.state || 'connecting...'}`);
-          }
-        }
-        
-        if (!connectionReady) {
+        try {
+          await entersState(queue.connection, VoiceConnectionStatus.Ready, 10_000);
+          console.log(`[Play Command] ✅ Voice connection ready for audio`);
+        } catch (error) {
           console.log(`[Play Command] ❌ Voice connection not ready after 10s - destroying queue`);
-          queue.destroy();
+          queue.delete();
           return replyToUser(interaction, `❌ Could not establish stable voice connection! Please try again.`);
         }
       }
@@ -274,7 +247,7 @@ module.exports = {
       // Safely destroy the queue if it was created
       if (queue) {
         try {
-          queue.destroy();
+          queue.delete();
         } catch (destroyError) {
           console.error(`[Play Command] Error destroying queue:`, destroyError);
         }

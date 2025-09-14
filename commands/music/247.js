@@ -23,7 +23,8 @@ module.exports = {
     // if disabled, destroy queue when music ends
     if (enabled) {
       queue.setRepeatMode(0); // reset any loop/autoplay
-      queue.node.on('end', () => queue.delete()); 
+      // Note: In v7, queue cleanup is handled automatically by the player
+      // No need to manually add event listeners for queue deletion
     }
 
     return interaction.editReply(`🔄 24/7 mode is now **${!enabled ? 'ENABLED ✅' : 'DISABLED ❌'}**`);
