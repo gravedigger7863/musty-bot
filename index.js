@@ -196,6 +196,7 @@ client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
   console.log(`[Player] Queue size after track end: ${queue.tracks.size}`);
   console.log(`[Player] Is playing after track end: ${queue.node.isPlaying()}`);
   console.log(`[Player] Voice connection state: ${queue.connection?.voice?.state || 'undefined'}`);
+  console.log(`[Player] Current track after finish: ${queue.currentTrack?.title || 'None'}`);
   
   // The track has finished - Discord Player should automatically advance to next track
   // or end the queue if no more tracks. We don't need to manually handle this.

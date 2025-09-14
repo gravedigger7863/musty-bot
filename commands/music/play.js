@@ -1,6 +1,9 @@
 const { SlashCommandBuilder } = require("discord.js");
 const { useMainPlayer } = require("discord-player");
 
+// Track recent track additions to prevent spam
+const recentTracks = new Map();
+
 module.exports = {
   data: new SlashCommandBuilder()
     .setName("play")
@@ -44,6 +47,26 @@ module.exports = {
       const track = searchResult.tracks[0];
       console.log(`[Play Command] Found track: ${track.title} by ${track.author}`);
 
+      // Check for recent duplicate track additions (within last 5 seconds)
+      const trackKey = `${interaction.guild.id}-${track.title}-${track.author}`;
+      const now = Date.now();
+      const lastAdded = recentTracks.get(trackKey);
+      
+      if (lastAdded && (now - lastAdded) < 5000) {
+        console.log(`[Play Command] Track added too recently, preventing spam`);
+        return interaction.editReply(`⏳ Please wait a moment before adding the same track again!`);
+      }
+      
+      // Record this track addition
+      recentTracks.set(trackKey, now);
+      
+      // Clean up old entries (older than 30 seconds)
+      for (const [key, timestamp] of recentTracks.entries()) {
+        if (now - timestamp > 30000) {
+          recentTracks.delete(key);
+        }
+      }
+
       // Get or create queue using the modern approach
       let queue = player.nodes.get(interaction.guild.id);
       if (!queue) {
@@ -55,6 +78,16 @@ module.exports = {
         });
       } else {
         console.log(`[Play Command] Using existing queue`);
+        
+        // Check if the same track is already in the queue to prevent duplicates
+        const existingTrack = queue.tracks.find(t => 
+          t.title === track.title && t.author === track.author
+        );
+        
+        if (existingTrack) {
+          console.log(`[Play Command] Track already in queue, skipping duplicate`);
+          return interaction.editReply(`🎵 **${track.title}** is already in the queue!`);
+        }
       }
 
       // Connect to voice channel with proper error handling

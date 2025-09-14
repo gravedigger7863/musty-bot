@@ -21,6 +21,10 @@ module.exports = {
       return;
     }
 
+    // Mark interaction as being processed immediately to prevent race conditions
+    processedInteractions.add(interactionId);
+    interactionTimestamps.set(interactionId, startTime);
+
     // Check if interaction is still valid (within 2.5 seconds for safety)
     const interactionAge = startTime - interaction.createdTimestamp;
     if (interactionAge > 2500) {
@@ -28,11 +32,7 @@ module.exports = {
       return;
     }
 
-    // Store interaction timestamp for debugging
-    interactionTimestamps.set(interactionId, startTime);
-    
-    // Mark interaction as being processed immediately
-    processedInteractions.add(interactionId);
+    // Interaction already marked as being processed above
     
     // Clean up old processed interactions (keep only last 500)
     if (processedInteractions.size > 500) {
