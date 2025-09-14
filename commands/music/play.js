@@ -85,67 +85,11 @@ module.exports = {
 
       console.log(`[Play Command] Searching for: ${query}`);
       
-      // Use the modern Discord Player v7 approach
+      // Use the modern Discord Player v7 approach with proper player.play() method
       const player = useMainPlayer();
-      const searchResult = await player.search(query, { requestedBy: interaction.user });
-
-      if (!searchResult || !searchResult.tracks.length) {
-        return replyToUser(interaction, "❌ No tracks found.");
-      }
-
-      // Handle playlists and albums
-      if (searchResult.playlist) {
-        console.log(`[Play Command] Found playlist: ${searchResult.playlist.title} with ${searchResult.tracks.length} tracks`);
-        
-        // Get or create queue
-        queue = player.nodes.get(interaction.guild.id);
-        if (!queue) {
-          console.log(`[Play Command] Creating new queue for playlist`);
-          queue = player.nodes.create(interaction.guild, {
-            metadata: { channel: interaction.channel },
-            selfDeaf: false,
-            selfMute: false,
-          });
-        }
-
-        // Connect to voice channel if not already connected
-        if (!queue.connection) {
-          console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
-          await queue.connect(voiceChannel);
-          console.log(`[Play Command] ✅ Connected to voice channel`);
-          
-          // Wait for voice connection to be fully ready for audio streaming
-          console.log(`[Play Command] Waiting for voice connection to be ready for audio...`);
-          try {
-            await entersState(queue.connection, VoiceConnectionStatus.Ready, 10_000);
-            console.log(`[Play Command] ✅ Voice connection ready for audio`);
-          } catch (error) {
-            console.log(`[Play Command] ❌ Voice connection not ready after 10s - destroying queue`);
-            queue.delete();
-            return replyToUser(interaction, `❌ Could not establish stable voice connection! Please try again.`);
-          }
-        }
-
-        // Add all tracks from playlist
-        queue.addTrack(searchResult.tracks);
-        console.log(`[Play Command] Added ${searchResult.tracks.length} tracks from playlist`);
-
-        // Start playing if not already playing
-        if (!queue.node.isPlaying()) {
-          // Voice connection is already verified as ready by entersState() above
-          await queue.node.play();
-          console.log(`[Play Command] ✅ Started playing playlist`);
-        }
-
-        return replyToUser(interaction, `🎵 Added **${searchResult.tracks.length} tracks** from playlist **${searchResult.playlist.title}** to the queue!`);
-      }
-
-      // Handle single track
-      const track = searchResult.tracks[0];
-      console.log(`[Play Command] Found track: ${track.title} by ${track.author}`);
-
+      
       // Check for recent duplicate track additions (within last 5 seconds)
-      const trackKey = `${interaction.guild.id}-${track.title}-${track.author}`;
+      const trackKey = `${interaction.guild.id}-${query}`;
       const now = Date.now();
       const lastAdded = recentTracks.get(trackKey);
       
@@ -164,83 +108,43 @@ module.exports = {
         }
       }
 
-      // Get or create queue
-      queue = player.nodes.get(interaction.guild.id);
-      if (!queue) {
-        console.log(`[Play Command] Creating new queue`);
-        queue = player.nodes.create(interaction.guild, {
+      console.log(`[Play Command] Using v7 player.play() method for: ${query}`);
+      
+      // Use the proper v7 player.play() method which handles everything
+      const result = await player.play(voiceChannel, query, {
+        nodeOptions: {
           metadata: { channel: interaction.channel },
+          volume: 80,
+          leaveOnEnd: false,
+          leaveOnEmpty: true,
+          leaveOnStop: true,
           selfDeaf: false,
-          selfMute: false,
-        });
-      } else {
-        console.log(`[Play Command] Using existing queue`);
-        
-        // Check if the same track is already in the queue to prevent duplicates
-        const existingTrack = queue.tracks.find(t => 
-          t.title === track.title && t.author === track.author
-        );
-        
-        if (existingTrack) {
-          console.log(`[Play Command] Track already in queue, skipping duplicate`);
-          return replyToUser(interaction, `🎵 **${track.title}** is already in the queue!`);
-        }
+          selfMute: false
+        },
+        requestedBy: interaction.user
+      });
+
+      if (!result) {
+        return replyToUser(interaction, "❌ No tracks found.");
       }
 
-      // Connect to voice channel if not already connected
-      if (!queue.connection) {
-        console.log(`[Play Command] Connecting to voice channel: ${voiceChannel.name}`);
-        await queue.connect(voiceChannel);
-        console.log(`[Play Command] ✅ Connected to voice channel`);
-        
-        // Wait for voice connection to be fully ready for audio streaming
-        console.log(`[Play Command] Waiting for voice connection to be ready for audio...`);
-        try {
-          await entersState(queue.connection, VoiceConnectionStatus.Ready, 10_000);
-          console.log(`[Play Command] ✅ Voice connection ready for audio`);
-        } catch (error) {
-          console.log(`[Play Command] ❌ Voice connection not ready after 10s - destroying queue`);
-          queue.delete();
-          return replyToUser(interaction, `❌ Could not establish stable voice connection! Please try again.`);
-        }
-      }
-
-      // Add track to queue
-      queue.addTrack(track);
-      console.log(`[Play Command] Track added, queue size: ${queue.tracks.size}`);
-
-      // Play track if not already playing
-      if (!queue.node.isPlaying()) {
-        console.log(`[Play Command] Starting playback for: ${track.title}`);
-        
-        // Voice connection is already verified as ready by entersState() above
-        await queue.node.play();
-        console.log(`[Play Command] ✅ Playback started`);
+      // Handle the result
+      if (result.track) {
+        console.log(`[Play Command] ✅ Playing: ${result.track.title} by ${result.track.author}`);
         
         // Send rich embed for now playing
-        const embed = createTrackEmbed(track, "playing");
+        const embed = createTrackEmbed(result.track, "playing");
         return interaction.editReply({ embeds: [embed] });
+      } else if (result.playlist) {
+        console.log(`[Play Command] ✅ Playing playlist: ${result.playlist.title} with ${result.tracks.length} tracks`);
+        return replyToUser(interaction, `🎵 Playing **${result.playlist.title}** with ${result.tracks.length} tracks!`);
       } else {
-        console.log(`[Play Command] Queue is already playing, adding to queue instead`);
-        
-        // Send rich embed for queue addition
-        const embed = createTrackEmbed(track, "queued");
-        embed.setDescription(`**${track.title}** by ${track.author}\n\nPosition in queue: ${queue.tracks.size}`);
-        return interaction.editReply({ embeds: [embed] });
+        console.log(`[Play Command] ✅ Added to queue: ${result.tracks.length} tracks`);
+        return replyToUser(interaction, `🎵 Added to queue!`);
       }
 
     } catch (err) {
       console.error(`[Play Command] Error:`, err);
-      
-      // Safely destroy the queue if it was created
-      if (queue) {
-        try {
-          queue.delete();
-        } catch (destroyError) {
-          console.error(`[Play Command] Error destroying queue:`, destroyError);
-        }
-      }
-      
       return replyToUser(interaction, `❌ Failed to play music: ${err.message || "Unknown error"}`);
     } finally {
       // Always release the lock
