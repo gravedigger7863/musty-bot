@@ -53,6 +53,8 @@ module.exports = {
           selfDeaf: false,
           selfMute: false,
         });
+      } else {
+        console.log(`[Play Command] Using existing queue`);
       }
 
       // Connect to voice channel if not already connected
@@ -65,14 +67,15 @@ module.exports = {
           await queue.connect(voiceChannel);
           console.log(`[Play Command] ✅ Connection initiated successfully`);
           
-          // Give the connection a moment to establish (Discord Player handles voice state internally)
-          await new Promise(resolve => setTimeout(resolve, 1000));
+          // Give Discord time to send voice state update (race condition fix)
+          console.log(`[Play Command] Waiting for voice state update...`);
+          await new Promise(resolve => setTimeout(resolve, 700));
           
           const voiceState = queue.connection?.voice;
           if (voiceState) {
             console.log(`[Play Command] ✅ Voice connection state: ${voiceState.state}`);
           } else {
-            console.log(`[Play Command] ⚠️ Voice state not available - check GUILD_VOICE_STATES intent and bot permissions`);
+            console.log(`[Play Command] ⚠️ Voice state still not available after delay - Discord may be slow`);
           }
           
         } catch (connectError) {
@@ -93,9 +96,8 @@ module.exports = {
         console.log(`[Play Command] Queue state - Is playing: ${queue.isPlaying()}, Current track: ${queue.currentTrack?.title || 'None'}`);
         console.log(`[Play Command] Voice connection state before play: ${queue.connection?.voice?.state || 'undefined'}`);
         
-        // Voice connection should be ready - Discord Player handles voice state internally
-        
         try {
+          // Use the simplified approach - let Discord Player handle voice state internally
           await queue.node.play(track);
           console.log(`[Play Command] ✅ Playback command sent for: ${track.title}`);
           console.log(`[Play Command] Post-play state - Is playing: ${queue.isPlaying()}, Voice state: ${queue.connection?.voice?.state || 'undefined'}`);
