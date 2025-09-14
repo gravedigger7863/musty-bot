@@ -50,7 +50,17 @@ module.exports = {
     // Check if there's already a play command running for this guild
     if (playCommandLocks.has(guildId)) {
       console.log(`[Play Command] Another play command already running for guild ${guildId}, skipping`);
-      return replyToUser(interaction, "⏳ Another play command is already running, please wait...");
+      // Don't use replyToUser here since interaction might not be deferred yet
+      try {
+        if (interaction.deferred || interaction.replied) {
+          return replyToUser(interaction, "⏳ Another play command is already running, please wait...");
+        } else {
+          return interaction.reply({ content: "⏳ Another play command is already running, please wait...", ephemeral: true });
+        }
+      } catch (error) {
+        console.error(`[Play Command] Failed to reply to locked interaction: ${error.message}`);
+        return;
+      }
     }
     
     // Lock this guild's play command
@@ -60,6 +70,11 @@ module.exports = {
     let queue = null;
     
     try {
+      // Defer the interaction first
+      if (!interaction.deferred && !interaction.replied) {
+        await interaction.deferReply();
+      }
+
       const query = interaction.options.getString("query");
       const voiceChannel = interaction.member?.voice?.channel;
 
@@ -157,18 +172,26 @@ module.exports = {
           return replyToUser(interaction, `❌ No tracks in playlist have playable URLs.`);
         }
         
+        // Limit playlist size to prevent memory issues
+        const maxPlaylistSize = 100;
+        const tracksToAdd = validTracks.slice(0, maxPlaylistSize);
+        
         if (validTracks.length < searchResult.tracks.length) {
           console.log(`[Play Command] Filtered out ${searchResult.tracks.length - validTracks.length} tracks without URLs`);
         }
         
-        queue.addTrack(validTracks);
+        if (tracksToAdd.length < validTracks.length) {
+          console.log(`[Play Command] Limited playlist to ${maxPlaylistSize} tracks (was ${validTracks.length})`);
+        }
+        
+        queue.addTrack(tracksToAdd);
         
         // Start playing if not already playing
         if (!queue.node.isPlaying()) {
           await queue.node.play();
         }
         
-        return replyToUser(interaction, `🎵 Added **${validTracks.length} tracks** from **${searchResult.playlist.title}** to the queue!`);
+        return replyToUser(interaction, `🎵 Added **${tracksToAdd.length} tracks** from **${searchResult.playlist.title}** to the queue!`);
       } else {
         // Handle single track
         const track = searchResult.tracks[0];
