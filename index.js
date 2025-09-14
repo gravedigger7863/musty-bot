@@ -81,7 +81,12 @@ client.player = new Player(client, {
   // Debug options for VPS troubleshooting
   leaveOnEmpty: true,
   leaveOnEnd: true,
-  leaveOnStop: true
+  leaveOnStop: true,
+  // Additional extractor configuration
+  extractors: {
+    enabled: true,
+    providers: ['youtube', 'spotify', 'soundcloud', 'apple', 'deezer']
+  }
 });
 
 // Configure Discord Player for proper voice connections (v7.1 API)
@@ -102,14 +107,34 @@ client.player.events.on('connection', (queue) => {
 // Register extractors for v7.1
 (async () => {
   try {
-    // Use the correct v7.1 method as shown in the error message
-    await client.player.extractors.loadMulti(DefaultExtractors);
-    console.log(`✅ Loaded default extractors using loadMulti`);
+    // Wait for player to be ready
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
+    // Use the correct v7.1 method to register extractors
+    await client.player.extractors.register(DefaultExtractors, {});
+    console.log(`✅ Extractors registered successfully`);
+    
+    // Verify extractors are loaded
+    const loadedExtractors = client.player.extractors.store;
+    console.log(`✅ Loaded extractors: ${Array.from(loadedExtractors.keys()).join(', ')}`);
     
     global.extractorsLoaded = true;
   } catch (error) {
     console.error('Failed to register extractors:', error);
+    console.error('Extractor error details:', error.stack);
     global.extractorsLoaded = false;
+    
+    // Try alternative registration method
+    try {
+      console.log('Attempting alternative extractor registration...');
+      for (const extractor of DefaultExtractors) {
+        await client.player.extractors.register(extractor, {});
+        console.log(`✅ Registered extractor: ${extractor.name || 'Unknown'}`);
+      }
+      global.extractorsLoaded = true;
+    } catch (altError) {
+      console.error('Alternative extractor registration also failed:', altError);
+    }
   }
 })();
 
@@ -117,6 +142,13 @@ client.player.events.on('connection', (queue) => {
 client.player.events.on('error', (queue, error) => {
   console.error(`[Player Error] ${queue.guild.name}:`, error.message);
   console.error(`[Player Error] Full error:`, error);
+  
+  // Handle extractor errors specifically
+  if (error.message && error.message.includes('Could not extract stream')) {
+    console.error(`[Player Error] Extractor error detected - this may indicate missing or misconfigured extractors`);
+    console.error(`[Player Error] Available extractors:`, global.extractorsLoaded ? 'Loaded' : 'Not loaded');
+    console.error(`[Player Error] Extractor store:`, client.player.extractors.store ? Array.from(client.player.extractors.store.keys()) : 'No store available');
+  }
   
   // Handle Opus encoder errors gracefully
   if (error.message && (error.message.includes('Cannot convert "undefined" to int') || error.message.includes('OpusScript'))) {
@@ -320,19 +352,6 @@ process.on('uncaughtException', err => {
 // --- Process Monitoring ---
 const processId = process.pid;
 console.log(`[Process] Starting bot with PID: ${processId}`);
-
-// Add timestamp to all console.log output
-const originalLog = console.log;
-console.log = function(...args) {
-  const timestamp = new Date().toISOString();
-  originalLog(`[${timestamp}]`, ...args);
-};
-
-const originalError = console.error;
-console.error = function(...args) {
-  const timestamp = new Date().toISOString();
-  originalError(`[${timestamp}]`, ...args);
-};
 
 // Monitor for duplicate processes
 setInterval(() => {
