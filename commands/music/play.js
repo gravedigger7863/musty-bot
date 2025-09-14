@@ -103,7 +103,14 @@ module.exports = {
           leaveOnEmpty: true,
           leaveOnStop: true,
           selfDeaf: false,
-          selfMute: false
+          selfMute: false,
+          // Additional configuration to prevent immediate track finishing
+          bufferingTimeout: 30000,
+          connectionTimeout: 30000,
+          // Ensure proper audio streaming
+          volume: 50,
+          // Disable autoplay initially to prevent issues
+          autoplay: false
         });
       }
 

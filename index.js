@@ -7,6 +7,12 @@ process.env.UV_THREADPOOL_SIZE = '16';
 // Force use of native Opus encoder instead of OpusScript
 process.env.DP_FORCE_NATIVE_OPUS = 'true';
 process.env.DP_DISABLE_OPUSSCRIPT = 'true';
+process.env.DP_USE_NATIVE_OPUS = 'true';
+
+// Additional Opus configuration
+process.env.OPUS_APPLICATION = 'voip';
+process.env.OPUS_BITRATE = '128000';
+process.env.OPUS_FRAME_SIZE = '960';
 
 // Prevent OpusScript from being loaded at runtime
 const originalRequire = require;
@@ -68,9 +74,12 @@ client.player = new Player(client, {
     highWaterMark: 1 << 25,
     filter: 'audioonly',
     format: 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
-    timeout: 30000,
+    timeout: 60000, // Increased timeout
     requestOptions: {
-      timeout: 30000
+      timeout: 60000, // Increased timeout
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
     }
   },
   // Global voice connection options for v7
@@ -83,6 +92,9 @@ client.player = new Player(client, {
   leaveOnEmpty: true,
   leaveOnEnd: true,
   leaveOnStop: true,
+  // Additional configuration to prevent immediate track finishing
+  bufferingTimeout: 30000,
+  connectionTimeout: 30000,
   // Additional extractor configuration
   extractors: {
     enabled: true,
@@ -197,6 +209,17 @@ client.player.events.on(GuildQueueEvent.PlayerStart, (queue, track) => {
   console.log(`[Player] Track ID: ${track.id || 'No ID'}`);
   console.log(`[Player] Track URL: ${track.url || 'No URL'}`);
   
+  // Additional debugging for track start
+  console.log(`[Player] Track source: ${track.source || 'Unknown'}`);
+  console.log(`[Player] Track stream URL: ${track.raw?.url || track.url || 'No stream URL'}`);
+  console.log(`[Player] Track format: ${track.raw?.format || 'Unknown format'}`);
+  console.log(`[Player] Track quality: ${track.raw?.quality || 'Unknown quality'}`);
+  
+  // Check if track has valid duration
+  if (!track.durationMS || track.durationMS <= 0) {
+    console.log(`[Player] ⚠️ WARNING: Track has invalid duration (${track.durationMS}ms)`);
+  }
+  
   // Send "Now Playing" message to channel
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`🎶 Now playing: **${track.title}** by ${track.author}`).catch(console.error);
@@ -218,6 +241,16 @@ client.player.events.on('trackAdd', (queue, track) => {
   }
 });
 
+// Add event handler for when tracks are actually playing (not just started)
+client.player.events.on('playerUpdate', (queue, oldState, newState) => {
+  if (oldState.status !== newState.status) {
+    console.log(`[Player] Status changed: ${oldState.status} -> ${newState.status}`);
+    console.log(`[Player] Current track: ${queue.currentTrack?.title || 'None'}`);
+    console.log(`[Player] Is playing: ${queue.node.isPlaying()}`);
+    console.log(`[Player] Position: ${queue.node.getTimestamp()?.current || 'Unknown'}`);
+  }
+});
+
 client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
   console.log(`[Player] 🏁 PLAYER FINISH EVENT TRIGGERED`);
   console.log(`[Player] Finished: ${track.title} in ${queue.guild.name}`);
@@ -226,6 +259,24 @@ client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
   console.log(`[Player] Is playing after track end: ${queue.node.isPlaying()}`);
   console.log(`[Player] Voice connection: ${queue.connection ? 'Connected' : 'Not connected'}`);
   console.log(`[Player] Current track after finish: ${queue.currentTrack?.title || 'None'}`);
+  
+  // Additional debugging for track finish reasons
+  console.log(`[Player] Track finish reason: ${track.finishReason || 'Unknown'}`);
+  console.log(`[Player] Track source: ${track.source || 'Unknown'}`);
+  console.log(`[Player] Track stream URL: ${track.url || 'No URL'}`);
+  console.log(`[Player] Track duration in seconds: ${Math.floor(track.durationMS / 1000)}s`);
+  console.log(`[Player] Track position when finished: ${queue.node.getTimestamp()?.current || 'Unknown'}`);
+  
+  // Check if this is an immediate finish (less than 5 seconds)
+  const trackDuration = track.durationMS || 0;
+  if (trackDuration > 0 && trackDuration < 5000) {
+    console.log(`[Player] ⚠️ WARNING: Track finished very quickly (${trackDuration}ms) - possible streaming issue`);
+    
+    // If this is an immediate finish, try to prevent the queue from getting stuck
+    if (queue.tracks.size === 0 && !queue.node.isPlaying()) {
+      console.log(`[Player] Queue is empty and not playing after immediate finish - this is normal`);
+    }
+  }
   
   // Check if queue is actually playing to prevent ghost replays
   if (!queue.node.isPlaying()) {
@@ -244,6 +295,21 @@ client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
 
 client.player.events.on('trackError', (queue, error) => {
   console.error(`[Track Error] ${queue.guild.name}:`, error.message);
+  console.error(`[Track Error] Full error:`, error);
+  console.error(`[Track Error] Current track: ${queue.currentTrack?.title || 'None'}`);
+  console.error(`[Track Error] Is playing: ${queue.node.isPlaying()}`);
+  
+  // Handle specific streaming errors that cause immediate track finishing
+  if (error.message && (
+    error.message.includes('stream') || 
+    error.message.includes('format') || 
+    error.message.includes('codec') ||
+    error.message.includes('ffmpeg') ||
+    error.message.includes('opus')
+  )) {
+    console.error(`[Track Error] Streaming error detected - this may cause immediate track finishing`);
+  }
+  
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`❌ Track error: ${error.message}`).catch(console.error);
   }
