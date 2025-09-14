@@ -32,7 +32,7 @@ const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { Player } = require('discord-player');
-const { YouTubeExtractor, SpotifyExtractor, SoundCloudExtractor } = require('@discord-player/extractor');
+const { DefaultExtractors } = require('@discord-player/extractor');
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const express = require('express');
@@ -77,16 +77,9 @@ client.player = new Player(client, {
 // Register extractors for v7.1
 (async () => {
   try {
-    // Use the v7.1 approach with loadDefault
-    await client.player.extractors.loadDefault((ext) => ext.register(client.player));
-    console.log(`✅ Loaded default extractors`);
-    
-    // Also register specific ones we want
-    const extractors = [YouTubeExtractor, SpotifyExtractor, SoundCloudExtractor];
-    for (const extractor of extractors) {
-      await client.player.extractors.register(extractor, {});
-    }
-    console.log(`✅ Registered ${extractors.length} specific extractors`);
+    // Use the correct v7.1 method as shown in the error message
+    await client.player.extractors.loadMulti(DefaultExtractors);
+    console.log(`✅ Loaded default extractors using loadMulti`);
     
     global.extractorsLoaded = true;
   } catch (error) {
