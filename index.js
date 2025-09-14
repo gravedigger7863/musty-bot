@@ -146,6 +146,28 @@ client.player.events.on('trackStart', (queue, track) => {
   console.log(`[Player] Now playing: ${track.title} by ${track.author} in ${queue.guild.name}`);
   console.log(`[Player] Track duration: ${track.duration} (${typeof track.duration})`);
   console.log(`[Player] Track durationMS: ${track.durationMS}`);
+  
+  // Set start timestamp to fix duration calculation
+  track._startTimestamp = Date.now();
+  console.log(`[Player] Set start timestamp: ${track._startTimestamp}`);
+  
+  // Add periodic duration check to prevent premature clearing
+  const durationCheck = setInterval(() => {
+    if (track._startTimestamp && track.durationMS) {
+      const elapsed = Date.now() - track._startTimestamp;
+      const remaining = track.durationMS - elapsed;
+      console.log(`[Player] Duration check - Elapsed: ${elapsed}ms, Remaining: ${remaining}ms`);
+      
+      if (remaining <= 0) {
+        console.log(`[Player] Track should end naturally`);
+        clearInterval(durationCheck);
+      }
+    }
+  }, 5000); // Check every 5 seconds
+  
+  // Store the interval so we can clear it when track ends
+  track._durationCheckInterval = durationCheck;
+  
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`🎶 Now playing: **${track.title}** by ${track.author}`).catch(console.error);
   }
@@ -155,6 +177,12 @@ client.player.events.on('trackEnd', (queue, track) => {
   console.log(`[Player] Finished: ${track.title} in ${queue.guild.name}`);
   console.log(`[Player] Track ended - duration was: ${track.duration} (${typeof track.duration})`);
   console.log(`[Player] Track ended - durationMS was: ${track.durationMS}`);
+  
+  // Clear the duration check interval
+  if (track._durationCheckInterval) {
+    clearInterval(track._durationCheckInterval);
+    console.log(`[Player] Cleared duration check interval`);
+  }
 });
 
 client.player.events.on('trackAdd', (queue, track) => {
