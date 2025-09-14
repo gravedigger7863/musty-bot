@@ -167,6 +167,8 @@ client.player.events.on(GuildQueueEvent.PlayerStart, (queue, track) => {
   console.log(`[Player] Is playing: ${queue.node.isPlaying()}`);
   console.log(`[Player] Voice connection state: ${queue.connection?.voice?.state || 'undefined'}`);
   console.log(`[Player] Current track: ${queue.currentTrack?.title || 'None'}`);
+  console.log(`[Player] Track ID: ${track.id || 'No ID'}`);
+  console.log(`[Player] Track URL: ${track.url || 'No URL'}`);
   
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`🎶 Now playing: **${track.title}** by ${track.author}`).catch(console.error);
@@ -179,6 +181,8 @@ client.player.events.on('trackAdd', (queue, track) => {
   console.log(`[Player] Queue size after add: ${queue.tracks.size}`);
   console.log(`[Player] Is playing: ${queue.node.isPlaying()}`);
   console.log(`[Player] Current track: ${queue.currentTrack?.title || 'None'}`);
+  console.log(`[Player] Track ID: ${track.id || 'No ID'}`);
+  console.log(`[Player] Track URL: ${track.url || 'No URL'}`);
   
   if (queue.metadata?.channel && queue.tracks.size > 1) {
     queue.metadata.channel.send(`🎵 Added to queue: **${track.title}** by ${track.author}`).catch(console.error);
@@ -193,18 +197,14 @@ client.player.events.on(GuildQueueEvent.PlayerFinish, (queue, track) => {
   console.log(`[Player] Is playing after track end: ${queue.node.isPlaying()}`);
   console.log(`[Player] Voice connection state: ${queue.connection?.voice?.state || 'undefined'}`);
   
-  // If there are no more tracks in the queue after this one ends, show the empty message
-  if (queue.tracks.size === 0 && queue.metadata?.channel) {
-    console.log(`[Player] Queue is empty, scheduling empty message...`);
-    setTimeout(() => {
-      // Double-check that we're still not playing anything
-      if (!queue.node.isPlaying() && queue.tracks.size === 0) {
-        console.log(`[Player] Sending empty queue message`);
-        queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
-      } else {
-        console.log(`[Player] Not sending empty message - still playing or queue has tracks`);
-      }
-    }, 1000); // Small delay to ensure the track has fully ended
+  // The track has finished - Discord Player should automatically advance to next track
+  // or end the queue if no more tracks. We don't need to manually handle this.
+  // Just log the state and let Discord Player handle the queue progression.
+  
+  // Only show empty message if queue is truly empty and not playing
+  if (queue.tracks.size === 0 && !queue.node.isPlaying() && queue.metadata?.channel) {
+    console.log(`[Player] Queue is empty and not playing, showing empty message`);
+    queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
   }
 });
 
@@ -222,9 +222,12 @@ client.player.events.on(GuildQueueEvent.EmptyQueue, (queue) => {
   console.log(`[Player] Is playing when empty: ${queue.node.isPlaying()}`);
   console.log(`[Player] Current track when empty: ${queue.currentTrack?.title || 'None'}`);
   
-  // Don't show empty queue message here - let playerFinish handle it
-  // This event fires when queue becomes empty but track might still be playing
-  console.log(`[Player] Queue became empty, but not showing message yet`);
+  // This event fires when the queue becomes empty
+  // If we're not currently playing anything, show the empty message
+  if (!queue.node.isPlaying() && queue.metadata?.channel) {
+    console.log(`[Player] Queue is empty and not playing, showing empty message from EmptyQueue event`);
+    queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
+  }
 });
 
 client.player.events.on(GuildQueueEvent.EmptyChannel, (queue) => {
@@ -239,6 +242,10 @@ client.player.events.on(GuildQueueEvent.EmptyChannel, (queue) => {
 
 client.player.events.on(GuildQueueEvent.QueueEnd, (queue) => {
   console.log(`[Player] Queue ended in ${queue.guild.name}`);
+  console.log(`[Player] Final queue size: ${queue.tracks.size}`);
+  console.log(`[Player] Is playing when queue ends: ${queue.node.isPlaying()}`);
+  console.log(`[Player] Current track when queue ends: ${queue.currentTrack?.title || 'None'}`);
+  
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`🎵 Queue finished! Thanks for listening!`).catch(console.error);
   }

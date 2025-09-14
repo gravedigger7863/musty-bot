@@ -106,9 +106,9 @@ module.exports = {
       console.log(`[Play Command] Track added, queue size: ${queue.tracks.size}`);
 
       // Play track if not already playing
-      if (!queue.isPlaying()) {
+      if (!queue.node.isPlaying()) {
         console.log(`[Play Command] About to start playback for: ${track.title}`);
-        console.log(`[Play Command] Queue state - Is playing: ${queue.isPlaying()}, Current track: ${queue.currentTrack?.title || 'None'}`);
+        console.log(`[Play Command] Queue state - Is playing: ${queue.node.isPlaying()}, Current track: ${queue.currentTrack?.title || 'None'}`);
         console.log(`[Play Command] Voice connection state before play: ${queue.connection?.voice?.state || 'undefined'}`);
         
         // Ensure voice connection is ready before playing
@@ -118,9 +118,10 @@ module.exports = {
         }
         
         try {
-          await queue.node.play(track);
+          // Use node.play() without passing the track - let Discord Player handle it automatically
+          await queue.node.play();
           console.log(`[Play Command] ✅ Playback command sent for: ${track.title}`);
-          console.log(`[Play Command] Post-play state - Is playing: ${queue.isPlaying()}, Voice state: ${queue.connection?.voice?.state || 'undefined'}`);
+          console.log(`[Play Command] Post-play state - Is playing: ${queue.node.isPlaying()}, Voice state: ${queue.connection?.voice?.state || 'undefined'}`);
           await interaction.editReply(`🎶 Starting playback...`);
         } catch (playError) {
           console.error(`[Play Command] Playback error:`, playError);
