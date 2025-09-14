@@ -101,18 +101,25 @@ module.exports = {
       
       try {
         // Try multiple search engines in order of preference
-        // Using correct extractor names from Discord Player v7
-        const searchEngines = [
+        // Using actual extractor identifiers from the loaded extractors
+        const preferredSearchEngines = [
           'auto',           // Try all sources automatically
-          'deezer',         // Deezer (most reliable)
-          'youtube',        // YouTube (default extractor)
-          'ytdlp',          // yt-dlp YouTube (if available)
-          'spotify',        // Spotify
-          'apple',          // Apple Music
-          'vimeo',          // Vimeo
-          'reverbnation',   // Reverbnation
-          'soundcloud'      // SoundCloud (last, will be filtered for ad-supported)
+          'com.retrouser955.discord-player.deezr-ext', // Deezer (most reliable)
+          'com.discord-player.youtubeextractor', // YouTube (default extractor)
+          'com.discord-player.ytdlpextractor', // yt-dlp YouTube (if available)
+          'com.discord-player.spotifyextractor', // Spotify
+          'com.discord-player.applemusicextractor', // Apple Music
+          'com.discord-player.vimeoextractor', // Vimeo
+          'com.discord-player.reverbnationextractor', // Reverbnation
+          'com.discord-player.soundcloudextractor' // SoundCloud (last, will be filtered for ad-supported)
         ];
+        
+        // Filter to only use available extractors
+        const searchEngines = preferredSearchEngines.filter(engine => 
+          engine === 'auto' || availableExtractors.has(engine)
+        );
+        
+        console.log(`[Play Command] Using search engines: ${searchEngines.join(', ')}`);
         let searchResult = null;
         let selectedTrack = null;
         let searchEngineUsed = 'auto';
@@ -204,7 +211,78 @@ module.exports = {
           }
         }
         
-        // If no valid track found after trying all engines
+        // If no valid track found after trying all engines, try all available extractors
+        if (!selectedTrack) {
+          console.log(`[Play Command] ❌ No valid tracks found with preferred search engines`);
+          console.log(`[Play Command] 🔄 Trying all available extractors as fallback...`);
+          
+          // Try all available extractors as fallback
+          for (const [extractorId, extractor] of availableExtractors.entries()) {
+            if (extractorId === 'auto') continue; // Skip auto as we already tried it
+            
+            console.log(`[Play Command] Fallback search with ${extractorId}...`);
+            
+            try {
+              searchResult = await player.search(query, {
+                requestedBy: interaction.user,
+                searchEngine: extractorId
+              });
+              
+              if (searchResult.hasTracks()) {
+                const track = searchResult.tracks[0];
+                console.log(`[Play Command] Found track with ${extractorId}: ${track.title} by ${track.author}`);
+                console.log(`[Play Command] Track source: ${track.source}`);
+                
+                // Apply the same validation logic
+                let isValid = true;
+                
+                // SoundCloud validation
+                if (track.source === 'soundcloud' && track.__metadata) {
+                  if (track.__metadata.streamable === false || track.__metadata.monetization_model === 'AD_SUPPORTED') {
+                    console.log(`[Play Command] ❌ SoundCloud track validation failed - trying next source`);
+                    isValid = false;
+                  }
+                }
+                
+                // Deezer validation
+                if (track.source === 'deezer') {
+                  if (track.url && track.url.includes('deezer.com/track/') && !track.url.includes('stream')) {
+                    console.log(`[Play Command] ❌ Deezer track has webpage URL - trying next source`);
+                    isValid = false;
+                  }
+                  if (!track.raw?.url || track.raw.url === track.url) {
+                    console.log(`[Play Command] ❌ Deezer track missing stream URL - trying next source`);
+                    isValid = false;
+                  }
+                }
+                
+                // Spotify validation
+                if (track.source === 'spotify') {
+                  if (track.url && track.url.includes('open.spotify.com/track/') && !track.url.includes('stream')) {
+                    console.log(`[Play Command] ❌ Spotify track has webpage URL - trying next source`);
+                    isValid = false;
+                  }
+                  if (!track.raw?.url || track.raw.url === track.url) {
+                    console.log(`[Play Command] ❌ Spotify track missing stream URL - trying next source`);
+                    isValid = false;
+                  }
+                }
+                
+                if (isValid) {
+                  selectedTrack = track;
+                  searchEngineUsed = extractorId;
+                  console.log(`[Play Command] ✅ Valid track found with ${extractorId}: ${track.title}`);
+                  break;
+                }
+              }
+            } catch (error) {
+              console.log(`[Play Command] ⚠️ Fallback search failed with ${extractorId}: ${error.message}`);
+              continue;
+            }
+          }
+        }
+        
+        // Final check
         if (!selectedTrack) {
           console.log(`[Play Command] ❌ No valid tracks found with any search engine`);
           return replyToUser(interaction, "❌ No playable tracks found. The track might be restricted or unavailable on all platforms.");
