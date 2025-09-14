@@ -172,6 +172,7 @@ client.player.events.on(GuildQueueEvent.PlayerStart, (queue, track) => {
   console.log(`[Player] Track ID: ${track.id || 'No ID'}`);
   console.log(`[Player] Track URL: ${track.url || 'No URL'}`);
   
+  // Send "Now Playing" message to channel
   if (queue.metadata?.channel) {
     queue.metadata.channel.send(`🎶 Now playing: **${track.title}** by ${track.author}`).catch(console.error);
   }
@@ -186,6 +187,7 @@ client.player.events.on('trackAdd', (queue, track) => {
   console.log(`[Player] Track ID: ${track.id || 'No ID'}`);
   console.log(`[Player] Track URL: ${track.url || 'No URL'}`);
   
+  // Only show "Added to queue" message if there are multiple tracks (not the currently playing one)
   if (queue.metadata?.channel && queue.tracks.size > 1) {
     queue.metadata.channel.send(`🎵 Added to queue: **${track.title}** by ${track.author}`).catch(console.error);
   }

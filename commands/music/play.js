@@ -128,13 +128,10 @@ module.exports = {
         return replyToUser(interaction, "❌ No tracks found.");
       }
 
-      // Handle the result
+      // Handle the result - let player events handle messaging
       if (result.track) {
         console.log(`[Play Command] ✅ Playing: ${result.track.title} by ${result.track.author}`);
-        
-        // Send rich embed for now playing
-        const embed = createTrackEmbed(result.track, "playing");
-        return interaction.editReply({ embeds: [embed] });
+        return replyToUser(interaction, `🎶 Added **${result.track.title}** to the queue!`);
       } else if (result.playlist) {
         console.log(`[Play Command] ✅ Playing playlist: ${result.playlist.title} with ${result.tracks.length} tracks`);
         return replyToUser(interaction, `🎵 Playing **${result.playlist.title}** with ${result.tracks.length} tracks!`);
