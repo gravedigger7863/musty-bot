@@ -213,28 +213,63 @@ client.player.events.on('connection', (queue) => {
     console.log(`✅ Loaded extractors: ${Array.from(loadedExtractors.keys()).join(', ')}`);
     console.log(`✅ Extractor store size: ${loadedExtractors.size}`);
     
-    // Specifically check SoundCloud extractor
-    const soundcloudExtractor = loadedExtractors.get('com.discord-player.soundcloudextractor');
-    if (soundcloudExtractor) {
-      console.log(`✅ SoundCloud extractor loaded successfully`);
-      
-      // Enable bridge mode for SoundCloud to convert URLs to audio format
-      if (soundcloudExtractor.enableBridge) {
-        await soundcloudExtractor.enableBridge();
-        console.log(`✅ SoundCloud bridge enabled - URLs will be converted to audio format`);
-      } else {
-        console.log(`⚠️ SoundCloud bridge not available - this may cause streaming issues`);
-      }
-    } else {
-      console.log(`⚠️ SoundCloud extractor not found - this may cause SoundCloud track issues`);
+    // Log all available extractor keys for debugging
+    console.log(`🔍 Available extractor keys:`);
+    for (const [key, extractor] of loadedExtractors.entries()) {
+      console.log(`  - ${key}: ${extractor.constructor.name}`);
     }
     
-    // Check for YouTube extractor as fallback
-    const youtubeExtractor = loadedExtractors.get('com.discord-player.youtubeextractor');
+    // Check for SoundCloud extractor with different possible keys
+    let soundcloudExtractor = loadedExtractors.get('com.discord-player.soundcloudextractor') || 
+                             loadedExtractors.get('soundcloud') ||
+                             loadedExtractors.get('SoundCloudExtractor');
+    
+    if (soundcloudExtractor) {
+      console.log(`✅ SoundCloud extractor loaded successfully`);
+      console.log(`✅ SoundCloud extractor type: ${soundcloudExtractor.constructor.name}`);
+      
+      // Try to enable bridge mode for SoundCloud
+      try {
+        if (typeof soundcloudExtractor.enableBridge === 'function') {
+          await soundcloudExtractor.enableBridge();
+          console.log(`✅ SoundCloud bridge enabled - URLs will be converted to audio format`);
+        } else if (soundcloudExtractor.bridge) {
+          soundcloudExtractor.bridge = true;
+          console.log(`✅ SoundCloud bridge enabled via bridge property`);
+        } else {
+          console.log(`⚠️ SoundCloud bridge not available - using standard mode`);
+        }
+      } catch (error) {
+        console.log(`⚠️ SoundCloud bridge failed to enable: ${error.message}`);
+      }
+    } else {
+      console.log(`⚠️ SoundCloud extractor not found - checking all extractors...`);
+      for (const [key, extractor] of loadedExtractors.entries()) {
+        if (key.toLowerCase().includes('soundcloud') || extractor.constructor.name.toLowerCase().includes('soundcloud')) {
+          console.log(`🔍 Found potential SoundCloud extractor: ${key} (${extractor.constructor.name})`);
+          soundcloudExtractor = extractor;
+          break;
+        }
+      }
+    }
+    
+    // Check for YouTube extractor with different possible keys
+    let youtubeExtractor = loadedExtractors.get('com.discord-player.youtubeextractor') || 
+                          loadedExtractors.get('youtube') ||
+                          loadedExtractors.get('YouTubeExtractor');
+    
     if (youtubeExtractor) {
       console.log(`✅ YouTube extractor loaded successfully`);
+      console.log(`✅ YouTube extractor type: ${youtubeExtractor.constructor.name}`);
     } else {
-      console.log(`⚠️ YouTube extractor not found - fallback may not work`);
+      console.log(`⚠️ YouTube extractor not found - checking all extractors...`);
+      for (const [key, extractor] of loadedExtractors.entries()) {
+        if (key.toLowerCase().includes('youtube') || extractor.constructor.name.toLowerCase().includes('youtube')) {
+          console.log(`🔍 Found potential YouTube extractor: ${key} (${extractor.constructor.name})`);
+          youtubeExtractor = extractor;
+          break;
+        }
+      }
     }
     
     global.extractorsLoaded = true;

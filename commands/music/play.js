@@ -116,30 +116,47 @@ module.exports = {
           }
         });
 
-        // If SoundCloud track fails and is ad-supported, try YouTube as fallback
-        if (!result.success && query.toLowerCase().includes('young thug')) {
+        // If SoundCloud track fails, try YouTube as fallback
+        if (!result.success) {
           console.log(`[Play Command] SoundCloud failed, trying YouTube fallback for: ${query}`);
           await replyToUser(interaction, "⏳ SoundCloud track failed, trying YouTube...");
           
-          // Force YouTube search by modifying the query
-          const youtubeQuery = `ytsearch:${query}`;
-          console.log(`[Play Command] Searching YouTube with: ${youtubeQuery}`);
+          // Try different YouTube search methods
+          const youtubeQueries = [
+            `ytsearch:${query}`,
+            `youtube:${query}`,
+            `yt:${query}`,
+            query // Fallback to original query
+          ];
           
-          result = await player.play(voiceChannel, youtubeQuery, {
-            requestedBy: interaction.user,
-            nodeOptions: {
-              metadata: { channel: interaction.channel },
-              leaveOnEnd: true,
-              leaveOnEmpty: true,
-              leaveOnStop: true,
-              selfDeaf: false,
-              selfMute: false,
-              bufferingTimeout: 30000,
-              connectionTimeout: 30000,
-              volume: 50,
-              autoplay: false
+          for (const youtubeQuery of youtubeQueries) {
+            console.log(`[Play Command] Trying YouTube search with: ${youtubeQuery}`);
+            
+            try {
+              result = await player.play(voiceChannel, youtubeQuery, {
+                requestedBy: interaction.user,
+                nodeOptions: {
+                  metadata: { channel: interaction.channel },
+                  leaveOnEnd: true,
+                  leaveOnEmpty: true,
+                  leaveOnStop: true,
+                  selfDeaf: false,
+                  selfMute: false,
+                  bufferingTimeout: 30000,
+                  connectionTimeout: 30000,
+                  volume: 50,
+                  autoplay: false
+                }
+              });
+              
+              if (result.success) {
+                console.log(`[Play Command] ✅ YouTube fallback successful with: ${youtubeQuery}`);
+                break;
+              }
+            } catch (error) {
+              console.log(`[Play Command] YouTube query failed: ${youtubeQuery} - ${error.message}`);
             }
-          });
+          }
         }
 
         if (result.success) {
