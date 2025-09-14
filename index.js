@@ -125,6 +125,20 @@ client.player = new Player(client, {
       } else {
         console.log(`[Stream] ⚠️ No authorization token - this may cause streaming issues`);
       }
+      
+      // Check for ad-supported content
+      if (track.__metadata && track.__metadata.monetization_model === 'AD_SUPPORTED') {
+        console.log(`[Stream] ⚠️ WARNING: Track is ad-supported - this often causes streaming issues`);
+        console.log(`[Stream] Ad-supported tracks may have restricted streaming access`);
+      }
+      
+      // Check license type
+      if (track.__metadata && track.__metadata.license) {
+        console.log(`[Stream] Track license: ${track.__metadata.license}`);
+        if (track.__metadata.license === 'all-rights-reserved') {
+          console.log(`[Stream] ⚠️ Track has all-rights-reserved license - may have streaming restrictions`);
+        }
+      }
     }
     
     return source;
@@ -133,6 +147,20 @@ client.player = new Player(client, {
     console.log(`[Stream] Stream created successfully for: ${track.title}`);
     console.log(`[Stream] Stream type: ${typeof stream}`);
     console.log(`[Stream] Stream readable: ${stream && typeof stream.read === 'function'}`);
+    
+    // For SoundCloud tracks, add additional validation
+    if (track.source === 'soundcloud') {
+      console.log(`[Stream] SoundCloud stream validation:`);
+      console.log(`[Stream] - Stream object: ${stream ? 'Present' : 'Missing'}`);
+      console.log(`[Stream] - Stream readable: ${stream && typeof stream.read === 'function'}`);
+      console.log(`[Stream] - Stream destroyed: ${stream && stream.destroyed}`);
+      console.log(`[Stream] - Stream readable state: ${stream && stream.readable}`);
+      
+      // Check if this is an ad-supported track that might fail
+      if (track.__metadata && track.__metadata.monetization_model === 'AD_SUPPORTED') {
+        console.log(`[Stream] ⚠️ Ad-supported track - monitoring for streaming issues`);
+      }
+    }
     
     // Validate stream is actually readable
     if (!stream || typeof stream.read !== 'function') {

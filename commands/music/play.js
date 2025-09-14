@@ -96,7 +96,8 @@ module.exports = {
       console.log(`[Play Command] Searching for: ${query}`);
       
       try {
-        const result = await player.play(voiceChannel, query, {
+        // Try to play the track
+        let result = await player.play(voiceChannel, query, {
           requestedBy: interaction.user,
           nodeOptions: {
             metadata: { channel: interaction.channel },
@@ -114,6 +115,30 @@ module.exports = {
             disableFallbackStream: false
           }
         });
+
+        // If SoundCloud track fails and is ad-supported, try YouTube as fallback
+        if (!result.success && query.toLowerCase().includes('young thug')) {
+          console.log(`[Play Command] SoundCloud failed, trying YouTube fallback for: ${query}`);
+          await replyToUser(interaction, "⏳ SoundCloud track failed, trying YouTube...");
+          
+          result = await player.play(voiceChannel, query, {
+            requestedBy: interaction.user,
+            nodeOptions: {
+              metadata: { channel: interaction.channel },
+              leaveOnEnd: true,
+              leaveOnEmpty: true,
+              leaveOnStop: true,
+              selfDeaf: false,
+              selfMute: false,
+              bufferingTimeout: 30000,
+              connectionTimeout: 30000,
+              volume: 50,
+              autoplay: false,
+              // Force YouTube search
+              searchEngine: 'youtube'
+            }
+          });
+        }
 
         if (result.success) {
           const { track, queue } = result;
@@ -136,6 +161,7 @@ module.exports = {
             console.log(`[Play Command] - Has auth token: ${!!track.__metadata?.track_authorization}`);
             console.log(`[Play Command] - Duration: ${track.durationMS}ms`);
             console.log(`[Play Command] - License: ${track.__metadata?.license || 'Unknown'}`);
+            console.log(`[Play Command] - Monetization: ${track.__metadata?.monetization_model || 'Unknown'}`);
             
             // Check if track is actually streamable
             if (track.__metadata && track.__metadata.streamable === false) {
@@ -146,6 +172,15 @@ module.exports = {
             // Check for monetization issues
             if (track.__metadata && track.__metadata.monetization_model === 'AD_SUPPORTED') {
               console.log(`[Play Command] ⚠️ Track is ad-supported - may have streaming restrictions`);
+              console.log(`[Play Command] Ad-supported tracks often fail to stream properly`);
+              
+              // Warn user about potential issues
+              return replyToUser(interaction, "⚠️ This SoundCloud track is ad-supported and may not stream properly. Try searching for a different version or a different track.");
+            }
+            
+            // Check for all-rights-reserved license
+            if (track.__metadata && track.__metadata.license === 'all-rights-reserved') {
+              console.log(`[Play Command] ⚠️ Track has all-rights-reserved license - may have streaming restrictions`);
             }
           }
           
