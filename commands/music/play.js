@@ -68,26 +68,10 @@ module.exports = {
           });
           console.log(`[Play Command] Connecting to voice channel`);
           await queue.connect(voiceChannel);
+          console.log(`[Play Command] Voice connection established`);
           
-          // Wait for connection to be fully ready
-          console.log(`[Play Command] Waiting for voice connection to be ready...`);
-          await new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => {
-              reject(new Error('Voice connection timeout'));
-            }, 10000);
-            
-            const checkConnection = () => {
-              if (queue.connection && queue.connection.state.status === 'ready') {
-                clearTimeout(timeout);
-                console.log(`[Play Command] Voice connection is ready!`);
-                resolve();
-              } else {
-                setTimeout(checkConnection, 100);
-              }
-            };
-            
-            checkConnection();
-          });
+          // Small delay to ensure connection is fully ready
+          await new Promise(resolve => setTimeout(resolve, 500));
         } else {
           console.log(`[Play Command] Using existing queue`);
           
@@ -95,6 +79,8 @@ module.exports = {
           if (!queue.connection) {
             console.log(`[Play Command] No connection found, reconnecting to voice channel`);
             await queue.connect(voiceChannel);
+            // Small delay to ensure reconnection is ready
+            await new Promise(resolve => setTimeout(resolve, 500));
           } else {
             console.log(`[Play Command] Connection exists: ${queue.connection.state?.status || 'unknown'}`);
           }
