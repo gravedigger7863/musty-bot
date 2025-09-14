@@ -32,7 +32,10 @@ const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 const { Player, GuildQueueEvent } = require('discord-player');
-const { DefaultExtractors } = require('@discord-player/extractor');
+// Import individual extractors for v7.1
+const { AttachmentExtractor, VimeoExtractor, ReverbnationExtractor, AppleMusicExtractor } = require('@discord-player/extractor');
+const { SoundCloudExtractor } = require('@discord-player/soundcloud');
+const { SpotifyExtractor } = require('@discord-player/spotify');
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const express = require('express');
@@ -114,18 +117,27 @@ client.player.events.on('connection', (queue) => {
     console.log('🔍 Player extractors object:', typeof client.player.extractors);
     console.log('🔍 Available methods:', Object.getOwnPropertyNames(client.player.extractors.__proto__));
     
-    // Use the correct v7.1 method to load extractors
-    console.log('🔍 Using loadMulti() method with DefaultExtractors...');
-    console.log('🔍 DefaultExtractors count:', DefaultExtractors.length);
+    // Register each extractor explicitly for v7.1
+    console.log('🔍 Registering extractors explicitly...');
     
-    // Load extractors with proper configuration
-    await client.player.extractors.loadMulti(DefaultExtractors, {
-      // Add any necessary configuration options
-      bridgeProvider: 'youtube',
-      bridgeProviderOptions: {
-        // YouTube-specific options if needed
-      }
-    });
+    // Register each extractor explicitly
+    await client.player.extractors.register(SoundCloudExtractor);
+    console.log('✅ Registered SoundCloudExtractor');
+    
+    await client.player.extractors.register(AttachmentExtractor);
+    console.log('✅ Registered AttachmentExtractor');
+    
+    await client.player.extractors.register(VimeoExtractor);
+    console.log('✅ Registered VimeoExtractor');
+    
+    await client.player.extractors.register(ReverbnationExtractor);
+    console.log('✅ Registered ReverbnationExtractor');
+    
+    await client.player.extractors.register(AppleMusicExtractor);
+    console.log('✅ Registered AppleMusicExtractor');
+    
+    await client.player.extractors.register(SpotifyExtractor);
+    console.log('✅ Registered SpotifyExtractor');
     
     console.log(`✅ Extractors registered successfully`);
     
