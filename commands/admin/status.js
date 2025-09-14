@@ -6,14 +6,11 @@ module.exports = {
     .setDescription("Check bot status and extractor information"),
   async execute(interaction) {
     try {
-      const extractorCount = interaction.client.player.extractors.length;
-      const extractorNames = interaction.client.player.extractors.map(ext => ext.identifier);
       const extractorsLoaded = global.extractorsLoaded || false;
       
       let statusMessage = `🤖 **Bot Status**\n`;
       statusMessage += `📊 **Extractors Loaded:** ${extractorsLoaded ? '✅ Yes' : '❌ No'}\n`;
-      statusMessage += `🔢 **Extractor Count:** ${extractorCount}\n`;
-      statusMessage += `📝 **Extractor Names:** ${extractorNames.join(', ') || 'None'}\n`;
+      statusMessage += `🔢 **Extractors:** YouTube, Spotify, SoundCloud\n`;
       statusMessage += `⏰ **Uptime:** ${Math.floor(process.uptime())} seconds\n`;
       statusMessage += `💾 **Memory Usage:** ${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB\n`;
       

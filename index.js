@@ -60,24 +60,8 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Initialize Discord Player with mediaplex Opus encoder
+// Initialize Discord Player v7
 client.player = new Player(client, {
-  ffmpegPath: ffmpegPath,
-  selfDeaf: false,
-  selfMute: false,
-  bufferingTimeout: 10000,
-  connectionTimeout: 20000,
-  skipOnEmpty: true,
-  skipOnEmptyCooldown: 30000,
-  leaveOnEnd: true,
-  leaveOnEmpty: true,
-  leaveOnEmptyCooldown: 30000,
-  leaveOnStop: true,
-  autoSelfDeaf: false,
-  autoSelfMute: false,
-  // Force use of mediaplex Opus encoder instead of OpusScript
-  useLegacyFFmpeg: false,
-  opusEncoder: 'mediaplex',
   ytdlOptions: {
     quality: 'highestaudio',
     highWaterMark: 1 << 25,
@@ -90,20 +74,19 @@ client.player = new Player(client, {
   }
 });
 
-// Register extractors using the correct v6+ method
+// Register extractors for v7
 (async () => {
   try {
-    // Register extractors individually
-    client.player.extractors.register(YouTubeExtractor, {});
+    await client.player.extractors.register(YouTubeExtractor, {});
     console.log(`✅ Registered YouTubeExtractor`);
     
-    client.player.extractors.register(SpotifyExtractor, {});
+    await client.player.extractors.register(SpotifyExtractor, {});
     console.log(`✅ Registered SpotifyExtractor`);
     
-    client.player.extractors.register(SoundCloudExtractor, {});
+    await client.player.extractors.register(SoundCloudExtractor, {});
     console.log(`✅ Registered SoundCloudExtractor`);
     
-    console.log(`✅ Total extractors registered: ${client.player.extractors.length}`);
+    console.log(`✅ All extractors registered successfully`);
     global.extractorsLoaded = true;
   } catch (error) {
     console.error('Failed to register extractors:', error);

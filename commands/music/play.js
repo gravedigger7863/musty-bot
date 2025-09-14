@@ -26,7 +26,7 @@ module.exports = {
       }
 
       // Check if extractors are loaded
-      if (!global.extractorsLoaded || interaction.client.player.extractors.length === 0) {
+      if (!global.extractorsLoaded) {
         console.log(`[Play Command] Extractors not loaded yet, waiting...`);
         return await interaction.editReply({ 
           content: "⏳ Music system is still loading, please try again in a moment..."
@@ -39,115 +39,38 @@ module.exports = {
       });
 
       console.log(`[Play Command] Searching for: ${query}`);
-      console.log(`[Play Command] Available extractors: ${interaction.client.player.extractors.length}`);
+      console.log(`[Play Command] Extractors registered successfully.`);
       
-      // List available extractors for debugging
-      const extractorNames = interaction.client.player.extractors.map(ext => ext.identifier);
-      console.log(`[Play Command] Available extractor names: ${extractorNames.join(', ')}`);
-      
-      // Search for track using the correct API with timeout
-      let searchResult;
+      // Use the v7 API to play music
       try {
-        // Create a timeout promise
-        const searchTimeout = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Search timeout after 30 seconds')), 30000);
+        const result = await interaction.client.player.play(voiceChannel, query, {
+          nodeOptions: {
+            metadata: { channel: interaction.channel },
+            leaveOnEnd: true,
+            leaveOnEmpty: true,
+            leaveOnEmptyCooldown: 30000,
+            leaveOnStop: true,
+            skipOnEmpty: true,
+            skipOnEmptyCooldown: 30000,
+            selfDeaf: false,
+            selfMute: false,
+            autoSelfDeaf: false,
+            autoSelfMute: false,
+            bufferingTimeout: 10000,
+            connectionTimeout: 20000,
+          },
         });
-        
-        // Try the new API first with timeout
-        const searchPromise = interaction.client.player.search(query, {
-          requestedBy: interaction.user,
-          searchEngine: 'youtube',
-        });
-        
-        searchResult = await Promise.race([searchPromise, searchTimeout]);
-        
-        // If that doesn't work, try the old API
-        if (!searchResult || !searchResult.tracks || searchResult.tracks.length === 0) {
-          console.log(`[Play Command] Trying alternative search method...`);
-          const altSearchPromise = interaction.client.player.search(query, {
-            requestedBy: interaction.user,
-          });
-          searchResult = await Promise.race([altSearchPromise, searchTimeout]);
-        }
-        
-        // If still no results, try without searchEngine
-        if (!searchResult || !searchResult.tracks || searchResult.tracks.length === 0) {
-          console.log(`[Play Command] Trying without searchEngine...`);
-          const finalSearchPromise = interaction.client.player.search(query, {
-            requestedBy: interaction.user,
-          });
-          searchResult = await Promise.race([finalSearchPromise, searchTimeout]);
-        }
-      } catch (searchError) {
-        console.error(`[Play Command] Search error:`, searchError);
-        if (searchError.message.includes('timeout')) {
-          return await interaction.editReply(`❌ Search timed out. Please try again with a shorter query.`);
-        }
-        return await interaction.editReply(`❌ Search failed: ${searchError.message}`);
-      }
-      
-      console.log(`[Play Command] Search result type: ${typeof searchResult}`);
-      console.log(`[Play Command] Search result constructor: ${searchResult?.constructor?.name}`);
-      console.log(`[Play Command] Search result hasTracks: ${searchResult?.hasTracks?.() || 'no hasTracks method'}`);
-      console.log(`[Play Command] Search result tracks length: ${searchResult?.tracks?.length || 'no tracks property'}`);
-      console.log(`[Play Command] Search result keys: ${searchResult ? Object.keys(searchResult) : 'null'}`);
-      
-      if (!searchResult || !searchResult.tracks || searchResult.tracks.length === 0) {
-        console.log(`[Play Command] No tracks found for query: ${query}`);
-        return await interaction.editReply('❌ No tracks found. Please try a different search term or check if the URL is valid.');
-      }
-      
-      const track = searchResult.tracks[0];
-      console.log(`[Play Command] Found track: ${track.title} from ${track.source}`);
 
-      // Create or get existing queue
-      let queue = interaction.client.player.nodes.get(interaction.guild.id);
-      
-      if (!queue) {
-        console.log(`[Play Command] Creating new queue`);
-        queue = interaction.client.player.nodes.create(interaction.guild, {
-          metadata: { channel: interaction.channel },
-          leaveOnEnd: true,
-          leaveOnEmpty: true,
-          leaveOnEmptyCooldown: 30000,
-          leaveOnStop: true,
-          selfDeaf: false,
-          selfMute: false,
-          skipOnEmpty: true,
-          skipOnEmptyCooldown: 30000,
-          autoSelfDeaf: false,
-          autoSelfMute: false,
-          bufferingTimeout: 10000,
-          connectionTimeout: 20000,
-        });
-      }
-
-      // Connect to voice channel
-      try {
-        await queue.connect(voiceChannel);
-        console.log(`[Play Command] Connected to voice channel successfully`);
-      } catch (connectError) {
-        console.error(`[Play Command] Failed to connect:`, connectError);
-        queue.delete();
-        return await interaction.editReply('❌ Could not join voice channel!');
-      }
-
-      // Add track to queue and start playing
-      queue.addTrack(track);
-      
-      if (!queue.node.isPlaying()) {
-        try {
-          console.log(`[Play Command] Starting playback`);
-          await queue.node.play();
-          console.log(`[Play Command] Sending now playing message`);
-          await interaction.editReply(`🎶 Now playing **${track.title}** by ${track.author || 'Unknown Artist'}`);
-        } catch (playError) {
-          console.error(`[Play Command] Playback failed:`, playError);
-          await interaction.editReply(`❌ Failed to start playback: ${playError.message || 'Unknown error'}`);
+        console.log(`[Play Command] Successfully queued: ${result.track.title}`);
+        
+        if (result.track) {
+          await interaction.editReply(`🎶 Now playing **${result.track.title}** by ${result.track.author || 'Unknown Artist'}`);
+        } else {
+          await interaction.editReply(`🎵 **${result.track.title}** by ${result.track.author || 'Unknown Artist'} added to queue`);
         }
-      } else {
-        console.log(`[Play Command] Adding to queue`);
-        await interaction.editReply(`🎵 **${track.title}** by ${track.author || 'Unknown Artist'} added to queue`);
+      } catch (playError) {
+        console.error(`[Play Command] Playback failed:`, playError);
+        await interaction.editReply(`❌ Failed to play music: ${playError.message || 'Unknown error'}`);
       }
       
     } catch (err) {
