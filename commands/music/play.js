@@ -97,9 +97,10 @@ module.exports = {
       
       try {
         // Try multiple search engines in order of preference
+        // Note: yt-dlp-extractor may not be available on all platforms
         const searchEngines = [
           'auto',           // Try all sources automatically
-          'ytdlp-extractor', // yt-dlp YouTube (most reliable)
+          'ytdlp-extractor', // yt-dlp YouTube (if available)
           'com.retrouser955.discord-player.deezr-ext', // Deezer
           'spotify',        // Spotify
           'apple',          // Apple Music

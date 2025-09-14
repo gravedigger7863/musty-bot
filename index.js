@@ -217,16 +217,23 @@ client.player.events.on('connection', (queue) => {
       console.log('⚠️ Deezer extractor failed to load:', error.message);
     }
     
-    // Load yt-dlp extractor (more reliable YouTube) with local binary
+    // Load yt-dlp extractor (more reliable YouTube) with platform-specific binary
     try {
+      // Determine the correct yt-dlp binary path based on platform
+      const isWindows = process.platform === 'win32';
+      const ytdlpPath = isWindows ? './yt-dlp.exe' : 'yt-dlp'; // Use system yt-dlp on Linux
+      
+      console.log(`[yt-dlp] Platform: ${process.platform}, using path: ${ytdlpPath}`);
+      
       const ytdlpExtractor = new YtDlpExtractor({
-        ytdlpPath: './yt-dlp.exe', // Use local yt-dlp binary
+        ytdlpPath: ytdlpPath,
         timeout: 30000
       });
       client.player.extractors.register(ytdlpExtractor);
       console.log('✅ yt-dlp extractor loaded successfully');
     } catch (error) {
       console.log('⚠️ yt-dlp extractor failed to load:', error.message);
+      console.log('⚠️ This is expected on VPS if yt-dlp is not installed system-wide');
     }
     
     console.log(`✅ Extractors registered successfully`);
