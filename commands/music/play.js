@@ -46,22 +46,24 @@ module.exports = {
         const result = await interaction.client.player.play(voiceChannel, query, {
           nodeOptions: {
             metadata: { channel: interaction.channel },
-            leaveOnEnd: true,
-            leaveOnEmpty: true,
-            leaveOnEmptyCooldown: 30000,
-            leaveOnStop: true,
-            skipOnEmpty: true,
-            skipOnEmptyCooldown: 30000,
+            leaveOnEnd: false,
+            leaveOnEmpty: false,
+            leaveOnEmptyCooldown: 0,
+            leaveOnStop: false,
+            skipOnEmpty: false,
+            skipOnEmptyCooldown: 0,
             selfDeaf: false,
             selfMute: false,
             autoSelfDeaf: false,
             autoSelfMute: false,
-            bufferingTimeout: 10000,
-            connectionTimeout: 20000,
+            bufferingTimeout: 30000,
+            connectionTimeout: 30000,
           },
         });
 
         console.log(`[Play Command] Successfully queued: ${result.track.title}`);
+        console.log(`[Play Command] Track duration: ${result.track.duration}ms`);
+        console.log(`[Play Command] Track source: ${result.track.source}`);
         
         if (result.track) {
           await interaction.editReply(`🎶 Now playing **${result.track.title}** by ${result.track.author || 'Unknown Artist'}`);

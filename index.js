@@ -67,11 +67,20 @@ client.player = new Player(client, {
     highWaterMark: 1 << 25,
     filter: 'audioonly',
     format: 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
-    timeout: 20000,
+    timeout: 30000,
     requestOptions: {
-      timeout: 20000
+      timeout: 30000
     }
-  }
+  },
+  // Add player options to prevent immediate disconnection
+  skipOnEmpty: false,
+  leaveOnEmpty: false,
+  leaveOnEnd: false,
+  leaveOnStop: false,
+  leaveOnEmptyCooldown: 0,
+  skipOnEmptyCooldown: 0,
+  bufferingTimeout: 30000,
+  connectionTimeout: 30000
 });
 
 // Register extractors for v7.1
