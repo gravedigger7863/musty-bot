@@ -238,21 +238,42 @@ client.player.events.on('connection', (queue) => {
       
       console.log(`[yt-dlp] Platform: ${process.platform}, using path: ${ytdlpPath}`);
       
-      // Check if yt-dlp binary exists before trying to use it
+      // Check if yt-dlp binary exists and get absolute path
       const fs = require('fs');
       const path = require('path');
+      const { execSync } = require('child_process');
       
       let ytdlpExists = false;
+      let absoluteYtdlpPath = ytdlpPath;
+      
       if (isWindows) {
         ytdlpExists = fs.existsSync(ytdlpPath);
+        if (ytdlpExists) {
+          absoluteYtdlpPath = path.resolve(ytdlpPath);
+        }
       } else {
-        // On Linux, check if yt-dlp is in PATH
-        const { execSync } = require('child_process');
+        // On Linux, check if yt-dlp is in PATH and get absolute path
         try {
-          execSync('which yt-dlp', { stdio: 'ignore' });
-          ytdlpExists = true;
+          const whichOutput = execSync('which yt-dlp', { encoding: 'utf8' }).trim();
+          if (whichOutput) {
+            absoluteYtdlpPath = whichOutput;
+            ytdlpExists = true;
+            console.log(`[yt-dlp] Found yt-dlp at: ${absoluteYtdlpPath}`);
+          }
         } catch {
           ytdlpExists = false;
+          console.log(`[yt-dlp] yt-dlp not found in PATH`);
+          
+          // Try common installation paths on Linux
+          const commonPaths = ['/usr/local/bin/yt-dlp', '/usr/bin/yt-dlp', '/opt/yt-dlp/yt-dlp'];
+          for (const commonPath of commonPaths) {
+            if (fs.existsSync(commonPath)) {
+              absoluteYtdlpPath = commonPath;
+              ytdlpExists = true;
+              console.log(`[yt-dlp] Found yt-dlp at common path: ${absoluteYtdlpPath}`);
+              break;
+            }
+          }
         }
       }
       
@@ -261,9 +282,15 @@ client.player.events.on('connection', (queue) => {
         
         // Create yt-dlp extractor with proper configuration
         try {
-          console.log(`[yt-dlp] Creating extractor with path: ${ytdlpPath}`);
+          console.log(`[yt-dlp] Creating extractor with absolute path: ${absoluteYtdlpPath}`);
+          
+          // Validate the path exists before creating extractor
+          if (!fs.existsSync(absoluteYtdlpPath)) {
+            throw new Error(`yt-dlp binary not found at: ${absoluteYtdlpPath}`);
+          }
+          
           const ytdlpExtractor = new YtDlpExtractor({
-            ytdlpPath: ytdlpPath,
+            ytdlpPath: absoluteYtdlpPath,
             timeout: 30000
           });
           
@@ -271,8 +298,15 @@ client.player.events.on('connection', (queue) => {
           console.log(`[yt-dlp] Has identifier: ${ytdlpExtractor.identifier ? 'Yes' : 'No'}`);
           console.log(`[yt-dlp] Identifier value: ${ytdlpExtractor.identifier || 'undefined'}`);
           
-          client.player.extractors.register(ytdlpExtractor);
-          console.log('✅ yt-dlp extractor loaded successfully');
+          // Wrap registration in try/catch to catch undefined errors
+          try {
+            client.player.extractors.register(ytdlpExtractor);
+            console.log('✅ yt-dlp extractor loaded successfully');
+          } catch (registrationError) {
+            console.error('Failed to register yt-dlp extractor:', registrationError.message);
+            console.error('Registration error details:', registrationError);
+            throw registrationError;
+          }
         } catch (constructorError) {
           console.log(`[yt-dlp] Constructor error: ${constructorError.message}`);
           console.log(`[yt-dlp] Error details:`, constructorError);
