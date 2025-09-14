@@ -108,6 +108,12 @@ module.exports = {
         // Small delay to ensure track is processed
         await new Promise(resolve => setTimeout(resolve, 100));
         
+        // Debug connection state before playing
+        console.log(`[Play Command] Connection debug:`);
+        console.log(`[Play Command] - queue.connection: ${!!queue.connection}`);
+        console.log(`[Play Command] - queue.node.connection: ${!!queue.node.connection}`);
+        console.log(`[Play Command] - queue.connection.state: ${queue.connection?.state?.status || 'undefined'}`);
+        
         // Only play if not already playing
         if (!queue.node.isPlaying()) {
           console.log(`[Play Command] Starting playback`);

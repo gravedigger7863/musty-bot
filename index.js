@@ -152,6 +152,16 @@ client.player.nodes.create = function(guild, options) {
       this._connection = connection;
       this._voiceConnection = connection;
       
+      // Set connection on the player node for Discord Player v7
+      if (this.node && this.node.player) {
+        this.node.player.connection = connection;
+      }
+      
+      // Set the guild's voice connection for Discord Player v7
+      if (this.guild) {
+        this.guild.voiceConnection = connection;
+      }
+      
       console.log(`[Voice Connection] Connected successfully with selfDeaf: false, selfMute: false`);
       return connection;
       
