@@ -74,7 +74,10 @@ client.player = new Player(client, {
   },
   // Global voice connection options for v7
   skipFFmpeg: false,
-  useLegacyFFmpeg: false
+  useLegacyFFmpeg: false,
+  // Ensure bot is never deafened or muted
+  selfDeaf: false,
+  selfMute: false
 });
 
 // Configure Discord Player for proper voice connections (v7.1 API)

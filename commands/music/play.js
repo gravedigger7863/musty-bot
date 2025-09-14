@@ -79,8 +79,11 @@ module.exports = {
         try {
           console.log(`[Play Command] Connecting to voice channel and playing...`);
           if (!queue.connection) {
-            await queue.connect(voiceChannel);
-            console.log(`[Play Command] Voice connection established`);
+            await queue.connect(voiceChannel, {
+              selfDeaf: false,
+              selfMute: false
+            });
+            console.log(`[Play Command] Voice connection established with selfDeaf: false, selfMute: false`);
             
             // Small delay to ensure connection is fully ready
             await new Promise(resolve => setTimeout(resolve, 1000));
