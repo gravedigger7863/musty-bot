@@ -73,6 +73,17 @@ module.exports = {
           url: result.track.url
         });
         
+        // Check queue status after adding track
+        const queue = interaction.client.player.nodes.get(interaction.guild.id);
+        if (queue) {
+          console.log(`[Play Command] Queue exists: true`);
+          console.log(`[Play Command] Queue size: ${queue.tracks.size}`);
+          console.log(`[Play Command] Is playing: ${queue.node.isPlaying()}`);
+          console.log(`[Play Command] Current track: ${queue.currentTrack?.title || 'None'}`);
+        } else {
+          console.log(`[Play Command] Queue exists: false`);
+        }
+        
         if (result.track) {
           await interaction.editReply(`🎶 Now playing **${result.track.title}** by ${result.track.author || 'Unknown Artist'}`);
         } else {

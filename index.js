@@ -173,6 +173,17 @@ client.player.events.on('trackStart', (queue, track) => {
   }
 });
 
+// Add debugging for when tracks are added to queue
+client.player.events.on('trackAdd', (queue, track) => {
+  console.log(`[Player] Added to queue: ${track.title} in ${queue.guild.name}`);
+  console.log(`[Player] Queue size after add: ${queue.tracks.size}`);
+  console.log(`[Player] Is playing: ${queue.node.isPlaying()}`);
+  
+  if (queue.metadata?.channel && queue.tracks.size > 1) {
+    queue.metadata.channel.send(`🎵 Added to queue: **${track.title}** by ${track.author}`).catch(console.error);
+  }
+});
+
 client.player.events.on('trackEnd', (queue, track) => {
   console.log(`[Player] Finished: ${track.title} in ${queue.guild.name}`);
   console.log(`[Player] Track ended - duration was: ${track.duration} (${typeof track.duration})`);
@@ -185,12 +196,6 @@ client.player.events.on('trackEnd', (queue, track) => {
   }
 });
 
-client.player.events.on('trackAdd', (queue, track) => {
-  console.log(`[Player] Added to queue: ${track.title} in ${queue.guild.name}`);
-  if (queue.metadata?.channel && queue.tracks.size > 1) {
-    queue.metadata.channel.send(`🎵 Added to queue: **${track.title}** by ${track.author}`).catch(console.error);
-  }
-});
 
 client.player.events.on('trackError', (queue, error) => {
   console.error(`[Track Error] ${queue.guild.name}:`, error.message);
