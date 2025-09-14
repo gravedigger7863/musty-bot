@@ -96,42 +96,70 @@ module.exports = {
       console.log(`[Play Command] Searching for: ${query}`);
       
       try {
-        // First, search for the track to check metadata before playing
-        console.log(`[Play Command] Pre-validating track metadata...`);
-        const searchResult = await player.search(query, {
-          requestedBy: interaction.user,
-          searchEngine: 'auto'
-        });
+        // Try multiple search engines in order of preference
+        const searchEngines = ['auto', 'youtube', 'spotify'];
+        let searchResult = null;
+        let selectedTrack = null;
+        let searchEngineUsed = 'auto';
         
-        if (searchResult.hasTracks()) {
-          const track = searchResult.tracks[0];
-          console.log(`[Play Command] Found track: ${track.title} by ${track.author}`);
-          console.log(`[Play Command] Track source: ${track.source}`);
+        for (const engine of searchEngines) {
+          console.log(`[Play Command] Searching with ${engine}...`);
           
-          // Check if it's a SoundCloud track and validate metadata
-          if (track.source === 'soundcloud' && track.__metadata) {
-            console.log(`[Play Command] SoundCloud track validation:`);
-            console.log(`[Play Command] - Streamable: ${track.__metadata.streamable || 'Unknown'}`);
-            console.log(`[Play Command] - Monetization: ${track.__metadata.monetization_model || 'Unknown'}`);
-            console.log(`[Play Command] - License: ${track.__metadata.license || 'Unknown'}`);
+          try {
+            searchResult = await player.search(query, {
+              requestedBy: interaction.user,
+              searchEngine: engine
+            });
             
-            // Block non-streamable tracks
-            if (track.__metadata.streamable === false) {
-              console.log(`[Play Command] ❌ Track is not streamable`);
-              return replyToUser(interaction, "❌ This SoundCloud track is not available for streaming. Try a different track.");
+            if (searchResult.hasTracks()) {
+              const track = searchResult.tracks[0];
+              console.log(`[Play Command] Found track with ${engine}: ${track.title} by ${track.author}`);
+              console.log(`[Play Command] Track source: ${track.source}`);
+              
+              // Check if it's a SoundCloud track and validate metadata
+              if (track.source === 'soundcloud' && track.__metadata) {
+                console.log(`[Play Command] SoundCloud track validation:`);
+                console.log(`[Play Command] - Streamable: ${track.__metadata.streamable || 'Unknown'}`);
+                console.log(`[Play Command] - Monetization: ${track.__metadata.monetization_model || 'Unknown'}`);
+                console.log(`[Play Command] - License: ${track.__metadata.license || 'Unknown'}`);
+                
+                // Block non-streamable tracks
+                if (track.__metadata.streamable === false) {
+                  console.log(`[Play Command] ❌ Track is not streamable - trying next source`);
+                  continue;
+                }
+                
+                // Block ad-supported tracks
+                if (track.__metadata.monetization_model === 'AD_SUPPORTED') {
+                  console.log(`[Play Command] ❌ Track is ad-supported - trying next source`);
+                  continue;
+                }
+              }
+              
+              // If we get here, the track is valid
+              selectedTrack = track;
+              searchEngineUsed = engine;
+              console.log(`[Play Command] ✅ Valid track found with ${engine}: ${track.title}`);
+              break;
             }
-            
-            // Block ad-supported tracks
-            if (track.__metadata.monetization_model === 'AD_SUPPORTED') {
-              console.log(`[Play Command] ❌ Track is ad-supported - blocking to prevent streaming issues`);
-              return replyToUser(interaction, "❌ This SoundCloud track is ad-supported and cannot be streamed. Please try a different track or search for a non-ad-supported version.");
-            }
+          } catch (error) {
+            console.log(`[Play Command] ⚠️ Search failed with ${engine}: ${error.message}`);
+            continue;
           }
         }
         
-        // If validation passes, proceed with playback
+        // If no valid track found after trying all engines
+        if (!selectedTrack) {
+          console.log(`[Play Command] ❌ No valid tracks found with any search engine`);
+          return replyToUser(interaction, "❌ No playable tracks found. The track might be restricted or unavailable on all platforms.");
+        }
+        
+        console.log(`[Play Command] Using track from ${searchEngineUsed}: ${selectedTrack.title}`);
+        
+        // Proceed with playback using the selected track
         let result = await player.play(voiceChannel, query, {
           requestedBy: interaction.user,
+          searchEngine: searchEngineUsed, // Use the specific engine that worked
           nodeOptions: {
             metadata: { channel: interaction.channel },
             leaveOnEnd: true,
@@ -158,7 +186,7 @@ module.exports = {
           
           console.log(`[Play Command] ✅ Playback started successfully`);
           console.log(`[Play Command] Track: ${track.title} by ${track.author}`);
-          console.log(`[Play Command] Source: ${track.source}`);
+          console.log(`[Play Command] Source: ${track.source} (via ${searchEngineUsed})`);
           console.log(`[Play Command] Duration: ${track.duration} (${track.durationMS}ms)`);
           
           // Debug stream URLs to identify invalid streams
@@ -178,9 +206,9 @@ module.exports = {
           
           // Check if it's a playlist
           if (track.playlist) {
-            return replyToUser(interaction, `🎵 Added **${track.playlist.tracks.length} tracks** from **${track.playlist.title}** to the queue!`);
+            return replyToUser(interaction, `🎵 Added **${track.playlist.tracks.length} tracks** from **${track.playlist.title}** to the queue! (via ${searchEngineUsed})`);
           } else {
-            return replyToUser(interaction, `🎶 Started playing **${track.title}** by ${track.author}!`);
+            return replyToUser(interaction, `🎶 Started playing **${track.title}** by ${track.author}! (via ${searchEngineUsed})`);
           }
         } else {
           console.log(`[Play Command] ❌ Playback failed: ${result.error || 'Unknown error'}`);
