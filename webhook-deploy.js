@@ -32,8 +32,8 @@ app.post('/deploy', (req, res) => {
   if (req.body.ref === 'refs/heads/main') {
     console.log('🚀 Auto-deployment triggered by push to main branch');
     
-    // Run deployment commands
-    exec('cd /root/musty-bot && git pull origin main && npm install && pm2 restart musty-bot', (error, stdout, stderr) => {
+    // Run deployment commands with git stash to handle conflicts
+    exec('cd /root/musty-bot && git stash push -m "Auto-stash before deployment $(date)" && git pull origin main && npm install && pm2 restart musty-bot', (error, stdout, stderr) => {
       if (error) {
         console.error('❌ Deployment failed:', error);
         return res.status(500).send('Deployment failed');
