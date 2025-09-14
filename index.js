@@ -42,6 +42,9 @@ const { Player, GuildQueueEvent } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 // Import YouTube extractor separately since it's not in DefaultExtractors
 const { YouTubeExtractor } = require('@discord-player/extractor');
+// Import additional extractors for more sources
+const { DeezerExtractor } = require('discord-player-deezer');
+const { YtDlpExtractor } = require('discord-player-ytdlp');
 const ffmpeg = require('ffmpeg-static');
 const ffmpegInstaller = require('@ffmpeg-installer/ffmpeg');
 const express = require('express');
@@ -214,6 +217,22 @@ client.player.events.on('connection', (queue) => {
       console.log('✅ YouTube extractor loaded successfully');
     } catch (error) {
       console.log('⚠️ YouTube extractor failed to load:', error.message);
+    }
+    
+    // Load Deezer extractor
+    try {
+      await client.player.extractors.load(DeezerExtractor);
+      console.log('✅ Deezer extractor loaded successfully');
+    } catch (error) {
+      console.log('⚠️ Deezer extractor failed to load:', error.message);
+    }
+    
+    // Load yt-dlp extractor (more reliable YouTube)
+    try {
+      await client.player.extractors.load(YtDlpExtractor);
+      console.log('✅ yt-dlp extractor loaded successfully');
+    } catch (error) {
+      console.log('⚠️ yt-dlp extractor failed to load:', error.message);
     }
     
     console.log(`✅ Extractors registered successfully`);

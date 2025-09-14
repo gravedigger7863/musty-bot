@@ -97,7 +97,17 @@ module.exports = {
       
       try {
         // Try multiple search engines in order of preference
-        const searchEngines = ['auto', 'youtube', 'spotify'];
+        const searchEngines = [
+          'auto',           // Try all sources automatically
+          'youtube',        // YouTube (most reliable)
+          'ytdlp',          // yt-dlp YouTube (more reliable)
+          'deezer',         // Deezer
+          'spotify',        // Spotify
+          'apple',          // Apple Music
+          'soundcloud',     // SoundCloud (but will be filtered)
+          'vimeo',          // Vimeo
+          'reverbnation'    // Reverbnation
+        ];
         let searchResult = null;
         let selectedTrack = null;
         let searchEngineUsed = 'auto';
