@@ -71,6 +71,11 @@ client.player = new Player(client, {
     requestOptions: {
       timeout: 30000
     }
+  },
+  // Global voice connection options
+  connection: {
+    selfDeaf: false,  // Ensure bot is not deafened by default
+    selfMute: false   // Ensure bot is not muted by default
   }
 });
 
@@ -146,6 +151,7 @@ client.player.events.on('trackAdd', (queue, track) => {
   console.log(`[Player] Added to queue: ${track.title} in ${queue.guild.name}`);
   console.log(`[Player] Queue size after add: ${queue.tracks.size}`);
   console.log(`[Player] Is playing: ${queue.node.isPlaying()}`);
+  console.log(`[Player] Current track: ${queue.currentTrack?.title || 'None'}`);
   
   if (queue.metadata?.channel && queue.tracks.size > 1) {
     queue.metadata.channel.send(`🎵 Added to queue: **${track.title}** by ${track.author}`).catch(console.error);
@@ -197,6 +203,7 @@ client.player.events.on('queueEnd', (queue) => {
 
 client.player.events.on('connection', (queue) => {
   console.log(`[Player] Connected to voice channel in ${queue.guild.name}`);
+  console.log(`[Player] Voice connection state - Deafened: ${queue.connection?.voice?.deaf || 'unknown'}, Muted: ${queue.connection?.voice?.mute || 'unknown'}`);
 });
 
 // --- Command Loader ---

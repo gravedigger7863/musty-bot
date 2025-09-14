@@ -64,10 +64,17 @@ module.exports = {
         if (!queue) {
           console.log(`[Play Command] Creating new queue`);
           queue = interaction.client.player.nodes.create(interaction.guild, {
-            metadata: { channel: interaction.channel }
+            metadata: { channel: interaction.channel },
+            connection: {
+              selfDeaf: false,  // Ensure bot is not deafened
+              selfMute: false   // Ensure bot is not muted
+            }
           });
           console.log(`[Play Command] Connecting to voice channel`);
-          await queue.connect(voiceChannel);
+          await queue.connect(voiceChannel, {
+            selfDeaf: false,  // Ensure bot is not deafened when connecting
+            selfMute: false   // Ensure bot is not muted when connecting
+          });
         }
         
         // Add track to queue
@@ -80,15 +87,24 @@ module.exports = {
           await queue.node.play();
         }
         
+        // Wait a moment for the track to be processed
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
         console.log(`[Play Command] Successfully queued: ${track.title}`);
         console.log(`[Play Command] Queue size: ${queue.tracks.size}`);
         console.log(`[Play Command] Is playing: ${queue.node.isPlaying()}`);
         console.log(`[Play Command] Current track: ${queue.currentTrack?.title || 'None'}`);
         
-        if (queue.tracks.size > 1) {
+        // Check if this is the first track (now playing) or additional track (queued)
+        const isNowPlaying = queue.currentTrack?.title === track.title && queue.tracks.size === 0;
+        const isQueued = queue.tracks.size > 0;
+        
+        if (isNowPlaying) {
+          await interaction.editReply(`🎶 Now playing **${track.title}** by ${track.author || 'Unknown Artist'}`);
+        } else if (isQueued) {
           await interaction.editReply(`🎵 **${track.title}** by ${track.author || 'Unknown Artist'} added to queue`);
         } else {
-          await interaction.editReply(`🎶 Now playing **${track.title}** by ${track.author || 'Unknown Artist'}`);
+          await interaction.editReply(`🎵 **${track.title}** by ${track.author || 'Unknown Artist'} added to queue`);
         }
         
       } catch (playError) {
