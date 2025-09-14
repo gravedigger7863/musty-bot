@@ -67,31 +67,39 @@ module.exports = {
             metadata: { channel: interaction.channel }
           });
         } else {
-          console.log(`[Play Command] Using existing queue`);
+          console.log(`[Play Command] Using existing queue (size: ${queue.tracks.size})`);
         }
         
-        // Add track to queue first
-        console.log(`[Play Command] Adding track to queue`);
-        queue.addTrack(track);
-        console.log(`[Play Command] Track added, queue size: ${queue.tracks.size}`);
-        
-        // Connect to voice channel and play using Discord Player v7 API
+        // Connect to voice channel first if not connected
         try {
-          console.log(`[Play Command] Connecting to voice channel and playing...`);
           if (!queue.connection) {
+            console.log(`[Play Command] Connecting to voice channel...`);
             await queue.connect(voiceChannel, {
               selfDeaf: false,
               selfMute: false
             });
             console.log(`[Play Command] Voice connection established with selfDeaf: false, selfMute: false`);
             
-            // Small delay to ensure connection is fully ready
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Wait for connection to be fully ready
+            console.log(`[Play Command] Waiting for connection to be fully ready...`);
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          } else {
+            console.log(`[Play Command] Already connected to voice channel`);
           }
           
-          // Play the track
-          await queue.node.play();
-          console.log(`[Play Command] Playback started successfully`);
+          // Add track to queue after connection is established
+          console.log(`[Play Command] Adding track to queue`);
+          queue.addTrack(track);
+          console.log(`[Play Command] Track added, queue size: ${queue.tracks.size}`);
+          
+          // Only play if not already playing
+          if (!queue.node.isPlaying()) {
+            console.log(`[Play Command] Starting playback...`);
+            await queue.node.play();
+            console.log(`[Play Command] Playback started successfully`);
+          } else {
+            console.log(`[Play Command] Already playing, track added to queue`);
+          }
           
         } catch (connectError) {
           console.error(`[Play Command] Connection/playback failed:`, connectError);
@@ -108,14 +116,14 @@ module.exports = {
         console.log(`[Play Command] Is playing: ${queue.node.isPlaying()}`);
         console.log(`[Play Command] Current track: ${queue.currentTrack?.title || 'None'}`);
         
-        // Check if this is the first track (now playing) or additional track (queued)
-        const isNowPlaying = queue.currentTrack?.title === track.title && queue.tracks.size === 0;
-        const isQueued = queue.tracks.size > 0;
+        // Determine if this is now playing or queued
+        const isNowPlaying = queue.node.isPlaying() && queue.currentTrack?.title === track.title;
+        const isQueued = queue.tracks.size > 0 && !isNowPlaying;
         
         if (isNowPlaying) {
           await interaction.editReply(`🎶 Now playing **${track.title}** by ${track.author || 'Unknown Artist'}`);
         } else if (isQueued) {
-          await interaction.editReply(`🎵 **${track.title}** by ${track.author || 'Unknown Artist'} added to queue`);
+          await interaction.editReply(`🎵 **${track.title}** by ${track.author || 'Unknown Artist'} added to queue (position ${queue.tracks.size})`);
         } else {
           await interaction.editReply(`🎵 **${track.title}** by ${track.author || 'Unknown Artist'} added to queue`);
         }
