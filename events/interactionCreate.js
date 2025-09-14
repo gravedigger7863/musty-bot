@@ -62,7 +62,7 @@ module.exports = {
 
         try {
           const execStart = Date.now();
-          await command.execute(interaction);
+          await command.execute(interaction, client);
           const execTime = Date.now() - execStart;
           console.log(`[Interaction] Command executed successfully in ${execTime}ms: ${interactionId}`);
         } catch (error) {
