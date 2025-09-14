@@ -48,7 +48,7 @@ const client = new Client({
     GatewayIntentBits.Guilds,
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildVoiceStates,
+    GatewayIntentBits.GuildVoiceStates, // 🔑 Required for voice connection state
   ],
   rest: {
     rejectOnRateLimit: (rateLimitData) => {

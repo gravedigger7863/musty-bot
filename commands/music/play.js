@@ -1,4 +1,5 @@
 const { SlashCommandBuilder } = require("discord.js");
+const { useMainPlayer } = require("discord-player");
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -19,18 +20,21 @@ module.exports = {
 
     try {
       console.log(`[Play Command] Searching for: ${query}`);
-      const searchResult = await interaction.client.player.search(query, { requestedBy: interaction.user });
+      
+      // Use the modern Discord Player v7 approach
+      const player = useMainPlayer();
+      const searchResult = await player.search(query, { requestedBy: interaction.user });
 
       if (!searchResult || !searchResult.tracks.length) return interaction.editReply("❌ No tracks found.");
 
       const track = searchResult.tracks[0];
       console.log(`[Play Command] Found track: ${track.title} by ${track.author}`);
 
-      // Get or create queue
-      let queue = interaction.client.player.nodes.get(interaction.guild.id);
+      // Get or create queue using the modern approach
+      let queue = player.nodes.get(interaction.guild.id);
       if (!queue) {
         console.log(`[Play Command] Creating new queue`);
-        queue = interaction.client.player.nodes.create(interaction.guild, {
+        queue = player.nodes.create(interaction.guild, {
           metadata: { channel: interaction.channel },
           selfDeaf: false,
           selfMute: false,
@@ -45,32 +49,12 @@ module.exports = {
         
         try {
           await queue.connect(voiceChannel);
-          console.log(`[Play Command] Connection initiated, checking state...`);
+          console.log(`[Play Command] ✅ Connection initiated successfully`);
           
-          // Wait for voice connection to be ready with better state checking
-          let attempts = 0;
-          const maxAttempts = 20; // 10 seconds max wait
+          // Give the connection a moment to establish
+          await new Promise(resolve => setTimeout(resolve, 2000));
           
-          while (attempts < maxAttempts) {
-            const connection = queue.connection;
-            const voiceState = connection?.voice;
-            
-            console.log(`[Play Command] Attempt ${attempts + 1}/${maxAttempts} - Connection exists: ${!!connection}, Voice state: ${voiceState?.state || 'undefined'}`);
-            
-            if (connection && voiceState && voiceState.state === 'ready') {
-              console.log(`[Play Command] ✅ Voice connection is ready after ${attempts * 0.5}s`);
-              break;
-            }
-            
-            await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms between checks
-            attempts++;
-          }
-          
-          if (attempts >= maxAttempts) {
-            console.log(`[Play Command] ❌ Voice connection timeout after ${maxAttempts * 0.5}s`);
-            console.log(`[Play Command] Final state - Connection: ${!!queue.connection}, Voice: ${queue.connection?.voice?.state || 'undefined'}`);
-            return interaction.editReply("❌ Failed to connect to voice channel. Please try again.");
-          }
+          console.log(`[Play Command] Connection state after delay - Exists: ${!!queue.connection}, Voice: ${queue.connection?.voice?.state || 'undefined'}`);
         } catch (connectError) {
           console.error(`[Play Command] Connection error:`, connectError);
           return interaction.editReply(`❌ Failed to connect to voice channel: ${connectError.message}`);
