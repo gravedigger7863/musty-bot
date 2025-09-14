@@ -55,7 +55,7 @@ module.exports = {
       if (!queue.isPlaying()) {
         await queue.node.play(track);
         console.log(`[Play Command] Playback started`);
-        await interaction.editReply(`🎶 Now playing **${track.title}** by ${track.author}`);
+        await interaction.editReply(`🎶 Starting playback...`);
       } else {
         await interaction.editReply(`🎵 **${track.title}** added to the queue (position ${queue.tracks.size})`);
       }

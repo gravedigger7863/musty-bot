@@ -200,25 +200,9 @@ client.player.events.on('emptyQueue', (queue) => {
   console.log(`[Player] Is playing when empty: ${queue.node.isPlaying()}`);
   console.log(`[Player] Current track when empty: ${queue.currentTrack?.title || 'None'}`);
   
-  // Only show "queue is empty" message if there's no current track playing
-  // If there's a current track, it means we just moved from queue to playing
-  if (!queue.currentTrack || !queue.node.isPlaying()) {
-    console.log(`[Player] No current track playing, will delete queue in 30 seconds if no activity`);
-    
-    // Don't delete the queue immediately - let it stay for a bit in case more tracks are added
-    setTimeout(() => {
-      if (!queue.currentTrack && queue.tracks.size === 0) {
-        console.log(`[Player] Deleting empty queue after timeout`);
-        queue.delete();
-      }
-    }, 30000); // 30 second delay
-    
-    if (queue.metadata?.channel) {
-      queue.metadata.channel.send(`🎵 Queue is empty. Add more songs with /play!`).catch(console.error);
-    }
-  } else {
-    console.log(`[Player] Track is still playing, not showing empty queue message`);
-  }
+  // Don't show empty queue message here - let playerFinish handle it
+  // This event fires when queue becomes empty but track might still be playing
+  console.log(`[Player] Queue became empty, but not showing message yet`);
 });
 
 client.player.events.on('emptyChannel', (queue) => {
