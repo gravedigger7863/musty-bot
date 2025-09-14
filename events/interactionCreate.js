@@ -9,15 +9,9 @@ module.exports = {
     
     console.log(`[Interaction] Received: ${interactionId} (${interaction.type}) - ${interaction.commandName || interaction.customId || 'unknown'}`);
     
-    // Check if interaction already processed
-    if (processedInteractions.has(interactionId)) {
-      console.log(`[Interaction] Already processed, skipping: ${interactionId}`);
-      return;
-    }
-
-    // Check if interaction is currently being processed
-    if (interactionTimestamps.has(interactionId)) {
-      console.log(`[Interaction] Currently being processed, skipping: ${interactionId}`);
+    // Check if interaction already processed or currently being processed
+    if (processedInteractions.has(interactionId) || interactionTimestamps.has(interactionId)) {
+      console.log(`[Interaction] Already processed or being processed, skipping: ${interactionId}`);
       return;
     }
 
