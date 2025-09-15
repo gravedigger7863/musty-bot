@@ -33,11 +33,10 @@ module.exports = {
       }
       
       if (results.length === 0) {
-        return interaction.reply({ 
+        return interaction.editReply({ 
           content: query ? 
             `❌ No local tracks found for "${query}"` : 
-            '❌ No local music files found!', 
-          ephemeral: true 
+            '❌ No local music files found!'
         });
       }
       
@@ -75,13 +74,12 @@ module.exports = {
         inline: false
       });
       
-      await interaction.reply({ embeds: [embed] });
+      await interaction.editReply({ embeds: [embed] });
       
     } catch (error) {
       console.error('Local command error:', error);
-      await interaction.reply({ 
-        content: '❌ An error occurred while browsing local music!', 
-        ephemeral: true 
+      await interaction.editReply({ 
+        content: '❌ An error occurred while browsing local music!'
       });
     }
   },
