@@ -9,15 +9,13 @@ module.exports = {
   async execute(interaction) {
     const voiceChannel = interaction.member?.voice?.channel;
     if (!voiceChannel) {
-      return interaction.reply("⚠️ You need to join a voice channel first!");
+      return interaction.editReply("⚠️ You need to join a voice channel first!");
     }
 
     const player = useMainPlayer();
     if (!player) {
-      return interaction.reply("⏳ Music system not ready yet, try again later.");
+      return interaction.editReply("⏳ Music system not ready yet, try again later.");
     }
-
-    await interaction.deferReply();
 
     try {
       // Test with a simple YouTube track

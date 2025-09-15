@@ -16,18 +16,16 @@ module.exports = {
     
     // Check if user is in a voice channel
     if (!interaction.member.voice.channel) {
-      return interaction.reply({ 
-        content: '❌ You need to be in a voice channel to use this command!', 
-        ephemeral: true 
+      return interaction.editReply({ 
+        content: '❌ You need to be in a voice channel to use this command!'
       });
     }
     
     // Check if bot has permission to join and speak
     const permissions = interaction.member.voice.channel.permissionsFor(interaction.guild.members.me);
     if (!permissions.has(['Connect', 'Speak'])) {
-      return interaction.reply({ 
-        content: '❌ I need Connect and Speak permissions to join your voice channel!', 
-        ephemeral: true 
+      return interaction.editReply({ 
+        content: '❌ I need Connect and Speak permissions to join your voice channel!'
       });
     }
     

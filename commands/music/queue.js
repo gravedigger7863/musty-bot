@@ -9,9 +9,8 @@ module.exports = {
     const player = client.manager.players.get(interaction.guild.id);
     
     if (!player || !player.queue.length) {
-      return interaction.reply({ 
-        content: '❌ There are no tracks in the queue!', 
-        ephemeral: true 
+      return interaction.editReply({ 
+        content: '❌ There are no tracks in the queue!'
       });
     }
     
@@ -54,7 +53,7 @@ module.exports = {
       { name: 'Loop Mode', value: player.queueRepeat ? '🔁 On' : '❌ Off', inline: true }
     );
     
-    await interaction.reply({ embeds: [embed] });
+    await interaction.editReply({ embeds: [embed] });
   },
   
   formatDuration(ms) {
