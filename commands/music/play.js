@@ -62,16 +62,26 @@ module.exports = {
       const localResults = await localMusic.searchTracks(query);
       
       if (localResults.length > 0) {
-        // Use local file
+        // Use local file - create a track object that Discord Player can handle
         const localTrack = localResults[0];
         track = {
           title: localTrack.title,
           author: localTrack.author,
           duration: localTrack.duration,
           source: 'local',
-          url: localTrack.url,
+          url: `file://${localTrack.url}`,
           thumbnail: localTrack.thumbnail,
-          requestedBy: interaction.user
+          requestedBy: interaction.user,
+          // Add required properties for Discord Player
+          id: `local_${Date.now()}`,
+          stream: null,
+          live: false,
+          raw: {
+            title: localTrack.title,
+            author: localTrack.author,
+            duration: localTrack.duration,
+            url: `file://${localTrack.url}`
+          }
         };
         isLocalFile = true;
         console.log(`🎵 Playing local file: ${localTrack.title}`);

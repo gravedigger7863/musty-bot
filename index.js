@@ -30,10 +30,6 @@ client.player = new Player(client, {
 // Load extractors
 client.player.extractors.loadMulti(DefaultExtractors);
 
-// Add local file support
-const { LocalExtractor } = require('@discord-player/extractor');
-client.player.extractors.register(LocalExtractor, {});
-
 // --- Event Handlers ---
 client.on('ready', () => {
   console.log(`✅ ${client.user.tag} is ready with Discord Player!`);
