@@ -1,7 +1,8 @@
 require('dotenv').config();
 
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
-const { Manager } = require('erela.js');
+const { Player } = require('discord-player');
+const { DefaultExtractors } = require('@discord-player/extractor');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
@@ -18,70 +19,58 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// --- Lavalink Manager Setup ---
-client.manager = new Manager({
-  nodes: [
-    {
-      host: process.env.LAVALINK_HOST || '94.130.97.149', // Your VPS IP
-      port: parseInt(process.env.LAVALINK_PORT) || 2333,
-      password: process.env.LAVALINK_PASSWORD || 'youshallnotpass',
-    }
-  ],
-  send: (id, payload) => {
-    const guild = client.guilds.cache.get(id);
-    if (guild) guild.shard.send(payload);
-  },
-  autoPlay: false,
-  plugins: [],
+// --- Discord Player Setup ---
+client.player = new Player(client, {
+  ytdlOptions: {
+    quality: 'highestaudio',
+    highWaterMark: 1 << 25
+  }
 });
+
+// Load extractors
+client.player.extractors.loadMulti(DefaultExtractors);
+
+// Add local file support
+const { LocalExtractor } = require('@discord-player/extractor');
+client.player.extractors.register(LocalExtractor, {});
 
 // --- Event Handlers ---
 client.on('ready', () => {
-  console.log(`✅ ${client.user.tag} is ready with Lavalink!`);
-  console.log(`🎵 Connected to ${client.manager.nodes.size} Lavalink node(s)`);
+  console.log(`✅ ${client.user.tag} is ready with Discord Player!`);
+  console.log(`🎵 Discord Player initialized successfully`);
 });
 
-client.manager.on('nodeConnect', node => {
-  console.log(`🔗 Lavalink node "${node.options.identifier}" connected`);
-});
-
-client.manager.on('nodeError', (node, error) => {
-  console.error(`❌ Lavalink node "${node.options.identifier}" error:`, error);
-});
-
-client.manager.on('trackStart', (player, track) => {
-  const channel = client.channels.cache.get(player.textChannel);
+client.player.events.on('playerStart', (queue, track) => {
+  const channel = client.channels.cache.get(queue.metadata.channel.id);
   if (channel) {
     channel.send(`🎵 Now playing: **${track.title}** by ${track.author}`);
   }
 });
 
-client.manager.on('trackEnd', (player, track, reason) => {
-  console.log(`🏁 Track ended: ${track.title} (${reason})`);
+client.player.events.on('playerFinish', (queue, track) => {
+  console.log(`🏁 Track finished: ${track.title}`);
 });
 
-client.manager.on('trackError', (player, track, error) => {
-  console.error(`❌ Track error: ${error.message}`);
-  const channel = client.channels.cache.get(player.textChannel);
+client.player.events.on('playerError', (queue, error) => {
+  console.error(`❌ Player error:`, error);
+  const channel = client.channels.cache.get(queue.metadata.channel.id);
   if (channel) {
-    channel.send(`❌ Track error: ${error.message}`);
+    channel.send(`❌ Player error: ${error.message}`);
   }
 });
 
-client.manager.on('queueEnd', (player) => {
-  const channel = client.channels.cache.get(player.textChannel);
+client.player.events.on('queueEnd', (queue) => {
+  const channel = client.channels.cache.get(queue.metadata.channel.id);
   if (channel) {
     channel.send(`🎵 Queue finished! Thanks for listening!`);
   }
 });
 
-client.manager.on('playerMove', (player, oldChannel, newChannel) => {
-  if (!newChannel) {
-    player.destroy();
-    const channel = client.channels.cache.get(player.textChannel);
-    if (channel) {
-      channel.send(`👋 Left voice channel - no one is listening!`);
-    }
+client.player.events.on('emptyChannel', (queue) => {
+  queue.delete();
+  const channel = client.channels.cache.get(queue.metadata.channel.id);
+  if (channel) {
+    channel.send(`👋 Left voice channel - no one is listening!`);
   }
 });
 
