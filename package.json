@@ -23,8 +23,6 @@
     "node": ">=18.0.0"
   },
   "dependencies": {
-    "@discord-player/downloader": "^3.0.2",
-    "@discord-player/equalizer": "^7.1.0",
     "@discord-player/extractor": "^7.1.0",
     "@discord-player/ffmpeg": "^7.1.0",
     "@discord-player/utils": "^7.1.0",
@@ -33,7 +31,6 @@
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "axios": "^1.12.2",
     "discord-player": "^7.1.0",
-    "discord-player-deezer": "^2.5.0",
     "discord-player-spotify": "^1.1.7",
     "discord-player-ytdlp": "^1.0.4",
     "discord-voip": "^7.1.0",
@@ -41,6 +38,6 @@
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "ffmpeg-static": "^5.2.0",
-    "libsodium-wrappers": "^0.7.15",
+    "libsodium-wrappers": "^0.7.15"
   }
 }
