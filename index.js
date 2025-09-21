@@ -4,6 +4,7 @@ const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 const POTokenProvider = require('./modules/po-token-provider');
+const PlayifyFeatures = require('./modules/playify-features');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
@@ -34,6 +35,9 @@ client.commands = new Collection();
 
 // Initialize PO Token Provider
 const poTokenProvider = new POTokenProvider();
+
+// Initialize Playify Features
+const playify = new PlayifyFeatures();
 
 // --- Discord Player Setup ---
 client.player = new Player(client, {
@@ -145,35 +149,35 @@ client.player.events.on('playerStart', (queue, track) => {
 
 client.player.events.on('playerFinish', async (queue, track) => {
   console.log(`🏁 Track finished: ${track.title}`);
-  
+
   // Check if track finished immediately (less than 5 seconds) - likely an issue
   const trackDuration = track.durationMS || 0;
   const isImmediateFinish = trackDuration > 0 && trackDuration < 5000;
-  
+
   // Also check if it's a SoundCloud track that finished quickly (common issue)
   const isSoundCloudIssue = track.source === 'soundcloud' && (isImmediateFinish || trackDuration === 0);
-  
+
   if (isImmediateFinish || isSoundCloudIssue) {
     console.log(`⚠️ Track finished very quickly (${trackDuration}ms) - attempting to find alternative`);
-    
+
     // Try to find the same song on a different platform
     try {
       const searchQuery = `${track.title} ${track.author}`;
       console.log(`🔍 Searching for alternative: ${searchQuery}`);
-      
+
       // Search on YouTube specifically (most reliable)
       const searchResult = await queue.player.search(searchQuery, {
         requestedBy: track.requestedBy,
         searchEngine: 'youtube'
       });
-      
+
       if (searchResult.hasTracks()) {
         const alternativeTrack = searchResult.tracks[0];
         console.log(`✅ Found alternative: ${alternativeTrack.title} by ${alternativeTrack.author} (${alternativeTrack.source})`);
-        
+
         // Add the alternative track to the queue
         queue.addTrack(alternativeTrack);
-        
+
         // Notify the channel
         const channel = queue.metadata?.channel;
         if (channel) {
@@ -184,6 +188,33 @@ client.player.events.on('playerFinish', async (queue, track) => {
       }
     } catch (error) {
       console.error(`❌ Error searching for alternative:`, error.message);
+    }
+  }
+
+  // Playify Autoplay Feature
+  if (playify.isAutoplayEnabled(queue.guild.id)) {
+    console.log(`🔄 Autoplay enabled - finding similar tracks for: ${track.title}`);
+    
+    try {
+      const similarTracks = await playify.getSimilarTracks(track, client);
+      
+      if (similarTracks.length > 0) {
+        // Add the first similar track to the queue
+        const similarTrack = similarTracks[0];
+        queue.addTrack(similarTrack);
+        
+        console.log(`✅ Added similar track: ${similarTrack.title} by ${similarTrack.author}`);
+        
+        // Notify the channel
+        const channel = queue.metadata?.channel;
+        if (channel) {
+          await channel.send(`🔄 **Autoplay:** Added similar track: **${similarTrack.title}** by ${similarTrack.author}`);
+        }
+      } else {
+        console.log(`❌ No similar tracks found for: ${track.title}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error in autoplay:`, error.message);
     }
   }
 });

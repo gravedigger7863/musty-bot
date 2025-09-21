@@ -1,4 +1,5 @@
-const { BotGuardClient, PoIntegrityTokenClient, WebPOMinter } = require('bgutils-js');
+// Note: BgUtils requires a browser-like environment, so we'll implement a simplified version
+// For now, we'll focus on Playify integration which provides better music support
 
 class POTokenProvider {
   constructor() {
@@ -14,21 +15,11 @@ class POTokenProvider {
     try {
       console.log('🔧 Initializing PO Token Provider...');
       
-      // Initialize BotGuard client
-      this.botGuardClient = new BotGuardClient();
-      await this.botGuardClient.initialize();
-      
-      // Initialize PO Integrity Token client
-      this.poIntegrityTokenClient = new PoIntegrityTokenClient();
-      
-      // Initialize WebPO Minter
-      this.webPOMinter = new WebPOMinter();
+      // BgUtils requires browser environment, so we'll use fallback approach
+      console.log('⚠️ PO Token Provider using fallback mode (TV client)');
       
       this.isInitialized = true;
-      console.log('✅ PO Token Provider initialized successfully');
-      
-      // Generate initial session token
-      await this.generateSessionToken();
+      console.log('✅ PO Token Provider initialized in fallback mode');
       
     } catch (error) {
       console.error('❌ Failed to initialize PO Token Provider:', error.message);
