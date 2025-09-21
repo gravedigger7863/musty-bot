@@ -82,6 +82,15 @@ module.exports = {
         // If YouTube fails due to PO token issues, try other sources
         if (error.message.includes('Sign in to confirm') || error.message.includes('bot') || error.message.includes('PO Token')) {
           console.log(`[Play Command] YouTube blocked - trying alternative sources...`);
+          // Notify user that YouTube is blocked
+          try {
+            await interaction.followUp({
+              content: '⚠️ YouTube is currently blocked, trying alternative sources...',
+              ephemeral: true
+            });
+          } catch (followUpError) {
+            console.log(`[Play Command] Could not send follow-up message:`, followUpError.message);
+          }
           searchResult = null; // Reset to try other strategies
         }
       }
@@ -111,7 +120,7 @@ module.exports = {
         }
       }
       
-      // Strategy 2: Try other sources first (avoid SoundCloud if possible)
+      // Strategy 2: Try Spotify search (reliable alternative to YouTube)
       if (!searchResult || !searchResult.hasTracks()) {
         try {
           console.log(`[Play Command] Trying Spotify search...`);
@@ -121,6 +130,8 @@ module.exports = {
           });
           if (searchResult.hasTracks()) {
             console.log(`[Play Command] ✅ Spotify search found ${searchResult.tracks.length} tracks`);
+          } else {
+            console.log(`[Play Command] ❌ Spotify search returned no tracks`);
           }
         } catch (error) {
           console.log(`[Play Command] Spotify search failed:`, error.message);
