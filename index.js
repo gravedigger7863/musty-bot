@@ -7,6 +7,18 @@ const fs = require('fs');
 const path = require('path');
 const express = require('express');
 
+// Environment validation
+const requiredEnvVars = ['DISCORD_TOKEN', 'CLIENT_ID'];
+const missingEnvVars = requiredEnvVars.filter(envVar => !process.env[envVar]);
+
+if (missingEnvVars.length > 0) {
+  console.error('❌ Missing required environment variables:', missingEnvVars.join(', '));
+  console.error('Please check your .env file and ensure all required variables are set.');
+  process.exit(1);
+}
+
+console.log('✅ Environment variables validated successfully');
+
 // --- Client Setup ---
 const client = new Client({
   intents: [
@@ -167,13 +179,74 @@ for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
   }
 }
 
+// --- Process Error Handling ---
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+  // Don't exit on unhandled rejections for music bots
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('❌ Uncaught Exception:', error);
+  
+  // Handle specific errors gracefully
+  if (error.message && (
+    error.message.includes('Cannot convert "undefined" to int') ||
+    error.message.includes('OpusScript') ||
+    error.message.includes('opusscript') ||
+    error.message.includes('ENOTFOUND') ||
+    error.message.includes('ECONNRESET') ||
+    error.message.includes('ETIMEDOUT')
+  )) {
+    console.log('⚠️ Non-critical error detected, continuing...');
+    return;
+  }
+  
+  // For critical errors, exit
+  console.error('💥 Critical error, shutting down...');
+  process.exit(1);
+});
+
+// --- Graceful Shutdown ---
+process.on('SIGINT', () => {
+  console.log('🛑 Received SIGINT, shutting down gracefully...');
+  client.destroy();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('🛑 Received SIGTERM, shutting down gracefully...');
+  client.destroy();
+  process.exit(0);
+});
+
 // --- Login ---
-client.login(process.env.DISCORD_TOKEN);
+client.login(process.env.DISCORD_TOKEN).catch(error => {
+  console.error('❌ Failed to login:', error);
+  process.exit(1);
+});
 
 // --- Uptime server ---
 const app = express();
 const PORT = process.env.PORT || 3000;
-app.get('/', (req, res) => res.send('Musty Bot 2025 with Lavalink is alive! 🎵'));
-app.listen(PORT, () => console.log(`Uptime server running on port ${PORT}`));
+
+app.get('/', (req, res) => {
+  res.json({
+    status: 'online',
+    bot: 'Musty Bot 2025',
+    version: '2.0.0',
+    uptime: process.uptime(),
+    memory: process.memoryUsage(),
+    timestamp: new Date().toISOString()
+  });
+});
+
+app.get('/health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+app.listen(PORT, () => {
+  console.log(`🌐 Uptime server running on port ${PORT}`);
+  console.log(`📊 Health check available at http://localhost:${PORT}/health`);
+});
 
 module.exports = client;
