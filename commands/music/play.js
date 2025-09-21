@@ -67,36 +67,25 @@ module.exports = {
       
       let track;
       
-         // Optimized search strategy with parallel attempts
+         // Optimized search strategy - try sources sequentially to avoid duplicates
          let searchResult = null;
          const searchEngines = ['spotify', 'soundcloud', 'youtube']; // Prioritize working sources
          
-         // Try parallel searches for better performance
-         const searchPromises = searchEngines.map(async (engine) => {
+         for (const engine of searchEngines) {
            try {
              console.log(`[Play Command] Trying ${engine} search...`);
-             const result = await client.player.search(query, {
+             searchResult = await client.player.search(query, {
                requestedBy: interaction.user,
                searchEngine: engine
              });
              
-             if (result.hasTracks()) {
-               console.log(`[Play Command] ✅ Found ${result.tracks.length} tracks from ${engine}`);
-               return { engine, result };
+             if (searchResult.hasTracks()) {
+               console.log(`[Play Command] ✅ Found ${searchResult.tracks.length} tracks from ${engine}`);
+               break; // Use the first successful search
              }
-             return null;
            } catch (error) {
              console.log(`[Play Command] ${engine} search failed:`, error.message);
-             return null;
            }
-         });
-         
-         // Wait for first successful search
-         const results = await Promise.allSettled(searchPromises);
-         const successfulResult = results.find(r => r.status === 'fulfilled' && r.value !== null);
-         
-         if (successfulResult) {
-           searchResult = successfulResult.value.result;
          }
       
          if (!searchResult.hasTracks()) {

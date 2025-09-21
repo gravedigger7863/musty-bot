@@ -67,7 +67,7 @@ class PerformanceMonitor {
     }
     
     // Check for memory issues
-    if (heapUsed > 200 * 1024 * 1024) { // 200MB threshold
+    if (heapUsed > 150 * 1024 * 1024) { // 150MB threshold (reduced from 200MB)
       this.addAlert('HIGH_MEMORY', `High memory usage: ${Math.floor(heapUsed / 1024 / 1024)}MB`);
     }
     
@@ -103,7 +103,7 @@ class PerformanceMonitor {
     
     // Check for memory leaks
     const memUsage = this.trackMemory();
-    if (memUsage.heapUsed > 150 * 1024 * 1024) { // 150MB
+    if (memUsage.heapUsed > 120 * 1024 * 1024) { // 120MB (reduced from 150MB)
       this.addAlert('MEMORY_LEAK', 'Potential memory leak detected');
     }
   }

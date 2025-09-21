@@ -51,9 +51,9 @@ const dopamine = new DopamineFeatures();
 
 // Initialize Cache Manager
 const cacheManager = new CacheManager({
-  maxSize: 500,
-  defaultTTL: 300000, // 5 minutes
-  cleanupInterval: 60000 // 1 minute
+  maxSize: 100, // Reduced from 500 to save memory
+  defaultTTL: 180000, // 3 minutes (reduced from 5 minutes)
+  cleanupInterval: 30000 // 30 seconds (reduced from 1 minute)
 });
 
 // Initialize Performance Monitor
@@ -101,8 +101,8 @@ client.player = new Player(client, {
   connectionTimeout: 10000, // Faster connection timeout
   bufferingTimeout: 10000, // Faster buffering timeout
   // Resource management
-  maxMemoryUsage: 100 * 1024 * 1024, // 100MB max memory usage per player
-  maxQueueSize: 100, // Limit queue size to prevent memory issues
+  maxMemoryUsage: 50 * 1024 * 1024, // 50MB max memory usage per player (reduced from 100MB)
+  maxQueueSize: 50, // Limit queue size to prevent memory issues (reduced from 100)
   // Performance monitoring
   enableMetrics: true, // Enable performance metrics
   metricsInterval: 30000 // Collect metrics every 30 seconds
@@ -532,13 +532,23 @@ client.on('interactionCreate', async (interaction) => {
 // Memory cleanup on player events
 client.player.events.on('playerFinish', () => {
   // Clean up finished tracks from memory
-  if (global.gc && Math.random() < 0.1) { // 10% chance to run GC
+  if (global.gc && Math.random() < 0.3) { // 30% chance to run GC (increased from 10%)
     global.gc();
   }
   
   // Track memory usage
   performanceMonitor.trackMemory();
 });
+
+// More aggressive memory cleanup
+setInterval(() => {
+  const memUsage = process.memoryUsage();
+  if (memUsage.heapUsed > 100 * 1024 * 1024) { // 100MB threshold
+    if (global.gc) {
+      global.gc();
+    }
+  }
+}, 15000); // Every 15 seconds
 
 // --- Process Error Handling ---
 process.on('unhandledRejection', (reason, promise) => {
