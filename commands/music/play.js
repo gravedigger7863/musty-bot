@@ -65,9 +65,9 @@ module.exports = {
       // Try multiple search strategies
       let searchResult = null;
       
-      // Strategy 1: YouTube search
+      // Strategy 1: YouTube search with Safari client (no PO token required)
       try {
-        console.log(`[Play Command] Trying YouTube search...`);
+        console.log(`[Play Command] Trying YouTube search with Safari client...`);
         searchResult = await client.player.search(query, {
           requestedBy: interaction.user,
           searchEngine: 'youtube'
@@ -79,10 +79,22 @@ module.exports = {
         }
       } catch (error) {
         console.log(`[Play Command] YouTube search failed:`, error.message);
-        // If YouTube fails due to authentication, try with a different approach
-        if (error.message.includes('Sign in to confirm') || error.message.includes('bot')) {
-          console.log(`[Play Command] YouTube blocked - trying alternative search...`);
-          searchResult = null; // Reset to try other strategies
+        // If YouTube fails due to PO token issues, try with TV client
+        if (error.message.includes('Sign in to confirm') || error.message.includes('bot') || error.message.includes('PO Token')) {
+          console.log(`[Play Command] YouTube blocked - trying TV client...`);
+          try {
+            // Try with TV client which doesn't require PO tokens
+            searchResult = await client.player.search(query, {
+              requestedBy: interaction.user,
+              searchEngine: 'youtube'
+            });
+            if (searchResult.hasTracks()) {
+              console.log(`[Play Command] ✅ YouTube TV client found ${searchResult.tracks.length} tracks`);
+            }
+          } catch (tvError) {
+            console.log(`[Play Command] YouTube TV client also failed:`, tvError.message);
+            searchResult = null; // Reset to try other strategies
+          }
         }
       }
       
