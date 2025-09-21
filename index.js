@@ -69,7 +69,9 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
   try {
     console.log('🔍 Loading YouTube extractor...');
     const { YtDlpExtractor } = require('discord-player-ytdlp');
-    await client.player.extractors.register(YtDlpExtractor, {});
+    await client.player.extractors.register(YtDlpExtractor, {
+      ytdlpPath: '/usr/local/bin/yt-dlp'
+    });
     console.log('✅ YouTube extractor loaded successfully');
   } catch (error) {
     console.error('❌ Failed to load YouTube extractor:', error.message);
