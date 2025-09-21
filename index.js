@@ -122,6 +122,10 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
       console.log('⚠️ YouTube extractor configured without PO Token (using Android Music client)');
     }
 
+    // Also add the extractor args as a separate option
+    ytdlpOptions['--extractor-args'] = 'youtube:player-client=android_music';
+    console.log('🔧 Added extractor args: youtube:player-client=android_music');
+
     await client.player.extractors.register(YtDlpExtractor, {
       ytdlpPath: '/usr/local/bin/yt-dlp',
       ytdlpOptions
