@@ -121,13 +121,17 @@ class PlayifyFeatures {
       .setColor('#00ff00')
       .setTitle('🎵 Now Playing')
       .setDescription(`**${track.title}**\nby ${track.author}`)
-      .setThumbnail(track.thumbnail)
       .addFields(
         { name: 'Duration', value: this.formatDuration(track.durationMS), inline: true },
         { name: 'Source', value: track.source, inline: true },
         { name: 'Queue Position', value: `${queue.tracks.size + 1}`, inline: true }
       )
       .setTimestamp();
+
+    // Only set thumbnail if it's a valid URL
+    if (track.thumbnail && track.thumbnail.startsWith('http')) {
+      embed.setThumbnail(track.thumbnail);
+    }
 
     if (filter) {
       embed.addFields({ name: '🎛️ Filter', value: filter, inline: true });

@@ -43,9 +43,11 @@ module.exports = {
     
     // Interaction is already deferred by interactionCreate event
     
+    let queue; // Declare queue outside try block for error handling
+    
     try {
       // Get or create queue
-      const queue = client.player.nodes.create(interaction.guild, {
+      queue = client.player.nodes.create(interaction.guild, {
         metadata: {
           channel: interaction.channel,
           client: interaction.guild.members.me,
@@ -224,7 +226,7 @@ module.exports = {
       console.error('Error details:', error.stack);
       
       // Use Playify's enhanced error handling
-      const errorMessage = playify.handlePlaybackError(error, queue);
+      const errorMessage = playify.handlePlaybackError(error, queue || null);
       
       await interaction.editReply({ 
         content: `❌ ${errorMessage}` 
