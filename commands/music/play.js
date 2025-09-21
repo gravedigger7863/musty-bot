@@ -77,26 +77,47 @@ module.exports = {
       } catch (error) {
         console.log(`[Play Command] ${searchEngine} search failed:`, error.message);
         
-        // If YouTube is blocked, try Spotify as fallback
-        if (error.message.includes('Sign in to confirm') || error.message.includes('bot')) {
-          try {
-            await interaction.followUp({
-              content: '⚠️ YouTube is blocked, trying Spotify...',
-              ephemeral: true
-            });
-          } catch (followUpError) {
-            // Ignore follow-up errors
-          }
-          
-          try {
-            searchResult = await client.player.search(query, {
-              requestedBy: interaction.user,
-              searchEngine: 'spotify'
-            });
-          } catch (spotifyError) {
-            // Continue to auto search fallback
-          }
-        }
+             // If YouTube is blocked, try multiple fallbacks
+             if (error.message.includes('Sign in to confirm') || error.message.includes('bot')) {
+               console.log(`[Play Command] YouTube blocked, trying alternative sources...`);
+               
+               try {
+                 await interaction.followUp({
+                   content: '⚠️ YouTube is blocked, trying alternative sources...',
+                   ephemeral: true
+                 });
+               } catch (followUpError) {
+                 // Ignore follow-up errors
+               }
+
+               // Try Spotify first
+               try {
+                 searchResult = await client.player.search(query, {
+                   requestedBy: interaction.user,
+                   searchEngine: 'spotify'
+                 });
+                 if (searchResult.hasTracks()) {
+                   console.log(`[Play Command] ✅ Found ${searchResult.tracks.length} Spotify tracks`);
+                 }
+               } catch (spotifyError) {
+                 console.log(`[Play Command] Spotify search failed:`, spotifyError.message);
+               }
+
+               // If Spotify failed, try SoundCloud
+               if (!searchResult || !searchResult.hasTracks()) {
+                 try {
+                   searchResult = await client.player.search(query, {
+                     requestedBy: interaction.user,
+                     searchEngine: 'soundcloud'
+                   });
+                   if (searchResult.hasTracks()) {
+                     console.log(`[Play Command] ✅ Found ${searchResult.tracks.length} SoundCloud tracks`);
+                   }
+                 } catch (soundcloudError) {
+                   console.log(`[Play Command] SoundCloud search failed:`, soundcloudError.message);
+                 }
+               }
+             }
         
         // Final fallback to auto search
         if (!searchResult || !searchResult.hasTracks()) {
@@ -111,11 +132,11 @@ module.exports = {
         }
       }
       
-      if (!searchResult.hasTracks()) {
-        return interaction.editReply({ 
-          content: '❌ No tracks found for your query!' 
-        });
-      }
+         if (!searchResult.hasTracks()) {
+           return interaction.editReply({
+             content: '❌ No tracks found for your query! Try searching for a different song or check if the song name is correct.'
+           });
+         }
       
       // Use Playify's smart track selection
       const tracks = searchResult.tracks;

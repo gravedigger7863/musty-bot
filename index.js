@@ -60,6 +60,13 @@ client.player = new Player(client, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
+    },
+    // Add extractor args to bypass bot detection
+    extractorArgs: {
+      youtube: {
+        player_client: 'android_music',
+        player_skip: ['webpage']
+      }
     }
   },
   skipFFmpeg: false,
@@ -111,8 +118,8 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
       ytdlpOptions['--extractor-args'] = `youtube:po_token=mweb.gvs+${poToken}`;
       console.log('✅ YouTube extractor configured with PO Token');
     } else {
-      ytdlpOptions['--extractor-args'] = 'youtube:player-client=tv';
-      console.log('⚠️ YouTube extractor configured without PO Token (using TV client)');
+      ytdlpOptions['--extractor-args'] = 'youtube:player-client=android_music';
+      console.log('⚠️ YouTube extractor configured without PO Token (using Android Music client)');
     }
 
     await client.player.extractors.register(YtDlpExtractor, {
