@@ -125,9 +125,17 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
 
     console.log('🔧 ytdlpOptions:', ytdlpOptions.join(' '));
 
+    const extractorArgs = {
+      youtube: {
+        player_client: 'android_music'
+      }
+    };
+    console.log('🔧 extractorArgs:', JSON.stringify(extractorArgs));
+
     await client.player.extractors.register(YtDlpExtractor, {
       ytdlpPath: '/usr/local/bin/yt-dlp',
-      ytdlpOptions
+      ytdlpOptions,
+      extractorArgs
     });
     console.log('✅ YouTube extractor loaded successfully');
   } catch (error) {
