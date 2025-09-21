@@ -61,10 +61,19 @@ module.exports = {
       
       // Search for tracks online (local files disabled for now due to compatibility issues)
       console.log(`[Play Command] Searching for: ${query}`);
-      const searchResult = await client.player.search(query, {
+      let searchResult = await client.player.search(query, {
         requestedBy: interaction.user,
         searchEngine: 'auto'
       });
+      
+      // If no tracks found, try a more specific search
+      if (!searchResult.hasTracks()) {
+        console.log(`[Play Command] No tracks found, trying alternative search...`);
+        searchResult = await client.player.search(`${query} official`, {
+          requestedBy: interaction.user,
+          searchEngine: 'youtube'
+        });
+      }
       
       if (!searchResult.hasTracks()) {
         return interaction.editReply({ 
@@ -84,10 +93,24 @@ module.exports = {
         bestTrack = tracks.find(t => t.source !== 'soundcloud');
       }
       
-      // If only SoundCloud tracks available, use the first one but warn
+      // If only SoundCloud tracks available, try to find one without restrictions
       if (!bestTrack) {
-        bestTrack = tracks[0];
-        console.log(`[Play Command] ⚠️ Only SoundCloud tracks available - may have playback issues`);
+        // Look for SoundCloud tracks that might be more reliable
+        const soundcloudTracks = tracks.filter(t => t.source === 'soundcloud');
+        
+        // Try to find a track without ad support or restrictions
+        bestTrack = soundcloudTracks.find(t => 
+          !t.raw?.monetization_model || 
+          t.raw?.monetization_model !== 'AD_SUPPORTED'
+        );
+        
+        // If no good SoundCloud track found, use the first one but warn
+        if (!bestTrack) {
+          bestTrack = tracks[0];
+          console.log(`[Play Command] ⚠️ Only restricted SoundCloud tracks available - may have playback issues`);
+        } else {
+          console.log(`[Play Command] ⚠️ Only SoundCloud tracks available - selected one without ads`);
+        }
       }
       
       track = bestTrack;
@@ -120,7 +143,7 @@ module.exports = {
       
       // Create embed
       const embed = new EmbedBuilder()
-        .setColor(isLocalFile ? '#00bfff' : '#00ff00')
+        .setColor(isLocalFile ? '#00bfff' : (track.source === 'soundcloud' ? '#ff8800' : '#00ff00'))
         .setTitle(isLocalFile ? '🎵 Local Track Added' : '🎵 Track Added')
         .setDescription(`**${track.title}** by ${track.author}`)
         .setThumbnail(track.thumbnail)
@@ -131,6 +154,15 @@ module.exports = {
         )
         .setFooter({ text: `Requested by ${interaction.user.tag}` })
         .setTimestamp();
+      
+      // Add warning for SoundCloud tracks
+      if (track.source === 'soundcloud') {
+        embed.addFields({
+          name: '⚠️ Note',
+          value: 'This is a SoundCloud track. If it doesn\'t play properly, try searching for a different version.',
+          inline: false
+        });
+      }
       
       // Start playing if not already playing
       if (!queue.isPlaying()) {
