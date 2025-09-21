@@ -6,16 +6,15 @@ module.exports = {
     .setDescription('Show the current music queue'),
   
   async execute(interaction, client) {
-    const player = client.manager.players.get(interaction.guild.id);
+    const queue = client.player.nodes.get(interaction.guild.id);
     
-    if (!player || !player.queue.length) {
+    if (!queue || !queue.tracks.size) {
       return interaction.editReply({ 
         content: '❌ There are no tracks in the queue!'
       });
     }
     
-    const queue = player.queue;
-    const currentTrack = player.queue.current;
+    const currentTrack = queue.currentTrack;
     
     // Create embed
     const embed = new EmbedBuilder()
@@ -33,7 +32,7 @@ module.exports = {
     }
     
     // Add upcoming tracks (limit to 10)
-    const upcomingTracks = queue.slice(0, 10);
+    const upcomingTracks = queue.tracks.toArray().slice(0, 10);
     if (upcomingTracks.length > 0) {
       const trackList = upcomingTracks.map((track, index) => 
         `**${index + 1}.** ${track.title} by ${track.author} (${track.duration})`
@@ -48,9 +47,9 @@ module.exports = {
     
     // Add queue info
     embed.addFields(
-      { name: 'Total Tracks', value: `${queue.length}`, inline: true },
-      { name: 'Queue Duration', value: this.formatDuration(queue.duration), inline: true },
-      { name: 'Loop Mode', value: player.queueRepeat ? '🔁 On' : '❌ Off', inline: true }
+      { name: 'Total Tracks', value: `${queue.tracks.size}`, inline: true },
+      { name: 'Volume', value: `${queue.node.volume}%`, inline: true },
+      { name: 'Loop Mode', value: queue.repeatMode === 1 ? '🔁 On' : '❌ Off', inline: true }
     );
     
     await interaction.editReply({ embeds: [embed] });

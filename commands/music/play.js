@@ -49,7 +49,11 @@ module.exports = {
       
       // Connect to voice channel
       if (!queue.connection) {
+        console.log(`[Play Command] Connecting to voice channel: ${interaction.member.voice.channel.name}`);
         await queue.connect(interaction.member.voice.channel);
+        console.log(`[Play Command] Connected to voice channel successfully`);
+      } else {
+        console.log(`[Play Command] Using existing voice connection`);
       }
       
       let track;
@@ -118,15 +122,32 @@ module.exports = {
       
       // Start playing if not already playing
       if (!queue.isPlaying()) {
+        console.log(`[Play Command] Starting playback of single track`);
         await queue.node.play();
+        console.log(`[Play Command] Playback started successfully`);
+      } else {
+        console.log(`[Play Command] Queue is already playing, track added to queue`);
       }
       
       await interaction.editReply({ embeds: [embed] });
       
     } catch (error) {
       console.error('Play command error:', error);
+      console.error('Error details:', error.stack);
+      
+      let errorMessage = '❌ An error occurred while trying to play the track!';
+      
+      // Provide more specific error messages
+      if (error.message && error.message.includes('Could not extract stream')) {
+        errorMessage = '❌ Could not extract audio stream from this source. Try a different track or URL.';
+      } else if (error.message && error.message.includes('ENOTFOUND')) {
+        errorMessage = '❌ Network error - could not connect to the audio source. Please try again.';
+      } else if (error.message && error.message.includes('voice')) {
+        errorMessage = '❌ Voice connection error. Please make sure I can join your voice channel.';
+      }
+      
       await interaction.editReply({ 
-        content: '❌ An error occurred while trying to play the track!' 
+        content: errorMessage 
       });
     }
   },

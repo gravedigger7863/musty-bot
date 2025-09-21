@@ -7,22 +7,19 @@ module.exports = {
   async execute(interaction, client) {
     // Interaction is already deferred by interactionCreate event
 
-    const player = client.manager.players.get(interaction.guild.id);
+    const queue = client.player.nodes.get(interaction.guild.id);
 
-    if (!player) {
+    if (!queue) {
       return interaction.editReply({ content: "❌ No active queue in this server." });
     }
 
-    if (!player.queue.current) {
+    if (!queue.currentTrack) {
       return interaction.editReply({ content: "❌ No track is currently playing." });
     }
 
-    if (player.paused) {
-      player.pause(false);
-      return interaction.editReply("▶️ Resumed playback!");
-    } else {
-      player.pause(true);
-      return interaction.editReply("⏸️ Paused playback!");
-    }
+    const isPaused = queue.node.isPaused();
+    queue.node.setPaused(!isPaused);
+    
+    return interaction.editReply(isPaused ? "▶️ Resumed playback!" : "⏸️ Paused playback!");
   },
 };

@@ -23,8 +23,27 @@ client.commands = new Collection();
 client.player = new Player(client, {
   ytdlOptions: {
     quality: 'highestaudio',
-    highWaterMark: 1 << 25
-  }
+    highWaterMark: 1 << 25,
+    filter: 'audioonly',
+    format: 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
+    timeout: 60000,
+    requestOptions: {
+      timeout: 60000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    }
+  },
+  skipFFmpeg: false,
+  useLegacyFFmpeg: false,
+  selfDeaf: false,
+  selfMute: false,
+  leaveOnEmpty: true,
+  leaveOnEnd: true,
+  leaveOnStop: true,
+  bufferingTimeout: 30000,
+  connectionTimeout: 30000,
+  volume: 50
 });
 
 // Load extractors
@@ -49,9 +68,27 @@ client.player.events.on('playerFinish', (queue, track) => {
 
 client.player.events.on('playerError', (queue, error) => {
   console.error(`❌ Player error:`, error);
+  console.error(`❌ Error details:`, error.stack);
+  
+  // Handle specific error types
+  if (error.message && error.message.includes('Could not extract stream')) {
+    console.error(`❌ Stream extraction failed - this may indicate missing or misconfigured extractors`);
+  }
+  
+  if (error.message && error.message.includes('ENOTFOUND') || error.message.includes('ECONNRESET')) {
+    console.error(`❌ Network error detected - this may cause immediate track finishing`);
+  }
+  
   const channel = client.channels.cache.get(queue.metadata.channel.id);
   if (channel) {
-    channel.send(`❌ Player error: ${error.message}`);
+    let errorMessage = `❌ Player error: ${error.message}`;
+    
+    // Provide more helpful error messages
+    if (error.message && error.message.includes('stream')) {
+      errorMessage = `❌ Track streaming failed. This track may not be available for streaming. Try a different track.`;
+    }
+    
+    channel.send(errorMessage).catch(console.error);
   }
 });
 
@@ -63,11 +100,40 @@ client.player.events.on('queueEnd', (queue) => {
 });
 
 client.player.events.on('emptyChannel', (queue) => {
+  console.log(`👋 Channel empty in ${queue.guild.name} - leaving voice channel`);
   queue.delete();
   const channel = client.channels.cache.get(queue.metadata.channel.id);
   if (channel) {
     channel.send(`👋 Left voice channel - no one is listening!`);
   }
+});
+
+// Add connection event handlers
+client.player.events.on('connection', (queue) => {
+  console.log(`🔗 Connected to voice channel in ${queue.guild.name}`);
+  
+  // Wait a moment for voice state to be available
+  setTimeout(() => {
+    const voiceState = queue.connection?.voice;
+    if (voiceState) {
+      console.log(`🔗 Voice connection established - Deafened: ${voiceState.deaf}, Muted: ${voiceState.mute}`);
+      
+      // Ensure bot is not deafened or muted
+      if (voiceState.deaf) {
+        console.log(`⚠️ WARNING: Bot is deafened - this will prevent audio playback!`);
+      }
+      if (voiceState.mute) {
+        console.log(`⚠️ WARNING: Bot is muted - this will prevent audio playback!`);
+      }
+    } else {
+      console.log(`⚠️ Voice state not available - this is normal during connection establishment`);
+    }
+  }, 1000);
+});
+
+// Add debug logging
+client.player.events.on('debug', (message) => {
+  console.log(`[Player Debug] ${message}`);
 });
 
 // --- Command Loader ---

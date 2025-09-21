@@ -7,17 +7,17 @@ module.exports = {
   async execute(interaction, client) {
     // Interaction is already deferred by interactionCreate event
 
-    const player = client.manager.players.get(interaction.guild.id);
+    const queue = client.player.nodes.get(interaction.guild.id);
 
-    if (!player) {
+    if (!queue) {
       return interaction.editReply({ content: "❌ No active queue in this server." });
     }
 
-    if (!player.queue.current) {
+    if (!queue.currentTrack) {
       return interaction.editReply({ content: "❌ No track is currently playing." });
     }
 
-    player.skip();
+    queue.node.skip();
     await interaction.editReply("⏭️ Skipped!");
   },
 };

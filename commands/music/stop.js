@@ -7,12 +7,12 @@ module.exports = {
   async execute(interaction, client) {
     // Interaction is already deferred by interactionCreate event
 
-    const player = client.manager.players.get(interaction.guild.id);
-    if (!player) {
+    const queue = client.player.nodes.get(interaction.guild.id);
+    if (!queue) {
       return interaction.editReply("⚠️ No music is currently playing.");
     }
 
-    player.destroy();
+    queue.delete();
     await interaction.editReply("🛑 Music stopped!");
   },
 };
