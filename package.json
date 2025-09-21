@@ -11,6 +11,7 @@
     "trigger": "node trigger-deployment.js",
     "monitor": "node --max-old-space-size=512 --expose-gc index.js",
     "profile": "node --max-old-space-size=512 --prof index.js",
+    "logs": "node view-logs.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
@@ -32,6 +33,7 @@
     "@discordjs/voice": "^0.19.0",
     "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "axios": "^1.12.2",
+    "chalk": "^4.1.2",
     "discord-player": "^7.1.0",
     "discord-player-spotify": "^1.1.7",
     "discord-player-ytdlp": "^1.0.4",

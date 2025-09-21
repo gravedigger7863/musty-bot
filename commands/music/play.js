@@ -69,7 +69,7 @@ module.exports = {
       
       let track;
       
-         // Optimized search strategy - avoid YouTube due to bot detection
+         // Optimized search strategy - prioritize reliable sources
          let searchResult = null;
          const searchEngines = ['spotify', 'soundcloud']; // Skip YouTube entirely due to bot detection
          
@@ -83,7 +83,33 @@ module.exports = {
              
              if (searchResult.hasTracks()) {
                console.log(`[Play Command] ✅ Found ${searchResult.tracks.length} tracks from ${engine}`);
-               break; // Use the first successful search
+               
+               // If we found Spotify tracks, use them immediately (most reliable)
+               if (engine === 'spotify') {
+                 break;
+               }
+               
+               // If we found SoundCloud tracks, try Spotify first before using them
+               if (engine === 'soundcloud') {
+                 try {
+                   console.log(`[Play Command] Found SoundCloud tracks, trying Spotify for better reliability...`);
+                   const spotifyResult = await client.player.search(query, {
+                     requestedBy: interaction.user,
+                     searchEngine: 'spotify'
+                   });
+                   
+                   if (spotifyResult.hasTracks()) {
+                     console.log(`[Play Command] ✅ Found ${spotifyResult.tracks.length} Spotify tracks - using these instead`);
+                     searchResult = spotifyResult;
+                     break;
+                   }
+                 } catch (spotifyError) {
+                   console.log(`[Play Command] Spotify fallback failed:`, spotifyError.message);
+                   // Continue with SoundCloud results
+                 }
+               }
+               
+               break; // Use the current search result
              }
            } catch (error) {
              console.log(`[Play Command] ${engine} search failed:`, error.message);
@@ -116,20 +142,33 @@ module.exports = {
       // Use smart track selection (prioritize working sources)
       const tracks = searchResult.tracks;
       
-      // Find the best track - prioritize non-YouTube sources due to blocking
+      // Find the best track - prioritize reliable sources
       let bestTrack = null;
 
       // First, try to find a Spotify track (most reliable)
       bestTrack = tracks.find(t => t.source === 'spotify');
 
-      // If no Spotify track, try SoundCloud
+      // If no Spotify track, try other sources (avoid SoundCloud due to streaming issues)
       if (!bestTrack) {
-        bestTrack = tracks.find(t => t.source === 'soundcloud');
+        bestTrack = tracks.find(t => t.source !== 'soundcloud' && t.source !== 'youtube');
       }
 
-      // If no Spotify or SoundCloud, try other sources (avoid YouTube if possible)
+      // If no reliable sources, try SoundCloud (with warning)
       if (!bestTrack) {
-        bestTrack = tracks.find(t => t.source !== 'youtube');
+        bestTrack = tracks.find(t => t.source === 'soundcloud');
+        if (bestTrack) {
+          console.log(`[Play Command] ⚠️ Only SoundCloud tracks available - may have streaming issues`);
+          
+          // Add a user warning for SoundCloud tracks
+          try {
+            await interaction.followUp({
+              content: '⚠️ **Warning:** This is a SoundCloud track. It may not stream properly due to restrictions. Try searching for the same song on Spotify for better results.',
+              ephemeral: true
+            });
+          } catch (followUpError) {
+            // Ignore follow-up errors
+          }
+        }
       }
 
       // If only YouTube tracks available, use the first one (with warning)
