@@ -74,31 +74,83 @@ client.player.events.on('playerStart', (queue, track) => {
   }
 });
 
-client.player.events.on('playerFinish', (queue, track) => {
+client.player.events.on('playerFinish', async (queue, track) => {
   console.log(`🏁 Track finished: ${track.title}`);
   
   // Check if track finished immediately (less than 5 seconds) - likely an issue
   const trackDuration = track.durationMS || 0;
   if (trackDuration > 0 && trackDuration < 5000) {
-    console.log(`⚠️ Track finished very quickly (${trackDuration}ms) - possible streaming issue`);
+    console.log(`⚠️ Track finished very quickly (${trackDuration}ms) - attempting to find alternative`);
     
-    // If it's a SoundCloud track that finished immediately, warn about it
-    if (track.source === 'soundcloud') {
-      console.log(`⚠️ SoundCloud track finished immediately - likely ad-supported or restricted content`);
+    // Try to find the same song on a different platform
+    try {
+      const searchQuery = `${track.title} ${track.author}`;
+      console.log(`🔍 Searching for alternative: ${searchQuery}`);
+      
+      // Search on YouTube specifically (most reliable)
+      const searchResult = await queue.player.search(searchQuery, {
+        requestedBy: track.requestedBy,
+        searchEngine: 'youtube'
+      });
+      
+      if (searchResult.hasTracks()) {
+        const alternativeTrack = searchResult.tracks[0];
+        console.log(`✅ Found alternative: ${alternativeTrack.title} by ${alternativeTrack.author} (${alternativeTrack.source})`);
+        
+        // Add the alternative track to the queue
+        queue.addTrack(alternativeTrack);
+        
+        // Notify the channel
+        const channel = queue.metadata?.channel;
+        if (channel) {
+          await channel.send(`🔄 **Auto-replacement:** The previous track failed, found alternative: **${alternativeTrack.title}** by ${alternativeTrack.author}`);
+        }
+      } else {
+        console.log(`❌ No alternative found for: ${track.title}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error searching for alternative:`, error.message);
     }
   }
 });
 
-client.player.events.on('playerError', (queue, error) => {
+client.player.events.on('playerError', async (queue, error) => {
   console.error(`❌ Player error in ${queue.guild.name}:`, error.message);
   
   // Handle specific error types
   if (error.message && error.message.includes('Could not extract stream')) {
-    console.error(`❌ Stream extraction failed - track may be restricted or unavailable`);
+    console.error(`❌ Stream extraction failed - attempting to find alternative`);
     
-    // Check if it's a SoundCloud track with known issues
-    if (queue.currentTrack && queue.currentTrack.source === 'soundcloud') {
-      console.error(`❌ SoundCloud track failed - likely ad-supported or restricted content`);
+    // Try to find alternative track if current one failed
+    if (queue.currentTrack) {
+      try {
+        const searchQuery = `${queue.currentTrack.title} ${queue.currentTrack.author}`;
+        console.log(`🔍 Searching for alternative due to error: ${searchQuery}`);
+        
+        // Search on YouTube specifically (most reliable)
+        const searchResult = await queue.player.search(searchQuery, {
+          requestedBy: queue.currentTrack.requestedBy,
+          searchEngine: 'youtube'
+        });
+        
+        if (searchResult.hasTracks()) {
+          const alternativeTrack = searchResult.tracks[0];
+          console.log(`✅ Found alternative: ${alternativeTrack.title} by ${alternativeTrack.author} (${alternativeTrack.source})`);
+          
+          // Skip the current track and add the alternative
+          queue.node.skip();
+          queue.addTrack(alternativeTrack);
+          
+          // Notify the channel
+          const channel = queue.metadata?.channel;
+          if (channel) {
+            await channel.send(`🔄 **Auto-replacement:** The previous track failed, found alternative: **${alternativeTrack.title}** by ${alternativeTrack.author}`);
+          }
+          return; // Don't send error message since we found alternative
+        }
+      } catch (searchError) {
+        console.error(`❌ Error searching for alternative:`, searchError.message);
+      }
     }
   }
   
