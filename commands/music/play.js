@@ -74,9 +74,36 @@ module.exports = {
         });
         if (searchResult.hasTracks()) {
           console.log(`[Play Command] ✅ YouTube search found ${searchResult.tracks.length} tracks`);
+        } else {
+          console.log(`[Play Command] ❌ YouTube search returned no tracks`);
         }
       } catch (error) {
         console.log(`[Play Command] YouTube search failed:`, error.message);
+      }
+      
+      // Strategy 1.5: Try YouTube with direct URL if search failed
+      if (!searchResult || !searchResult.hasTracks()) {
+        try {
+          console.log(`[Play Command] Trying YouTube with direct URL approach...`);
+          // Try searching for a known YouTube video to test if extractor works
+          const testQuery = `https://www.youtube.com/watch?v=dQw4w9WgXcQ`; // Rick Roll as test
+          searchResult = await client.player.search(testQuery, {
+            requestedBy: interaction.user
+          });
+          if (searchResult.hasTracks()) {
+            console.log(`[Play Command] ✅ YouTube extractor works, trying original query...`);
+            // Now try the original query
+            searchResult = await client.player.search(query, {
+              requestedBy: interaction.user,
+              searchEngine: 'youtube'
+            });
+            if (searchResult.hasTracks()) {
+              console.log(`[Play Command] ✅ YouTube search with direct approach found ${searchResult.tracks.length} tracks`);
+            }
+          }
+        } catch (error) {
+          console.log(`[Play Command] YouTube direct approach failed:`, error.message);
+        }
       }
       
       // Strategy 2: Auto search if YouTube failed
