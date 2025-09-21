@@ -99,32 +99,31 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
     // Get PO Token for YouTube
     const poToken = await poTokenProvider.getValidToken();
     
-    const ytdlpOptions = {
-      '--no-check-certificates': true,
-      '--prefer-insecure': true,
-      '--no-warnings': true,
-      '--no-call-home': true,
-      '--no-cache-dir': true,
-      '--socket-timeout': '10',
-      '--retries': '3',
-      '--fragment-retries': '3',
-      '--user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      '--referer': 'https://www.youtube.com/',
-      '--add-header': 'Accept-Language:en-US,en;q=0.9'
-    };
+    const ytdlpOptions = [
+      '--no-check-certificates',
+      '--prefer-insecure',
+      '--no-warnings',
+      '--no-call-home',
+      '--no-cache-dir',
+      '--socket-timeout', '10',
+      '--retries', '3',
+      '--fragment-retries', '3',
+      '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      '--referer', 'https://www.youtube.com/',
+      '--add-header', 'Accept-Language:en-US,en;q=0.9',
+      '--extractor-args', 'youtube:player-client=android_music'
+    ];
 
     // Add PO Token if available
     if (poToken) {
-      ytdlpOptions['--extractor-args'] = `youtube:po_token=mweb.gvs+${poToken}`;
+      // Replace the last two elements (--extractor-args and value) with PO token version
+      ytdlpOptions.splice(-2, 2, '--extractor-args', `youtube:po_token=mweb.gvs+${poToken}`);
       console.log('✅ YouTube extractor configured with PO Token');
     } else {
-      ytdlpOptions['--extractor-args'] = 'youtube:player-client=android_music';
       console.log('⚠️ YouTube extractor configured without PO Token (using Android Music client)');
     }
 
-    // Also add the extractor args as a separate option
-    ytdlpOptions['--extractor-args'] = 'youtube:player-client=android_music';
-    console.log('🔧 Added extractor args: youtube:player-client=android_music');
+    console.log('🔧 ytdlpOptions:', ytdlpOptions.join(' '));
 
     await client.player.extractors.register(YtDlpExtractor, {
       ytdlpPath: '/usr/local/bin/yt-dlp',
