@@ -72,7 +72,6 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
     await client.player.extractors.register(YtDlpExtractor, {
       ytdlpPath: '/usr/local/bin/yt-dlp',
       ytdlpOptions: {
-        '--cookies-from-browser': 'chrome', // Use Chrome cookies for authentication
         '--no-check-certificates': true,
         '--prefer-insecure': true,
         '--no-warnings': true,
@@ -80,7 +79,10 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
         '--no-cache-dir': true,
         '--socket-timeout': '10',
         '--retries': '3',
-        '--fragment-retries': '3'
+        '--fragment-retries': '3',
+        '--user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        '--referer': 'https://www.youtube.com/',
+        '--add-header': 'Accept-Language:en-US,en;q=0.9'
       }
     });
     console.log('✅ YouTube extractor loaded successfully with authentication');

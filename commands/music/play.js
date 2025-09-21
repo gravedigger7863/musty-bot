@@ -79,6 +79,11 @@ module.exports = {
         }
       } catch (error) {
         console.log(`[Play Command] YouTube search failed:`, error.message);
+        // If YouTube fails due to authentication, try with a different approach
+        if (error.message.includes('Sign in to confirm') || error.message.includes('bot')) {
+          console.log(`[Play Command] YouTube blocked - trying alternative search...`);
+          searchResult = null; // Reset to try other strategies
+        }
       }
       
       // Strategy 1.5: Try YouTube with direct URL if search failed
@@ -106,7 +111,23 @@ module.exports = {
         }
       }
       
-      // Strategy 2: Auto search if YouTube failed
+      // Strategy 2: Try other sources first (avoid SoundCloud if possible)
+      if (!searchResult || !searchResult.hasTracks()) {
+        try {
+          console.log(`[Play Command] Trying Spotify search...`);
+          searchResult = await client.player.search(query, {
+            requestedBy: interaction.user,
+            searchEngine: 'spotify'
+          });
+          if (searchResult.hasTracks()) {
+            console.log(`[Play Command] ✅ Spotify search found ${searchResult.tracks.length} tracks`);
+          }
+        } catch (error) {
+          console.log(`[Play Command] Spotify search failed:`, error.message);
+        }
+      }
+      
+      // Strategy 3: Auto search if other sources failed
       if (!searchResult || !searchResult.hasTracks()) {
         try {
           console.log(`[Play Command] Trying auto search...`);
