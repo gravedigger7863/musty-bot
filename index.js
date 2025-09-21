@@ -65,10 +65,10 @@ console.log('🔍 Loading extractors...');
 client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
   console.log('✅ Default extractors loaded');
   
-  // Manually add YouTube extractor since it's not in DefaultExtractors
+  // Manually add YouTube extractor using discord-player-ytdlp
   try {
     console.log('🔍 Loading YouTube extractor...');
-    const { YouTubeExtractor } = require('@discord-player/extractor');
+    const { YouTubeExtractor } = require('discord-player-ytdlp');
     await client.player.extractors.register(YouTubeExtractor, {});
     console.log('✅ YouTube extractor loaded successfully');
   } catch (error) {
