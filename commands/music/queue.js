@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const PlayifyFeatures = require('../../modules/playify-features');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -6,9 +7,10 @@ module.exports = {
     .setDescription('Show the current music queue'),
   
   async execute(interaction, client) {
+    const playify = new PlayifyFeatures();
     const queue = client.player.nodes.get(interaction.guild.id);
     
-    if (!queue || !queue.tracks.size) {
+    if (!queue || !queue.tracks.count) {
       return interaction.editReply({ 
         content: '❌ There are no tracks in the queue!'
       });
@@ -16,13 +18,10 @@ module.exports = {
     
     const currentTrack = queue.currentTrack;
     
-    // Create embed
-    const embed = new EmbedBuilder()
-      .setColor('#0099ff')
-      .setTitle('🎵 Music Queue')
-      .setTimestamp();
+    // Use Playify's enhanced queue embed
+    const embed = playify.createQueueEmbed(queue);
     
-    // Add current track
+    // Add current track if playing
     if (currentTrack) {
       embed.addFields({
         name: '🎶 Now Playing',
@@ -31,23 +30,9 @@ module.exports = {
       });
     }
     
-    // Add upcoming tracks (limit to 10)
-    const upcomingTracks = queue.tracks.toArray().slice(0, 10);
-    if (upcomingTracks.length > 0) {
-      const trackList = upcomingTracks.map((track, index) => 
-        `**${index + 1}.** ${track.title} by ${track.author} (${track.duration})`
-      ).join('\n');
-      
-      embed.addFields({
-        name: '📋 Upcoming Tracks',
-        value: trackList,
-        inline: false
-      });
-    }
-    
     // Add queue info
     embed.addFields(
-      { name: 'Total Tracks', value: `${queue.tracks.size}`, inline: true },
+      { name: 'Total Tracks', value: `${queue.tracks.count}`, inline: true },
       { name: 'Volume', value: `${queue.node.volume}%`, inline: true },
       { name: 'Loop Mode', value: queue.repeatMode === 1 ? '🔁 On' : '❌ Off', inline: true }
     );

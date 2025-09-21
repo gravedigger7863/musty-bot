@@ -1,6 +1,8 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const POTokenProvider = require('../../modules/po-token-provider');
 const PlayifyFeatures = require('../../modules/playify-features');
+const LavaPlayerFeatures = require('../../modules/lavaplayer-features');
+const DopamineFeatures = require('../../modules/dopamine-features');
 const LocalMusicManager = require('../../modules/local-music');
 
 module.exports = {
@@ -15,6 +17,9 @@ module.exports = {
   
   async execute(interaction, client) {
     const query = interaction.options.getString('query');
+    const playify = new PlayifyFeatures();
+    const lavaPlayer = new LavaPlayerFeatures();
+    const dopamine = new DopamineFeatures();
     
     // Check if user is in a voice channel
     if (!interaction.member.voice.channel) {
@@ -61,129 +66,67 @@ module.exports = {
       let track;
       let isLocalFile = false;
       
-      // Search for tracks online (local files disabled for now due to compatibility issues)
+      // Search for tracks using Playify's smart search strategy
       console.log(`[Play Command] Searching for: ${query}`);
       
-      // Try multiple search strategies
+      const searchEngine = playify.getOptimalSearchEngine(query);
+      console.log(`[Play Command] Using search engine: ${searchEngine}`);
+      
       let searchResult = null;
       
-      // Strategy 1: YouTube search with Safari client (no PO token required)
       try {
-        console.log(`[Play Command] Trying YouTube search with Safari client...`);
         searchResult = await client.player.search(query, {
           requestedBy: interaction.user,
-          searchEngine: 'youtube'
+          searchEngine: searchEngine
         });
+        
         if (searchResult.hasTracks()) {
-          console.log(`[Play Command] ✅ YouTube search found ${searchResult.tracks.length} tracks`);
+          console.log(`[Play Command] ✅ ${searchEngine} search found ${searchResult.tracks.length} tracks`);
         } else {
-          console.log(`[Play Command] ❌ YouTube search returned no tracks`);
+          console.log(`[Play Command] ❌ ${searchEngine} search returned no tracks`);
         }
       } catch (error) {
-        console.log(`[Play Command] YouTube search failed:`, error.message);
-        // If YouTube fails due to PO token issues, try other sources
-        if (error.message.includes('Sign in to confirm') || error.message.includes('bot') || error.message.includes('PO Token')) {
-          console.log(`[Play Command] YouTube blocked - trying alternative sources...`);
-          // Notify user that YouTube is blocked
+        console.log(`[Play Command] ${searchEngine} search failed:`, error.message);
+        
+        // If YouTube is blocked, try Spotify as fallback
+        if (error.message.includes('Sign in to confirm') || error.message.includes('bot')) {
+          console.log(`[Play Command] YouTube blocked - trying Spotify...`);
           try {
             await interaction.followUp({
-              content: '⚠️ YouTube is currently blocked, trying alternative sources...',
+              content: '⚠️ YouTube is blocked, trying Spotify...',
               ephemeral: true
             });
           } catch (followUpError) {
             console.log(`[Play Command] Could not send follow-up message:`, followUpError.message);
           }
-          searchResult = null; // Reset to try other strategies
-        }
-      }
-      
-      // Strategy 1.5: Try YouTube with direct URL if search failed
-      if (!searchResult || !searchResult.hasTracks()) {
-        try {
-          console.log(`[Play Command] Trying YouTube with direct URL approach...`);
-          // Try searching for a known YouTube video to test if extractor works
-          const testQuery = `https://www.youtube.com/watch?v=dQw4w9WgXcQ`; // Rick Roll as test
-          searchResult = await client.player.search(testQuery, {
-            requestedBy: interaction.user
-          });
-          if (searchResult.hasTracks()) {
-            console.log(`[Play Command] ✅ YouTube extractor works, trying original query...`);
-            // Now try the original query
+          
+          try {
             searchResult = await client.player.search(query, {
               requestedBy: interaction.user,
-              searchEngine: 'youtube'
+              searchEngine: 'spotify'
             });
             if (searchResult.hasTracks()) {
-              console.log(`[Play Command] ✅ YouTube search with direct approach found ${searchResult.tracks.length} tracks`);
+              console.log(`[Play Command] ✅ Spotify fallback found ${searchResult.tracks.length} tracks`);
             }
+          } catch (spotifyError) {
+            console.log(`[Play Command] Spotify fallback failed:`, spotifyError.message);
           }
-        } catch (error) {
-          console.log(`[Play Command] YouTube direct approach failed:`, error.message);
         }
-      }
-      
-      // Strategy 2: Try Spotify search (reliable alternative to YouTube)
-      if (!searchResult || !searchResult.hasTracks()) {
-        try {
-          console.log(`[Play Command] Trying Spotify search...`);
-          searchResult = await client.player.search(query, {
-            requestedBy: interaction.user,
-            searchEngine: 'spotify'
-          });
-          if (searchResult.hasTracks()) {
-            console.log(`[Play Command] ✅ Spotify search found ${searchResult.tracks.length} tracks`);
-          } else {
-            console.log(`[Play Command] ❌ Spotify search returned no tracks`);
+        
+        // Final fallback to auto search
+        if (!searchResult || !searchResult.hasTracks()) {
+          try {
+            console.log(`[Play Command] Trying auto search as final fallback...`);
+            searchResult = await client.player.search(query, {
+              requestedBy: interaction.user,
+              searchEngine: 'auto'
+            });
+            if (searchResult.hasTracks()) {
+              console.log(`[Play Command] ✅ Auto search found ${searchResult.tracks.length} tracks`);
+            }
+          } catch (autoError) {
+            console.log(`[Play Command] Auto search failed:`, autoError.message);
           }
-        } catch (error) {
-          console.log(`[Play Command] Spotify search failed:`, error.message);
-        }
-      }
-      
-      // Strategy 3: Auto search if other sources failed
-      if (!searchResult || !searchResult.hasTracks()) {
-        try {
-          console.log(`[Play Command] Trying auto search...`);
-          searchResult = await client.player.search(query, {
-            requestedBy: interaction.user,
-            searchEngine: 'auto'
-          });
-          if (searchResult.hasTracks()) {
-            console.log(`[Play Command] ✅ Auto search found ${searchResult.tracks.length} tracks`);
-          }
-        } catch (error) {
-          console.log(`[Play Command] Auto search failed:`, error.message);
-        }
-      }
-      
-      // Strategy 3: YouTube with "official" keyword
-      if (!searchResult || !searchResult.hasTracks()) {
-        try {
-          console.log(`[Play Command] Trying YouTube with 'official' keyword...`);
-          searchResult = await client.player.search(`${query} official`, {
-            requestedBy: interaction.user,
-            searchEngine: 'youtube'
-          });
-          if (searchResult.hasTracks()) {
-            console.log(`[Play Command] ✅ YouTube official search found ${searchResult.tracks.length} tracks`);
-          }
-        } catch (error) {
-          console.log(`[Play Command] YouTube official search failed:`, error.message);
-        }
-      }
-      
-      // Strategy 4: Try without search engine specification
-      if (!searchResult || !searchResult.hasTracks()) {
-        try {
-          console.log(`[Play Command] Trying default search...`);
-          searchResult = await client.player.search(query, {
-            requestedBy: interaction.user
-          });
-          if (searchResult.hasTracks()) {
-            console.log(`[Play Command] ✅ Default search found ${searchResult.tracks.length} tracks`);
-          }
-        } catch (error) {
-          console.log(`[Play Command] Default search failed:`, error.message);
         }
       }
       
@@ -193,11 +136,12 @@ module.exports = {
         });
       }
       
-      // Try to find a good track (prefer YouTube over SoundCloud for reliability)
-      let bestTrack = null;
+      // Use Playify's smart track selection
       const tracks = searchResult.tracks;
-      
       console.log(`[Play Command] Found ${tracks.length} tracks from ${searchResult.source || 'unknown source'}`);
+      
+      // Find the best track using Playify's strategy
+      let bestTrack = null;
       
       // First, try to find a YouTube track
       bestTrack = tracks.find(t => t.source === 'youtube');
@@ -216,7 +160,6 @@ module.exports = {
       // If only SoundCloud tracks available, try to find one without restrictions
       if (!bestTrack) {
         console.log(`[Play Command] ⚠️ Only SoundCloud tracks available - checking for restrictions`);
-        // Look for SoundCloud tracks that might be more reliable
         const soundcloudTracks = tracks.filter(t => t.source === 'soundcloud');
         
         // Try to find a track without ad support or restrictions
@@ -237,11 +180,25 @@ module.exports = {
       track = bestTrack;
       console.log(`[Play Command] Selected track: ${track.title} by ${track.author} (${track.source})`);
       
-      // Validate track before adding to queue
+      // LavaPlayer-inspired track validation
+      const validation = lavaPlayer.validateTrack(track);
+      if (!validation.isValid) {
+        console.log(`[Play Command] ⚠️ Track validation issues:`, validation.issues);
+        
+        // If track has critical issues, try to find a better one
+        if (validation.issues.includes('Invalid duration') || validation.issues.includes('Track too long')) {
+          const alternativeTrack = tracks.find(t => t !== track && lavaPlayer.validateTrack(t).isValid);
+          if (alternativeTrack) {
+            console.log(`[Play Command] ✅ Found alternative track: ${alternativeTrack.title}`);
+            track = alternativeTrack;
+          }
+        }
+      }
+      
+      // Additional SoundCloud-specific validation
       if (track.source === 'soundcloud') {
         console.log(`[Play Command] SoundCloud track detected - checking for restrictions`);
         
-        // Check if track has metadata that might indicate restrictions
         if (track.raw && track.raw.monetization_model === 'AD_SUPPORTED') {
           console.log(`[Play Command] ⚠️ Ad-supported track detected - may cause issues`);
         }
@@ -250,7 +207,6 @@ module.exports = {
           console.log(`[Play Command] ⚠️ All-rights-reserved track - may have restrictions`);
         }
         
-        // Check if track is streamable
         if (track.raw && track.raw.streamable === false) {
           console.log(`[Play Command] ❌ Track is not streamable - skipping`);
           return interaction.editReply({ 
@@ -262,24 +218,25 @@ module.exports = {
       // Add track to queue
       queue.addTrack(track);
       
-      // Create embed
-      const embed = new EmbedBuilder()
-        .setColor(isLocalFile ? '#00bfff' : (track.source === 'soundcloud' ? '#ff8800' : '#00ff00'))
-        .setTitle(isLocalFile ? '🎵 Local Track Added' : '🎵 Track Added')
-        .setDescription(`**${track.title}** by ${track.author}`)
-        .setThumbnail(track.thumbnail)
-        .addFields(
-          { name: 'Duration', value: track.duration, inline: true },
-          { name: 'Source', value: track.source, inline: true },
-          { name: 'Position in Queue', value: `${queue.tracks.size}`, inline: true }
-        )
-        .setFooter({ text: `Requested by ${interaction.user.tag}` })
-        .setTimestamp();
+      // Create enhanced embed using Playify features
+      const embed = playify.createNowPlayingEmbed(track, queue);
+      embed.setTitle('🎵 Track Added to Queue')
+        .setFooter({ text: `Requested by ${interaction.user.tag}` });
+      
+      // Add validation warnings if any
+      const trackValidation = lavaPlayer.validateTrack(track);
+      if (!trackValidation.isValid && trackValidation.issues.length > 0) {
+        embed.addFields({
+          name: '⚠️ Track Issues',
+          value: trackValidation.issues.join(', '),
+          inline: false
+        });
+      }
       
       // Add warning for SoundCloud tracks
       if (track.source === 'soundcloud') {
         embed.addFields({
-          name: '⚠️ Note',
+          name: '⚠️ SoundCloud Note',
           value: 'This is a SoundCloud track. If it doesn\'t play properly, try searching for a different version.',
           inline: false
         });
@@ -300,19 +257,11 @@ module.exports = {
       console.error('Play command error:', error);
       console.error('Error details:', error.stack);
       
-      let errorMessage = '❌ An error occurred while trying to play the track!';
-      
-      // Provide more specific error messages
-      if (error.message && error.message.includes('Could not extract stream')) {
-        errorMessage = '❌ Could not extract audio stream from this source. Try a different track or URL.';
-      } else if (error.message && error.message.includes('ENOTFOUND')) {
-        errorMessage = '❌ Network error - could not connect to the audio source. Please try again.';
-      } else if (error.message && error.message.includes('voice')) {
-        errorMessage = '❌ Voice connection error. Please make sure I can join your voice channel.';
-      }
+      // Use Playify's enhanced error handling
+      const errorMessage = playify.handlePlaybackError(error, queue);
       
       await interaction.editReply({ 
-        content: errorMessage 
+        content: `❌ ${errorMessage}` 
       });
     }
   },

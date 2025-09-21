@@ -5,6 +5,8 @@ const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
 const POTokenProvider = require('./modules/po-token-provider');
 const PlayifyFeatures = require('./modules/playify-features');
+const LavaPlayerFeatures = require('./modules/lavaplayer-features');
+const DopamineFeatures = require('./modules/dopamine-features');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
@@ -38,6 +40,12 @@ const poTokenProvider = new POTokenProvider();
 
 // Initialize Playify Features
 const playify = new PlayifyFeatures();
+
+// Initialize LavaPlayer Features
+const lavaPlayer = new LavaPlayerFeatures();
+
+// Initialize Dopamine Features
+const dopamine = new DopamineFeatures();
 
 // --- Discord Player Setup ---
 client.player = new Player(client, {
@@ -141,6 +149,20 @@ client.on('ready', () => {
 });
 
 client.player.events.on('playerStart', (queue, track) => {
+  console.log(`🎵 Started playing: ${track.title} by ${track.author}`);
+  
+  // LavaPlayer-inspired features
+  lavaPlayer.addToHistory(queue.guild.id, track);
+  lavaPlayer.updatePerformanceMetrics(queue.guild.id, track);
+  
+  // Start performance monitoring if not already started
+  if (!lavaPlayer.performanceMetrics.has(queue.guild.id)) {
+    lavaPlayer.startPerformanceMonitoring(queue.guild.id);
+  }
+  
+  // Dopamine-inspired library management
+  dopamine.addToLibrary(queue.guild.id, track);
+  
   const channel = client.channels.cache.get(queue.metadata.channel.id);
   if (channel) {
     channel.send(`🎵 Now playing: **${track.title}** by ${track.author}`);

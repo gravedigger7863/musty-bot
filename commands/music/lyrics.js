@@ -1,10 +1,10 @@
-const { SlashCommandBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 const DopamineFeatures = require('../../modules/dopamine-features');
 
 module.exports = {
   data: new SlashCommandBuilder()
-    .setName('nowplaying')
-    .setDescription('Show the currently playing track with clean progress bar (Dopamine-inspired)')
+    .setName('lyrics')
+    .setDescription('Get lyrics for the currently playing track (Dopamine-inspired)')
     .addStringOption(option =>
       option
         .setName('theme')
@@ -22,13 +22,14 @@ module.exports = {
     const theme = interaction.options.getString('theme') || 'dark';
     
     try {
-      if (!interaction.deferred && !interaction.replied) {
-        await interaction.deferReply();
-      }
+      await interaction.deferReply();
 
-      const queue = interaction.client.player.nodes.get(interaction.guild.id);
+      const queue = interaction.client.player.nodes.get(interaction.guildId);
+      
       if (!queue || !queue.currentTrack) {
-        return interaction.editReply({ content: '⚠️ No music is currently playing.' });
+        return interaction.editReply({
+          content: '❌ No music is currently playing!'
+        });
       }
 
       const track = queue.currentTrack;
@@ -38,15 +39,18 @@ module.exports = {
         dopamine.setTheme(theme);
       }
 
-      // Create Dopamine-inspired now playing embed
-      const embed = dopamine.createNowPlayingEmbed(track, queue, theme);
+      // Fetch lyrics
+      const lyrics = await dopamine.fetchLyrics(track);
+      
+      // Create lyrics embed
+      const embed = dopamine.createLyricsEmbed(track, lyrics, theme);
       
       return interaction.editReply({ embeds: [embed] });
 
     } catch (error) {
-      console.error('Now playing command error:', error);
+      console.error('Lyrics command error:', error);
       return interaction.editReply({
-        content: '❌ An error occurred while getting track information.'
+        content: '❌ An error occurred while fetching lyrics.'
       });
     }
   },
