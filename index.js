@@ -60,17 +60,31 @@ client.player = new Player(client, {
 
 // Load extractors with better configuration
 console.log('🔍 Loading extractors...');
-client.player.extractors.loadMulti(DefaultExtractors).then(() => {
-  // Verify extractors are loaded
+
+// Load default extractors first
+client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
+  console.log('✅ Default extractors loaded');
+  
+  // Manually add YouTube extractor since it's not in DefaultExtractors
+  try {
+    console.log('🔍 Loading YouTube extractor...');
+    const { YouTubeExtractor } = require('@discord-player/extractor');
+    await client.player.extractors.load(YouTubeExtractor, {});
+    console.log('✅ YouTube extractor loaded successfully');
+  } catch (error) {
+    console.error('❌ Failed to load YouTube extractor:', error.message);
+  }
+  
+  // Verify all extractors are loaded
   const loadedExtractors = Array.from(client.player.extractors.store.keys());
-  console.log('✅ Loaded extractors:', loadedExtractors);
+  console.log('✅ All loaded extractors:', loadedExtractors);
   
   // Check specifically for YouTube extractor
   const hasYouTube = loadedExtractors.some(key => key.toLowerCase().includes('youtube'));
   if (hasYouTube) {
-    console.log('✅ YouTube extractor loaded successfully');
+    console.log('✅ YouTube extractor confirmed loaded');
   } else {
-    console.log('❌ YouTube extractor not found - this will cause search issues');
+    console.log('❌ YouTube extractor still not found - this will cause search issues');
   }
 }).catch(error => {
   console.error('❌ Error loading extractors:', error);
