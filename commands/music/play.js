@@ -62,28 +62,68 @@ module.exports = {
       // Search for tracks online (local files disabled for now due to compatibility issues)
       console.log(`[Play Command] Searching for: ${query}`);
       
-      // Try YouTube first (most reliable)
-      let searchResult = await client.player.search(query, {
-        requestedBy: interaction.user,
-        searchEngine: 'youtube'
-      });
+      // Try multiple search strategies
+      let searchResult = null;
       
-      // If no YouTube tracks found, try auto search
-      if (!searchResult.hasTracks()) {
-        console.log(`[Play Command] No YouTube tracks found, trying auto search...`);
+      // Strategy 1: YouTube search
+      try {
+        console.log(`[Play Command] Trying YouTube search...`);
         searchResult = await client.player.search(query, {
-          requestedBy: interaction.user,
-          searchEngine: 'auto'
-        });
-      }
-      
-      // If still no tracks found, try with "official" keyword
-      if (!searchResult.hasTracks()) {
-        console.log(`[Play Command] No tracks found, trying with 'official' keyword...`);
-        searchResult = await client.player.search(`${query} official`, {
           requestedBy: interaction.user,
           searchEngine: 'youtube'
         });
+        if (searchResult.hasTracks()) {
+          console.log(`[Play Command] ✅ YouTube search found ${searchResult.tracks.length} tracks`);
+        }
+      } catch (error) {
+        console.log(`[Play Command] YouTube search failed:`, error.message);
+      }
+      
+      // Strategy 2: Auto search if YouTube failed
+      if (!searchResult || !searchResult.hasTracks()) {
+        try {
+          console.log(`[Play Command] Trying auto search...`);
+          searchResult = await client.player.search(query, {
+            requestedBy: interaction.user,
+            searchEngine: 'auto'
+          });
+          if (searchResult.hasTracks()) {
+            console.log(`[Play Command] ✅ Auto search found ${searchResult.tracks.length} tracks`);
+          }
+        } catch (error) {
+          console.log(`[Play Command] Auto search failed:`, error.message);
+        }
+      }
+      
+      // Strategy 3: YouTube with "official" keyword
+      if (!searchResult || !searchResult.hasTracks()) {
+        try {
+          console.log(`[Play Command] Trying YouTube with 'official' keyword...`);
+          searchResult = await client.player.search(`${query} official`, {
+            requestedBy: interaction.user,
+            searchEngine: 'youtube'
+          });
+          if (searchResult.hasTracks()) {
+            console.log(`[Play Command] ✅ YouTube official search found ${searchResult.tracks.length} tracks`);
+          }
+        } catch (error) {
+          console.log(`[Play Command] YouTube official search failed:`, error.message);
+        }
+      }
+      
+      // Strategy 4: Try without search engine specification
+      if (!searchResult || !searchResult.hasTracks()) {
+        try {
+          console.log(`[Play Command] Trying default search...`);
+          searchResult = await client.player.search(query, {
+            requestedBy: interaction.user
+          });
+          if (searchResult.hasTracks()) {
+            console.log(`[Play Command] ✅ Default search found ${searchResult.tracks.length} tracks`);
+          }
+        } catch (error) {
+          console.log(`[Play Command] Default search failed:`, error.message);
+        }
       }
       
       if (!searchResult.hasTracks()) {

@@ -58,8 +58,27 @@ client.player = new Player(client, {
   volume: 50
 });
 
-// Load extractors
-client.player.extractors.loadMulti(DefaultExtractors);
+// Load extractors with better configuration
+(async () => {
+  try {
+    console.log('🔍 Loading extractors...');
+    await client.player.extractors.loadMulti(DefaultExtractors);
+    
+    // Verify extractors are loaded
+    const loadedExtractors = Array.from(client.player.extractors.store.keys());
+    console.log('✅ Loaded extractors:', loadedExtractors);
+    
+    // Check specifically for YouTube extractor
+    const hasYouTube = loadedExtractors.some(key => key.toLowerCase().includes('youtube'));
+    if (hasYouTube) {
+      console.log('✅ YouTube extractor loaded successfully');
+    } else {
+      console.log('❌ YouTube extractor not found - this will cause search issues');
+    }
+  } catch (error) {
+    console.error('❌ Error loading extractors:', error);
+  }
+})();
 
 // --- Event Handlers ---
 client.on('ready', () => {
