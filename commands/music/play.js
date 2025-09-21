@@ -61,14 +61,25 @@ module.exports = {
       
       // Search for tracks online (local files disabled for now due to compatibility issues)
       console.log(`[Play Command] Searching for: ${query}`);
+      
+      // Try YouTube first (most reliable)
       let searchResult = await client.player.search(query, {
         requestedBy: interaction.user,
-        searchEngine: 'auto'
+        searchEngine: 'youtube'
       });
       
-      // If no tracks found, try a more specific search
+      // If no YouTube tracks found, try auto search
       if (!searchResult.hasTracks()) {
-        console.log(`[Play Command] No tracks found, trying alternative search...`);
+        console.log(`[Play Command] No YouTube tracks found, trying auto search...`);
+        searchResult = await client.player.search(query, {
+          requestedBy: interaction.user,
+          searchEngine: 'auto'
+        });
+      }
+      
+      // If still no tracks found, try with "official" keyword
+      if (!searchResult.hasTracks()) {
+        console.log(`[Play Command] No tracks found, trying with 'official' keyword...`);
         searchResult = await client.player.search(`${query} official`, {
           requestedBy: interaction.user,
           searchEngine: 'youtube'
@@ -85,16 +96,25 @@ module.exports = {
       let bestTrack = null;
       const tracks = searchResult.tracks;
       
+      console.log(`[Play Command] Found ${tracks.length} tracks from ${searchResult.source || 'unknown source'}`);
+      
       // First, try to find a YouTube track
       bestTrack = tracks.find(t => t.source === 'youtube');
+      if (bestTrack) {
+        console.log(`[Play Command] ✅ Found YouTube track: ${bestTrack.title}`);
+      }
       
       // If no YouTube track, try other sources (avoid SoundCloud if possible)
       if (!bestTrack) {
         bestTrack = tracks.find(t => t.source !== 'soundcloud');
+        if (bestTrack) {
+          console.log(`[Play Command] ✅ Found ${bestTrack.source} track: ${bestTrack.title}`);
+        }
       }
       
       // If only SoundCloud tracks available, try to find one without restrictions
       if (!bestTrack) {
+        console.log(`[Play Command] ⚠️ Only SoundCloud tracks available - checking for restrictions`);
         // Look for SoundCloud tracks that might be more reliable
         const soundcloudTracks = tracks.filter(t => t.source === 'soundcloud');
         

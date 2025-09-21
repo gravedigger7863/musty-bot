@@ -79,7 +79,12 @@ client.player.events.on('playerFinish', async (queue, track) => {
   
   // Check if track finished immediately (less than 5 seconds) - likely an issue
   const trackDuration = track.durationMS || 0;
-  if (trackDuration > 0 && trackDuration < 5000) {
+  const isImmediateFinish = trackDuration > 0 && trackDuration < 5000;
+  
+  // Also check if it's a SoundCloud track that finished quickly (common issue)
+  const isSoundCloudIssue = track.source === 'soundcloud' && (isImmediateFinish || trackDuration === 0);
+  
+  if (isImmediateFinish || isSoundCloudIssue) {
     console.log(`⚠️ Track finished very quickly (${trackDuration}ms) - attempting to find alternative`);
     
     // Try to find the same song on a different platform
