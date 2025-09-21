@@ -81,8 +81,11 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
   const loadedExtractors = Array.from(client.player.extractors.store.keys());
   console.log('✅ All loaded extractors:', loadedExtractors);
   
-  // Check specifically for YouTube extractor
-  const hasYouTube = loadedExtractors.some(key => key.toLowerCase().includes('youtube'));
+  // Check specifically for YouTube extractor (ytdlp-extractor)
+  const hasYouTube = loadedExtractors.some(key => 
+    key.toLowerCase().includes('youtube') || 
+    key.toLowerCase().includes('ytdlp')
+  );
   if (hasYouTube) {
     console.log('✅ YouTube extractor confirmed loaded');
   } else {
