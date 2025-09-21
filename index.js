@@ -70,9 +70,20 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
     console.log('🔍 Loading YouTube extractor...');
     const { YtDlpExtractor } = require('discord-player-ytdlp');
     await client.player.extractors.register(YtDlpExtractor, {
-      ytdlpPath: '/usr/local/bin/yt-dlp'
+      ytdlpPath: '/usr/local/bin/yt-dlp',
+      ytdlpOptions: {
+        '--cookies-from-browser': 'chrome', // Use Chrome cookies for authentication
+        '--no-check-certificates': true,
+        '--prefer-insecure': true,
+        '--no-warnings': true,
+        '--no-call-home': true,
+        '--no-cache-dir': true,
+        '--socket-timeout': '10',
+        '--retries': '3',
+        '--fragment-retries': '3'
+      }
     });
-    console.log('✅ YouTube extractor loaded successfully');
+    console.log('✅ YouTube extractor loaded successfully with authentication');
   } catch (error) {
     console.error('❌ Failed to load YouTube extractor:', error.message);
   }
