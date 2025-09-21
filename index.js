@@ -111,7 +111,7 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
       '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       '--referer', 'https://www.youtube.com/',
       '--add-header', 'Accept-Language:en-US,en;q=0.9',
-      '--extractor-args', 'youtube:player-client=android_music'
+      '--extractor-args', 'youtube:player-client=tv'
     ];
 
     // Add PO Token if available
@@ -127,7 +127,7 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
 
     const extractorArgs = {
       youtube: {
-        player_client: 'android_music'
+        player_client: 'tv'
       }
     };
     console.log('🔧 extractorArgs:', JSON.stringify(extractorArgs));
