@@ -79,22 +79,10 @@ module.exports = {
         }
       } catch (error) {
         console.log(`[Play Command] YouTube search failed:`, error.message);
-        // If YouTube fails due to PO token issues, try with TV client
+        // If YouTube fails due to PO token issues, try other sources
         if (error.message.includes('Sign in to confirm') || error.message.includes('bot') || error.message.includes('PO Token')) {
-          console.log(`[Play Command] YouTube blocked - trying TV client...`);
-          try {
-            // Try with TV client which doesn't require PO tokens
-            searchResult = await client.player.search(query, {
-              requestedBy: interaction.user,
-              searchEngine: 'youtube'
-            });
-            if (searchResult.hasTracks()) {
-              console.log(`[Play Command] ✅ YouTube TV client found ${searchResult.tracks.length} tracks`);
-            }
-          } catch (tvError) {
-            console.log(`[Play Command] YouTube TV client also failed:`, tvError.message);
-            searchResult = null; // Reset to try other strategies
-          }
+          console.log(`[Play Command] YouTube blocked - trying alternative sources...`);
+          searchResult = null; // Reset to try other strategies
         }
       }
       
