@@ -69,7 +69,7 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
   try {
     console.log('🔍 Loading YouTube extractor...');
     const { YouTubeExtractor } = require('@discord-player/extractor');
-    await client.player.extractors.load(YouTubeExtractor, {});
+    await client.player.extractors.register(YouTubeExtractor, {});
     console.log('✅ YouTube extractor loaded successfully');
   } catch (error) {
     console.error('❌ Failed to load YouTube extractor:', error.message);
