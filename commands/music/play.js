@@ -67,9 +67,9 @@ module.exports = {
       
       let track;
       
-         // Optimized search strategy - try sources sequentially to avoid duplicates
+         // Optimized search strategy - avoid YouTube due to bot detection
          let searchResult = null;
-         const searchEngines = ['spotify', 'soundcloud', 'youtube']; // Prioritize working sources
+         const searchEngines = ['spotify', 'soundcloud']; // Skip YouTube entirely due to bot detection
          
          for (const engine of searchEngines) {
            try {
@@ -85,6 +85,23 @@ module.exports = {
              }
            } catch (error) {
              console.log(`[Play Command] ${engine} search failed:`, error.message);
+           }
+         }
+         
+         // If no tracks found from preferred sources, try YouTube as last resort
+         if (!searchResult || !searchResult.hasTracks()) {
+           try {
+             console.log(`[Play Command] Trying YouTube as last resort...`);
+             searchResult = await client.player.search(query, {
+               requestedBy: interaction.user,
+               searchEngine: 'youtube'
+             });
+             
+             if (searchResult.hasTracks()) {
+               console.log(`[Play Command] ⚠️ Found ${searchResult.tracks.length} YouTube tracks (may have playback issues)`);
+             }
+           } catch (error) {
+             console.log(`[Play Command] YouTube search failed:`, error.message);
            }
          }
       
@@ -117,6 +134,16 @@ module.exports = {
       if (!bestTrack) {
         bestTrack = tracks[0];
         console.log(`[Play Command] ⚠️ Only YouTube tracks available - may have playback issues`);
+        
+        // Add a user warning for YouTube tracks
+        try {
+          await interaction.followUp({
+            content: '⚠️ **Warning:** This is a YouTube track. Due to bot detection, it may not play properly. Try searching for the same song on Spotify or SoundCloud for better results.',
+            ephemeral: true
+          });
+        } catch (followUpError) {
+          // Ignore follow-up errors
+        }
       }
       
       track = bestTrack;

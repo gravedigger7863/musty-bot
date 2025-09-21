@@ -118,56 +118,9 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
   // Initialize PO Token Provider
   await poTokenProvider.initialize();
 
-  // Manually add YouTube extractor using discord-player-ytdlp with PO Token support
-  try {
-    console.log('🔍 Loading YouTube extractor with PO Token support...');
-    const { YtDlpExtractor } = require('discord-player-ytdlp');
-    
-    // Get PO Token for YouTube
-    const poToken = await poTokenProvider.getValidToken();
-    
-    const ytdlpOptions = [
-      '--no-check-certificates',
-      '--prefer-insecure',
-      '--no-warnings',
-      '--no-call-home',
-      '--no-cache-dir',
-      '--socket-timeout', '10',
-      '--retries', '3',
-      '--fragment-retries', '3',
-      '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      '--referer', 'https://www.youtube.com/',
-      '--add-header', 'Accept-Language:en-US,en;q=0.9',
-      '--extractor-args', 'youtube:player-client=tv'
-    ];
-
-    // Add PO Token if available
-    if (poToken) {
-      // Replace the last two elements (--extractor-args and value) with PO token version
-      ytdlpOptions.splice(-2, 2, '--extractor-args', `youtube:po_token=mweb.gvs+${poToken}`);
-      console.log('✅ YouTube extractor configured with PO Token');
-    } else {
-      console.log('⚠️ YouTube extractor configured without PO Token (using Android Music client)');
-    }
-
-    console.log('🔧 ytdlpOptions:', ytdlpOptions.join(' '));
-
-    const extractorArgs = {
-      youtube: {
-        player_client: 'tv'
-      }
-    };
-    console.log('🔧 extractorArgs:', JSON.stringify(extractorArgs));
-
-    await client.player.extractors.register(YtDlpExtractor, {
-      ytdlpPath: '/usr/local/bin/yt-dlp',
-      ytdlpOptions,
-      extractorArgs
-    });
-    console.log('✅ YouTube extractor loaded successfully');
-  } catch (error) {
-    console.error('❌ Failed to load YouTube extractor:', error.message);
-  }
+  // Skip YouTube extractor due to bot detection issues
+  console.log('⚠️ Skipping YouTube extractor due to bot detection issues');
+  console.log('✅ Bot will use Spotify and SoundCloud for reliable music playback');
   
   // Verify all extractors are loaded
   const loadedExtractors = Array.from(client.player.extractors.store.keys());
