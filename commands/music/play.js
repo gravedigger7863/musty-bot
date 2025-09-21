@@ -51,7 +51,7 @@ module.exports = {
       if (!queue.connection) {
         console.log(`[Play Command] Connecting to voice channel: ${interaction.member.voice.channel.name}`);
         await queue.connect(interaction.member.voice.channel);
-        console.log(`[Play Command] Connected to voice channel successfully`);
+        console.log(`[Play Command] ✅ Connected to voice channel successfully`);
       } else {
         console.log(`[Play Command] Using existing voice connection`);
       }
@@ -59,48 +59,60 @@ module.exports = {
       let track;
       let isLocalFile = false;
       
-      // First, try to find local files
-      const localMusic = new LocalMusicManager();
-      const localResults = await localMusic.searchTracks(query);
+      // Search for tracks online (local files disabled for now due to compatibility issues)
+      console.log(`[Play Command] Searching for: ${query}`);
+      const searchResult = await client.player.search(query, {
+        requestedBy: interaction.user,
+        searchEngine: 'auto'
+      });
       
-      if (localResults.length > 0) {
-        // Use local file - create a track object that Discord Player can handle
-        const localTrack = localResults[0];
-        track = {
-          title: localTrack.title,
-          author: localTrack.author,
-          duration: localTrack.duration,
-          source: 'local',
-          url: `file://${localTrack.url}`,
-          thumbnail: localTrack.thumbnail,
-          requestedBy: interaction.user,
-          // Add required properties for Discord Player
-          id: `local_${Date.now()}`,
-          stream: null,
-          live: false,
-          raw: {
-            title: localTrack.title,
-            author: localTrack.author,
-            duration: localTrack.duration,
-            url: `file://${localTrack.url}`
-          }
-        };
-        isLocalFile = true;
-        console.log(`🎵 Playing local file: ${localTrack.title}`);
-      } else {
-        // Fall back to online search
-        const searchResult = await client.player.search(query, {
-          requestedBy: interaction.user,
-          searchEngine: 'auto'
+      if (!searchResult.hasTracks()) {
+        return interaction.editReply({ 
+          content: '❌ No tracks found for your query!' 
         });
+      }
+      
+      // Try to find a good track (prefer YouTube over SoundCloud for reliability)
+      let bestTrack = null;
+      const tracks = searchResult.tracks;
+      
+      // First, try to find a YouTube track
+      bestTrack = tracks.find(t => t.source === 'youtube');
+      
+      // If no YouTube track, try other sources (avoid SoundCloud if possible)
+      if (!bestTrack) {
+        bestTrack = tracks.find(t => t.source !== 'soundcloud');
+      }
+      
+      // If only SoundCloud tracks available, use the first one but warn
+      if (!bestTrack) {
+        bestTrack = tracks[0];
+        console.log(`[Play Command] ⚠️ Only SoundCloud tracks available - may have playback issues`);
+      }
+      
+      track = bestTrack;
+      console.log(`[Play Command] Selected track: ${track.title} by ${track.author} (${track.source})`);
+      
+      // Validate track before adding to queue
+      if (track.source === 'soundcloud') {
+        console.log(`[Play Command] SoundCloud track detected - checking for restrictions`);
         
-        if (!searchResult.hasTracks()) {
-          return interaction.editReply({ 
-            content: '❌ No tracks found for your query!' 
-          });
+        // Check if track has metadata that might indicate restrictions
+        if (track.raw && track.raw.monetization_model === 'AD_SUPPORTED') {
+          console.log(`[Play Command] ⚠️ Ad-supported track detected - may cause issues`);
         }
         
-        track = searchResult.tracks[0];
+        if (track.raw && track.raw.license === 'all-rights-reserved') {
+          console.log(`[Play Command] ⚠️ All-rights-reserved track - may have restrictions`);
+        }
+        
+        // Check if track is streamable
+        if (track.raw && track.raw.streamable === false) {
+          console.log(`[Play Command] ❌ Track is not streamable - skipping`);
+          return interaction.editReply({ 
+            content: '❌ This SoundCloud track is not available for streaming. Try a different track.' 
+          });
+        }
       }
       
       // Add track to queue

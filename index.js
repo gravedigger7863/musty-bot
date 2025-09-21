@@ -76,28 +76,49 @@ client.player.events.on('playerStart', (queue, track) => {
 
 client.player.events.on('playerFinish', (queue, track) => {
   console.log(`🏁 Track finished: ${track.title}`);
+  
+  // Check if track finished immediately (less than 5 seconds) - likely an issue
+  const trackDuration = track.durationMS || 0;
+  if (trackDuration > 0 && trackDuration < 5000) {
+    console.log(`⚠️ Track finished very quickly (${trackDuration}ms) - possible streaming issue`);
+    
+    // If it's a SoundCloud track that finished immediately, warn about it
+    if (track.source === 'soundcloud') {
+      console.log(`⚠️ SoundCloud track finished immediately - likely ad-supported or restricted content`);
+    }
+  }
 });
 
 client.player.events.on('playerError', (queue, error) => {
-  console.error(`❌ Player error:`, error);
-  console.error(`❌ Error details:`, error.stack);
+  console.error(`❌ Player error in ${queue.guild.name}:`, error.message);
   
   // Handle specific error types
   if (error.message && error.message.includes('Could not extract stream')) {
-    console.error(`❌ Stream extraction failed - this may indicate missing or misconfigured extractors`);
+    console.error(`❌ Stream extraction failed - track may be restricted or unavailable`);
+    
+    // Check if it's a SoundCloud track with known issues
+    if (queue.currentTrack && queue.currentTrack.source === 'soundcloud') {
+      console.error(`❌ SoundCloud track failed - likely ad-supported or restricted content`);
+    }
   }
   
-  if (error.message && error.message.includes('ENOTFOUND') || error.message.includes('ECONNRESET')) {
-    console.error(`❌ Network error detected - this may cause immediate track finishing`);
+  if (error.message && (error.message.includes('ENOTFOUND') || error.message.includes('ECONNRESET'))) {
+    console.error(`❌ Network error detected - connection issues`);
   }
   
   const channel = client.channels.cache.get(queue.metadata.channel.id);
   if (channel) {
-    let errorMessage = `❌ Player error: ${error.message}`;
+    let errorMessage = `❌ Track playback failed. Try a different track.`;
     
     // Provide more helpful error messages
     if (error.message && error.message.includes('stream')) {
-      errorMessage = `❌ Track streaming failed. This track may not be available for streaming. Try a different track.`;
+      if (queue.currentTrack && queue.currentTrack.source === 'soundcloud') {
+        errorMessage = `❌ This SoundCloud track is not available for streaming (may have ads or restrictions). Try a different track.`;
+      } else {
+        errorMessage = `❌ This track is not available for streaming. Try a different track.`;
+      }
+    } else if (error.message && error.message.includes('network')) {
+      errorMessage = `❌ Network error. Please try again.`;
     }
     
     channel.send(errorMessage).catch(console.error);
@@ -143,9 +164,18 @@ client.player.events.on('connection', (queue) => {
   }, 1000);
 });
 
-// Add debug logging
+// Add meaningful debug logging (only for important events)
 client.player.events.on('debug', (message) => {
-  console.log(`[Player Debug] ${message}`);
+  // Only log important debug messages, not object spam
+  if (typeof message === 'string' && (
+    message.includes('error') || 
+    message.includes('warning') || 
+    message.includes('connection') ||
+    message.includes('stream') ||
+    message.includes('extractor')
+  )) {
+    console.log(`[Player Debug] ${message}`);
+  }
 });
 
 // --- Command Loader ---
