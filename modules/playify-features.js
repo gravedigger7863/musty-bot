@@ -79,12 +79,31 @@ class PlayifyFeatures {
       
       // Search for similar tracks using the artist name
       const searchQuery = `${track.author} similar songs`;
-      const searchResult = await client.player.search(searchQuery, {
-        requestedBy: track.requestedBy,
-        searchEngine: 'auto'
-      });
+      
+      // Try Spotify first (most reliable)
+      let searchResult = null;
+      try {
+        searchResult = await client.player.search(searchQuery, {
+          requestedBy: track.requestedBy,
+          searchEngine: 'spotify'
+        });
+      } catch (spotifyError) {
+        console.log(`❌ Spotify search failed: ${spotifyError.message}`);
+      }
+      
+      // If Spotify failed, try SoundCloud
+      if (!searchResult || !searchResult.hasTracks()) {
+        try {
+          searchResult = await client.player.search(searchQuery, {
+            requestedBy: track.requestedBy,
+            searchEngine: 'soundcloud'
+          });
+        } catch (soundcloudError) {
+          console.log(`❌ SoundCloud search failed: ${soundcloudError.message}`);
+        }
+      }
 
-      if (searchResult.hasTracks()) {
+      if (searchResult && searchResult.hasTracks()) {
         // Return up to 3 similar tracks
         return searchResult.tracks.slice(0, 3);
       }

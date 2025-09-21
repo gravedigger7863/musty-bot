@@ -185,10 +185,10 @@ client.player.events.on('playerFinish', async (queue, track) => {
       const searchQuery = `${track.title} ${track.author}`;
       console.log(`🔍 Searching for alternative: ${searchQuery}`);
 
-      // Search on YouTube specifically (most reliable)
+      // Search on Spotify first (most reliable)
       const searchResult = await queue.player.search(searchQuery, {
         requestedBy: track.requestedBy,
-        searchEngine: 'youtube'
+        searchEngine: 'spotify'
       });
 
       if (searchResult.hasTracks()) {
@@ -237,6 +237,14 @@ client.player.events.on('playerFinish', async (queue, track) => {
       console.error(`❌ Error in autoplay:`, error.message);
     }
   }
+
+  // Memory cleanup
+  if (global.gc && Math.random() < 0.3) { // 30% chance to run GC
+    global.gc();
+  }
+  
+  // Track memory usage
+  performanceMonitor.trackMemory();
 });
 
 client.player.events.on('playerError', async (queue, error) => {
@@ -482,16 +490,6 @@ client.on('interactionCreate', async (interaction) => {
   }
 });
 
-// Memory cleanup on player events
-client.player.events.on('playerFinish', () => {
-  // Clean up finished tracks from memory
-  if (global.gc && Math.random() < 0.3) { // 30% chance to run GC (increased from 10%)
-    global.gc();
-  }
-  
-  // Track memory usage
-  performanceMonitor.trackMemory();
-});
 
 // More aggressive memory cleanup
 setInterval(() => {
