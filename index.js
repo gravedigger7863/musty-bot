@@ -3,6 +3,7 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
+const POTokenProvider = require('./modules/po-token-provider');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
@@ -30,6 +31,9 @@ const client = new Client({
 });
 
 client.commands = new Collection();
+
+// Initialize PO Token Provider
+const poTokenProvider = new POTokenProvider();
 
 // --- Discord Player Setup ---
 client.player = new Player(client, {
@@ -65,28 +69,45 @@ console.log('🔍 Loading extractors...');
 client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
   console.log('✅ Default extractors loaded');
   
-  // Manually add YouTube extractor using discord-player-ytdlp
+  // Initialize PO Token Provider
+  await poTokenProvider.initialize();
+
+  // Manually add YouTube extractor using discord-player-ytdlp with PO Token support
   try {
-    console.log('🔍 Loading YouTube extractor...');
+    console.log('🔍 Loading YouTube extractor with PO Token support...');
     const { YtDlpExtractor } = require('discord-player-ytdlp');
+    
+    // Get PO Token for YouTube
+    const poToken = await poTokenProvider.getValidToken();
+    
+    const ytdlpOptions = {
+      '--no-check-certificates': true,
+      '--prefer-insecure': true,
+      '--no-warnings': true,
+      '--no-call-home': true,
+      '--no-cache-dir': true,
+      '--socket-timeout': '10',
+      '--retries': '3',
+      '--fragment-retries': '3',
+      '--user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      '--referer': 'https://www.youtube.com/',
+      '--add-header': 'Accept-Language:en-US,en;q=0.9'
+    };
+
+    // Add PO Token if available
+    if (poToken) {
+      ytdlpOptions['--extractor-args'] = `youtube:po_token=mweb.gvs+${poToken}`;
+      console.log('✅ YouTube extractor configured with PO Token');
+    } else {
+      ytdlpOptions['--extractor-args'] = 'youtube:player-client=tv';
+      console.log('⚠️ YouTube extractor configured without PO Token (using TV client)');
+    }
+
     await client.player.extractors.register(YtDlpExtractor, {
       ytdlpPath: '/usr/local/bin/yt-dlp',
-      ytdlpOptions: {
-        '--no-check-certificates': true,
-        '--prefer-insecure': true,
-        '--no-warnings': true,
-        '--no-call-home': true,
-        '--no-cache-dir': true,
-        '--socket-timeout': '10',
-        '--retries': '3',
-        '--fragment-retries': '3',
-        '--user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15',
-        '--referer': 'https://www.youtube.com/',
-        '--add-header': 'Accept-Language:en-US,en;q=0.9',
-        '--extractor-args': 'youtube:player-client=tv'
-      }
+      ytdlpOptions
     });
-    console.log('✅ YouTube extractor loaded successfully with authentication');
+    console.log('✅ YouTube extractor loaded successfully');
   } catch (error) {
     console.error('❌ Failed to load YouTube extractor:', error.message);
   }

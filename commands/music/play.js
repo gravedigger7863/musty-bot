@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const POTokenProvider = require('../../modules/po-token-provider');
 const LocalMusicManager = require('../../modules/local-music');
 
 module.exports = {
