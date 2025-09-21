@@ -15,9 +15,16 @@ module.exports = {
   
   async execute(interaction, client) {
     const query = interaction.options.getString('query');
-    const playify = new PlayifyFeatures();
-    const lavaPlayer = new LavaPlayerFeatures();
-    const dopamine = new DopamineFeatures();
+    
+    // Initialize features only once (reuse from client if available)
+    const playify = client.playify || new PlayifyFeatures();
+    const lavaPlayer = client.lavaPlayer || new LavaPlayerFeatures();
+    const dopamine = client.dopamine || new DopamineFeatures();
+    
+    // Store features in client for reuse
+    if (!client.playify) client.playify = playify;
+    if (!client.lavaPlayer) client.lavaPlayer = lavaPlayer;
+    if (!client.dopamine) client.dopamine = dopamine;
     
     // Check if user is in a voice channel
     if (!interaction.member.voice.channel) {
@@ -60,25 +67,36 @@ module.exports = {
       
       let track;
       
-         // Search for tracks using multiple sources (avoid YouTube due to blocking)
+         // Optimized search strategy with parallel attempts
          let searchResult = null;
          const searchEngines = ['spotify', 'soundcloud', 'youtube']; // Prioritize working sources
-
-         for (const engine of searchEngines) {
+         
+         // Try parallel searches for better performance
+         const searchPromises = searchEngines.map(async (engine) => {
            try {
              console.log(`[Play Command] Trying ${engine} search...`);
-             searchResult = await client.player.search(query, {
+             const result = await client.player.search(query, {
                requestedBy: interaction.user,
                searchEngine: engine
              });
-
-             if (searchResult.hasTracks()) {
-               console.log(`[Play Command] ✅ Found ${searchResult.tracks.length} tracks from ${engine}`);
-               break; // Use the first successful search
+             
+             if (result.hasTracks()) {
+               console.log(`[Play Command] ✅ Found ${result.tracks.length} tracks from ${engine}`);
+               return { engine, result };
              }
+             return null;
            } catch (error) {
              console.log(`[Play Command] ${engine} search failed:`, error.message);
+             return null;
            }
+         });
+         
+         // Wait for first successful search
+         const results = await Promise.allSettled(searchPromises);
+         const successfulResult = results.find(r => r.status === 'fulfilled' && r.value !== null);
+         
+         if (successfulResult) {
+           searchResult = successfulResult.value.result;
          }
       
          if (!searchResult.hasTracks()) {

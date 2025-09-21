@@ -7,6 +7,8 @@ const POTokenProvider = require('./modules/po-token-provider');
 const PlayifyFeatures = require('./modules/playify-features');
 const LavaPlayerFeatures = require('./modules/lavaplayer-features');
 const DopamineFeatures = require('./modules/dopamine-features');
+const CacheManager = require('./modules/cache-manager');
+const PerformanceMonitor = require('./modules/performance-monitor');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
@@ -47,25 +49,32 @@ const lavaPlayer = new LavaPlayerFeatures();
 // Initialize Dopamine Features
 const dopamine = new DopamineFeatures();
 
-// --- Discord Player Setup ---
+// Initialize Cache Manager
+const cacheManager = new CacheManager({
+  maxSize: 500,
+  defaultTTL: 300000, // 5 minutes
+  cleanupInterval: 60000 // 1 minute
+});
+
+// Initialize Performance Monitor
+const performanceMonitor = new PerformanceMonitor();
+
+// Store in client for global access
+client.cache = cacheManager;
+client.performance = performanceMonitor;
+
+// --- Discord Player Setup (Optimized) ---
 client.player = new Player(client, {
   ytdlOptions: {
     quality: 'highestaudio',
-    highWaterMark: 1 << 25,
+    highWaterMark: 1 << 20, // Reduced from 1 << 25 (32MB to 1MB) for better memory usage
     filter: 'audioonly',
     format: 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
-    timeout: 60000,
+    timeout: 30000, // Reduced from 60000 for faster timeouts
     requestOptions: {
-      timeout: 60000,
+      timeout: 30000, // Reduced from 60000
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
-    },
-    // Add extractor args to bypass bot detection
-    extractorArgs: {
-      youtube: {
-        player_client: 'android_music',
-        player_skip: ['webpage']
       }
     }
   },
@@ -76,9 +85,27 @@ client.player = new Player(client, {
   leaveOnEmpty: true,
   leaveOnEnd: true,
   leaveOnStop: true,
-  bufferingTimeout: 30000,
-  connectionTimeout: 30000,
-  volume: 50
+  bufferingTimeout: 15000, // Reduced from 30000 for faster buffering
+  connectionTimeout: 15000, // Reduced from 30000 for faster connections
+  volume: 50,
+  // Performance optimizations
+  maxHistorySize: 50, // Limit history size to prevent memory leaks
+  maxCacheSize: 100, // Limit cache size
+  enableLive: false, // Disable live streaming for better performance
+  enableEqualizer: false, // Disable equalizer by default (can be enabled per guild)
+  enableVolumeBooster: false, // Disable volume booster by default
+  // Memory management
+  leaveOnEmptyCooldown: 30000, // 30 seconds cooldown before leaving empty channels
+  leaveOnEndCooldown: 30000, // 30 seconds cooldown before leaving after track ends
+  // Connection optimizations
+  connectionTimeout: 10000, // Faster connection timeout
+  bufferingTimeout: 10000, // Faster buffering timeout
+  // Resource management
+  maxMemoryUsage: 100 * 1024 * 1024, // 100MB max memory usage per player
+  maxQueueSize: 100, // Limit queue size to prevent memory issues
+  // Performance monitoring
+  enableMetrics: true, // Enable performance metrics
+  metricsInterval: 30000 // Collect metrics every 30 seconds
 });
 
 // Load extractors with better configuration
@@ -375,27 +402,81 @@ client.player.events.on('debug', (message) => {
   }
 });
 
-// --- Command Loader ---
+// --- Optimized Command Loader ---
 const commandsPath = path.join(__dirname, 'commands');
-for (const folder of fs.readdirSync(commandsPath)) {
+const commandLoadStart = Date.now();
+
+try {
+  const folders = fs.readdirSync(commandsPath, { withFileTypes: true })
+    .filter(dirent => dirent.isDirectory())
+    .map(dirent => dirent.name);
+
+  for (const folder of folders) {
   const folderPath = path.join(commandsPath, folder);
-  const commandFiles = fs.readdirSync(folderPath).filter(f => f.endsWith('.js'));
+    const commandFiles = fs.readdirSync(folderPath)
+      .filter(f => f.endsWith('.js'))
+      .sort(); // Sort for consistent loading order
 
   for (const file of commandFiles) {
-    const command = require(path.join(folderPath, file));
+      try {
+        const commandPath = path.join(folderPath, file);
+        // Clear require cache to ensure fresh loading
+        delete require.cache[require.resolve(commandPath)];
+        
+        const command = require(commandPath);
+        
     if (!command.data || !command.execute) {
       console.warn(`⚠️ Skipped invalid command file: ${file}`);
       continue;
     }
+        
+        // Validate command structure
+        if (typeof command.execute !== 'function') {
+          console.warn(`⚠️ Command ${command.data.name} has invalid execute function`);
+          continue;
+        }
+        
     client.commands.set(command.data.name, command);
     console.log(`✅ Loaded command: ${command.data.name}`);
+      } catch (error) {
+        console.error(`❌ Error loading command ${file}:`, error.message);
+      }
+    }
   }
+  
+  const commandLoadTime = Date.now() - commandLoadStart;
+  console.log(`⚡ Commands loaded in ${commandLoadTime}ms`);
+} catch (error) {
+  console.error('❌ Error loading commands:', error.message);
 }
 
-// --- Event Loader ---
+// --- Optimized Event Loader ---
 const eventsPath = path.join(__dirname, 'events');
-for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
-  const event = require(path.join(eventsPath, file));
+const eventLoadStart = Date.now();
+
+try {
+  const eventFiles = fs.readdirSync(eventsPath)
+    .filter(f => f.endsWith('.js'))
+    .sort(); // Sort for consistent loading order
+
+  for (const file of eventFiles) {
+    try {
+      const eventPath = path.join(eventsPath, file);
+      // Clear require cache to ensure fresh loading
+      delete require.cache[require.resolve(eventPath)];
+      
+      const event = require(eventPath);
+      
+      if (!event.name || !event.execute) {
+        console.warn(`⚠️ Skipped invalid event file: ${file}`);
+        continue;
+      }
+      
+      // Validate event structure
+      if (typeof event.execute !== 'function') {
+        console.warn(`⚠️ Event ${event.name} has invalid execute function`);
+        continue;
+      }
   
   if (event.once) {
     client.once(event.name, (...args) => event.execute(...args, client));
@@ -403,16 +484,71 @@ for (const file of fs.readdirSync(eventsPath).filter(f => f.endsWith('.js'))) {
   } else {
     client.on(event.name, (...args) => event.execute(...args, client));
     console.log(`✅ Event loaded: ${event.name}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error loading event ${file}:`, error.message);
+    }
   }
+  
+  const eventLoadTime = Date.now() - eventLoadStart;
+  console.log(`⚡ Events loaded in ${eventLoadTime}ms`);
+} catch (error) {
+  console.error('❌ Error loading events:', error.message);
 }
+
+// --- Enhanced Performance Monitoring ---
+// Track command execution for performance monitoring
+client.on('interactionCreate', async (interaction) => {
+  if (interaction.isCommand()) {
+    const startTime = Date.now();
+    
+    try {
+      // Track activity
+      performanceMonitor.trackActivity({
+        guildId: interaction.guildId,
+        channelId: interaction.channelId,
+        userId: interaction.user.id
+      });
+      
+      // Execute command
+      const command = client.commands.get(interaction.commandName);
+      if (command) {
+        await command.execute(interaction, client);
+      }
+      
+      // Track successful command execution
+      const executionTime = Date.now() - startTime;
+      performanceMonitor.trackCommand(interaction.commandName, executionTime, true);
+      
+    } catch (error) {
+      // Track failed command execution
+      const executionTime = Date.now() - startTime;
+      performanceMonitor.trackCommand(interaction.commandName, executionTime, false);
+      console.error(`❌ Command execution error:`, error);
+    }
+  }
+});
+
+// Memory cleanup on player events
+client.player.events.on('playerFinish', () => {
+  // Clean up finished tracks from memory
+  if (global.gc && Math.random() < 0.1) { // 10% chance to run GC
+    global.gc();
+  }
+  
+  // Track memory usage
+  performanceMonitor.trackMemory();
+});
 
 // --- Process Error Handling ---
 process.on('unhandledRejection', (reason, promise) => {
+  performanceMonitor.trackCommand('unhandledRejection', 0, false);
   console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
   // Don't exit on unhandled rejections for music bots
 });
 
 process.on('uncaughtException', (error) => {
+  performanceMonitor.trackCommand('uncaughtException', 0, false);
   console.error('❌ Uncaught Exception:', error);
   
   // Handle specific errors gracefully
@@ -433,18 +569,49 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-// --- Graceful Shutdown ---
+// Graceful shutdown with cleanup
 process.on('SIGINT', () => {
   console.log('🛑 Received SIGINT, shutting down gracefully...');
-  client.destroy();
+  
+  // Clean up player resources
+  if (client.player) {
+    client.player.destroy();
+  }
+  
+  // Clean up cache and performance monitor
+  if (cacheManager) {
+    cacheManager.destroy();
+  }
+  if (performanceMonitor) {
+    performanceMonitor.stopMonitoring();
+  }
+  
+  // Log final performance report
+  const finalReport = performanceMonitor.getReport();
+  console.log('📊 Final Performance Report:', finalReport);
+  
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
   console.log('🛑 Received SIGTERM, shutting down gracefully...');
-  client.destroy();
+  
+  // Clean up player resources
+  if (client.player) {
+    client.player.destroy();
+  }
+  
+  // Clean up cache and performance monitor
+  if (cacheManager) {
+    cacheManager.destroy();
+  }
+  if (performanceMonitor) {
+    performanceMonitor.stopMonitoring();
+  }
+  
   process.exit(0);
 });
+
 
 // --- Login ---
 client.login(process.env.DISCORD_TOKEN).catch(error => {

@@ -4,11 +4,13 @@
   "description": "A modern Discord music bot with multi-source support - 2025 Edition",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "node index.js",
+    "start": "node --max-old-space-size=512 index.js",
+    "dev": "node --max-old-space-size=512 --inspect index.js",
     "deploy": "node deploy-commands.js",
     "check": "node check-deployment.js",
     "trigger": "node trigger-deployment.js",
+    "monitor": "node --max-old-space-size=512 --expose-gc index.js",
+    "profile": "node --max-old-space-size=512 --prof index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [
