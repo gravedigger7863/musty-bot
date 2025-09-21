@@ -60,77 +60,26 @@ module.exports = {
       
       let track;
       
-      // Search for tracks using Playify's smart search strategy
-      const searchEngine = playify.getOptimalSearchEngine(query);
-      
-      let searchResult = null;
-      
-      try {
-        searchResult = await client.player.search(query, {
-          requestedBy: interaction.user,
-          searchEngine: searchEngine
-        });
-        
-        if (searchResult.hasTracks()) {
-          console.log(`[Play Command] ✅ Found ${searchResult.tracks.length} tracks`);
-        }
-      } catch (error) {
-        console.log(`[Play Command] ${searchEngine} search failed:`, error.message);
-        
-             // If YouTube is blocked, try multiple fallbacks
-             if (error.message.includes('Sign in to confirm') || error.message.includes('bot')) {
-               console.log(`[Play Command] YouTube blocked, trying alternative sources...`);
-               
-               try {
-                 await interaction.followUp({
-                   content: '⚠️ YouTube is blocked, trying alternative sources...',
-                   ephemeral: true
-                 });
-               } catch (followUpError) {
-                 // Ignore follow-up errors
-               }
+         // Search for tracks using multiple sources (avoid YouTube due to blocking)
+         let searchResult = null;
+         const searchEngines = ['spotify', 'soundcloud', 'youtube']; // Prioritize working sources
 
-               // Try Spotify first
-               try {
-                 searchResult = await client.player.search(query, {
-                   requestedBy: interaction.user,
-                   searchEngine: 'spotify'
-                 });
-                 if (searchResult.hasTracks()) {
-                   console.log(`[Play Command] ✅ Found ${searchResult.tracks.length} Spotify tracks`);
-                 }
-               } catch (spotifyError) {
-                 console.log(`[Play Command] Spotify search failed:`, spotifyError.message);
-               }
+         for (const engine of searchEngines) {
+           try {
+             console.log(`[Play Command] Trying ${engine} search...`);
+             searchResult = await client.player.search(query, {
+               requestedBy: interaction.user,
+               searchEngine: engine
+             });
 
-               // If Spotify failed, try SoundCloud
-               if (!searchResult || !searchResult.hasTracks()) {
-                 try {
-                   searchResult = await client.player.search(query, {
-                     requestedBy: interaction.user,
-                     searchEngine: 'soundcloud'
-                   });
-                   if (searchResult.hasTracks()) {
-                     console.log(`[Play Command] ✅ Found ${searchResult.tracks.length} SoundCloud tracks`);
-                   }
-                 } catch (soundcloudError) {
-                   console.log(`[Play Command] SoundCloud search failed:`, soundcloudError.message);
-                 }
-               }
+             if (searchResult.hasTracks()) {
+               console.log(`[Play Command] ✅ Found ${searchResult.tracks.length} tracks from ${engine}`);
+               break; // Use the first successful search
              }
-        
-        // Final fallback to auto search
-        if (!searchResult || !searchResult.hasTracks()) {
-          try {
-            searchResult = await client.player.search(query, {
-              requestedBy: interaction.user,
-              searchEngine: 'auto'
-            });
-          } catch (autoError) {
-            // Search failed, will be handled below
-          }
-        }
-      }
+           } catch (error) {
+             console.log(`[Play Command] ${engine} search failed:`, error.message);
+           }
+         }
       
          if (!searchResult.hasTracks()) {
            return interaction.editReply({
@@ -138,34 +87,29 @@ module.exports = {
            });
          }
       
-      // Use Playify's smart track selection
+      // Use smart track selection (prioritize working sources)
       const tracks = searchResult.tracks;
       
-      // Find the best track using Playify's strategy
+      // Find the best track - prioritize non-YouTube sources due to blocking
       let bestTrack = null;
-      
-      // First, try to find a YouTube track
-      bestTrack = tracks.find(t => t.source === 'youtube');
-      
-      // If no YouTube track, try other sources (avoid SoundCloud if possible)
+
+      // First, try to find a Spotify track (most reliable)
+      bestTrack = tracks.find(t => t.source === 'spotify');
+
+      // If no Spotify track, try SoundCloud
       if (!bestTrack) {
-        bestTrack = tracks.find(t => t.source !== 'soundcloud');
+        bestTrack = tracks.find(t => t.source === 'soundcloud');
       }
-      
-      // If only SoundCloud tracks available, try to find one without restrictions
+
+      // If no Spotify or SoundCloud, try other sources (avoid YouTube if possible)
       if (!bestTrack) {
-        const soundcloudTracks = tracks.filter(t => t.source === 'soundcloud');
-        
-        // Try to find a track without ad support or restrictions
-        bestTrack = soundcloudTracks.find(t => 
-          !t.raw?.monetization_model || 
-          t.raw?.monetization_model !== 'AD_SUPPORTED'
-        );
-        
-        // If no good SoundCloud track found, use the first one
-        if (!bestTrack) {
-          bestTrack = tracks[0];
-        }
+        bestTrack = tracks.find(t => t.source !== 'youtube');
+      }
+
+      // If only YouTube tracks available, use the first one (with warning)
+      if (!bestTrack) {
+        bestTrack = tracks[0];
+        console.log(`[Play Command] ⚠️ Only YouTube tracks available - may have playback issues`);
       }
       
       track = bestTrack;
@@ -199,12 +143,28 @@ module.exports = {
       embed.setTitle('🎵 Track Added to Queue')
         .setFooter({ text: `Requested by ${interaction.user.tag}` });
       
+      // Add source information
+      embed.addFields({
+        name: '📡 Source',
+        value: track.source.charAt(0).toUpperCase() + track.source.slice(1),
+        inline: true
+      });
+      
       // Add validation warnings if any
       const trackValidation = lavaPlayer.validateTrack(track);
       if (!trackValidation.isValid && trackValidation.issues.length > 0) {
         embed.addFields({
           name: '⚠️ Track Issues',
           value: trackValidation.issues.join(', '),
+          inline: false
+        });
+      }
+      
+      // Add warning for YouTube tracks (due to blocking issues)
+      if (track.source === 'youtube') {
+        embed.addFields({
+          name: '⚠️ YouTube Note',
+          value: 'This is a YouTube track. Due to bot detection, it may not play properly. Try searching for the same song on Spotify or SoundCloud.',
           inline: false
         });
       }
