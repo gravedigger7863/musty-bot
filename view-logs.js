@@ -11,10 +11,10 @@ console.log(chalk.yellow('📡 Connecting to VPS: 94.130.97.149'));
 console.log(chalk.green('📋 Streaming musty-bot logs...'));
 console.log(chalk.gray('Press Ctrl+C to stop\n'));
 
-// Create SSH connection to stream logs
+// Create SSH connection to stream logs with timestamps
 const ssh = spawn('ssh', [
   'root@94.130.97.149',
-  'tail -f /root/.pm2/logs/musty-bot-out.log'
+  'tail -f /root/.pm2/logs/musty-bot-out.log | while read line; do echo "[$(date \'+%Y-%m-%d %H:%M:%S\')] $line"; done'
 ], {
   stdio: ['pipe', 'pipe', 'pipe']
 });
