@@ -34,12 +34,14 @@ class YtdlpIntegration {
         '--no-playlist',
         '--no-warnings',
         '--quiet',
-        '--cookies-from-browser', 'firefox',
         '--user-agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0',
         '--referer', 'https://www.youtube.com/',
-        '--sleep-requests', '1',
-        '--sleep-interval', '1',
-        '--max-sleep-interval', '2',
+        '--sleep-requests', '2',
+        '--sleep-interval', '2',
+        '--max-sleep-interval', '5',
+        '--retries', '3',
+        '--fragment-retries', '3',
+        '--extractor-retries', '3',
         url
       ]);
 
@@ -172,9 +174,10 @@ class YtdlpIntegration {
       const ytdlp = spawn('yt-dlp', [
         '--dump-json',
         '--no-playlist',
-        '--cookies-from-browser', 'firefox',
         '--user-agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0',
         '--referer', 'https://www.youtube.com/',
+        '--retries', '3',
+        '--extractor-retries', '3',
         url
       ]);
 
