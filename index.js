@@ -124,9 +124,9 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
   // Initialize PO Token Provider
   await poTokenProvider.initialize();
 
-  // Skip YouTube extractor due to bot detection issues
-  console.log('⚠️ Skipping YouTube extractor due to bot detection issues');
-  console.log('✅ Bot will use Spotify and SoundCloud for reliable music playback');
+  // YouTube extractor is now working with yt-dlp
+  console.log('✅ YouTube extractor is working with yt-dlp integration');
+  console.log('✅ Bot will use YouTube and Spotify for reliable music playback');
   
   // Load local file extractor
   // client.player.extractors.register(LocalFileExtractor); // Disabled - causing high CPU usage

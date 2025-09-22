@@ -108,7 +108,7 @@ module.exports = {
           console.log(`[Play Command] Falling back to regular search...`);
           const searchResult = await client.player.search(query, {
             requestedBy: interaction.user,
-            searchEngine: 'youtube'
+            searchEngine: 'youtube' // Use YouTube as primary fallback
           });
           
           if (!searchResult.hasTracks()) {
@@ -133,7 +133,7 @@ module.exports = {
 
         // Search for the track using extractors
         let searchResult = null;
-        const searchEngines = ['spotify', 'soundcloud', 'youtube'];
+        const searchEngines = ['youtube', 'spotify']; // YouTube first, then Spotify fallback
         
         for (const engine of searchEngines) {
           try {

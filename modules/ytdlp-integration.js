@@ -3,12 +3,14 @@ const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { Track } = require('discord-player');
+const CustomStreamHandler = require('./custom-stream-handler');
 
 class YtdlpIntegration {
   constructor() {
     this.downloadQueue = new Map(); // Guild ID -> download queue
     this.downloadedFiles = new Map(); // Guild ID -> downloaded files
     this.downloadsPath = path.join(__dirname, '..', 'downloads');
+    this.streamHandler = new CustomStreamHandler();
     
     // Ensure downloads directory exists
     if (!fs.existsSync(this.downloadsPath)) {
@@ -62,8 +64,12 @@ class YtdlpIntegration {
               }
               this.downloadedFiles.get(guildId).push(fileInfo);
               
-              console.log(`[YtDlp] ✅ Downloaded: ${fileInfo.filename} (${fileInfo.size} bytes)`);
-              resolve(fileInfo);
+            console.log(`[YtDlp] ✅ Downloaded: ${fileInfo.filename} (${fileInfo.size} bytes)`);
+            
+            // Register the downloaded file with stream handler
+            this.streamHandler.registerDownloadedFile(url, actualFilePath);
+            
+            resolve(fileInfo);
             } else {
               reject(new Error('Downloaded file not found'));
             }
@@ -122,18 +128,18 @@ class YtdlpIntegration {
       const metadata = await this.getTrackMetadata(url);
       
       // Create a proper Track object for discord-player
-      // Use original URL but mark as downloaded for better handling
+      // Try using local file path as URL to see if Discord Player can handle it
       const localTrack = new Track(player, {
         title: metadata.title || this.extractTitleFromFilename(fileInfo.filename),
         description: metadata.description || 'Downloaded track',
         author: metadata.uploader || metadata.artist || 'Unknown Artist',
-        url: url, // Use original URL for Discord Player compatibility
+        url: `file://${fileInfo.filePath}`, // Try file:// protocol for local files
         thumbnail: metadata.thumbnail || null,
         duration: metadata.duration_string || '0:00',
         durationMS: metadata.duration * 1000 || 0,
         views: metadata.view_count || 0,
         requestedBy: requestedBy,
-        source: 'youtube', // Keep original source for compatibility
+        source: 'local',
         isLocal: true,
         raw: {
           ...metadata,
@@ -280,11 +286,10 @@ class YtdlpIntegration {
 
   // Check if URL is supported by yt-dlp
   isSupportedUrl(url) {
-    // yt-dlp supports almost everything, but let's check for common patterns
+    // yt-dlp supports almost everything, but let's prioritize YouTube and other major platforms
     const supportedDomains = [
       'youtube.com',
       'youtu.be',
-      'soundcloud.com',
       'spotify.com',
       'open.spotify.com',
       'tiktok.com',
