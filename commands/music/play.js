@@ -4,6 +4,7 @@ const LavaPlayerFeatures = require('../../modules/lavaplayer-features');
 const DopamineFeatures = require('../../modules/dopamine-features');
 const CommandUtils = require('../../modules/command-utils');
 const YtdlpIntegration = require('../../modules/ytdlp-integration');
+const YouTubeSearch = require('../../modules/youtube-search');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -38,7 +39,7 @@ module.exports = {
         embeds: [utils.createErrorEmbed('Voice Channel Required', voiceValidation.error)]
       });
     }
-
+    
     // Initialize features only once (reuse from client if available)
     const playify = client.playify || new PlayifyFeatures();
     const lavaPlayer = client.lavaPlayer || new LavaPlayerFeatures();
@@ -48,7 +49,7 @@ module.exports = {
     if (!client.playify) client.playify = playify;
     if (!client.lavaPlayer) client.lavaPlayer = lavaPlayer;
     if (!client.dopamine) client.dopamine = dopamine;
-
+    
     // Set cooldown
     utils.setCooldown(interaction.user.id, 'play');
     
@@ -77,7 +78,7 @@ module.exports = {
       }
       
       let track;
-
+      
       // Check if query is a direct URL that yt-dlp can handle
       const isDirectUrl = ytdlp.isSupportedUrl(query);
       
@@ -110,12 +111,12 @@ module.exports = {
           // Fallback to regular search if download fails
           console.log(`[Play Command] Falling back to regular search...`);
           const searchResult = await client.player.search(query, {
-            requestedBy: interaction.user,
+               requestedBy: interaction.user,
             searchEngine: 'youtube' // Use YouTube as primary fallback
           });
-          
-          if (!searchResult.hasTracks()) {
-            return interaction.editReply({
+      
+         if (!searchResult.hasTracks()) {
+           return interaction.editReply({
               embeds: [utils.createErrorEmbed('Download Failed', `Failed to download from ${query}. Please try a different URL or search term.`)]
             });
           }
@@ -134,35 +135,29 @@ module.exports = {
         
         await interaction.editReply({ embeds: [searchEmbed] });
 
-        // Search for the track using extractors
-        let searchResult = null;
-        const searchEngines = ['youtube', 'spotify']; // YouTube first, then Spotify fallback
+        // Search for the track using web scraping
+        let foundTrack = null;
+        const youtubeSearch = new YouTubeSearch();
         
-        for (const engine of searchEngines) {
-          try {
-            console.log(`[Play Command] Trying ${engine} search...`);
-            searchResult = await client.player.search(query, {
-              requestedBy: interaction.user,
-              searchEngine: engine
+        try {
+          console.log(`[Play Command] Using YouTube web scraping search...`);
+          const searchResults = await youtubeSearch.search(query, 5);
+          
+          if (searchResults.length === 0) {
+            return interaction.editReply({
+              embeds: [utils.createErrorEmbed('No Tracks Found', `No tracks found for "${query}". Try a different search term or URL.`)]
             });
-            
-            if (searchResult.hasTracks()) {
-              console.log(`[Play Command] ✅ Found ${searchResult.tracks.length} tracks from ${engine}`);
-              break;
-            }
-          } catch (error) {
-            console.log(`[Play Command] ${engine} search failed:`, error.message);
           }
-        }
-        
-        if (!searchResult || !searchResult.hasTracks()) {
+
+          foundTrack = searchResults[0];
+          console.log(`[Play Command] Found track: ${foundTrack.title} - ${foundTrack.author} (${foundTrack.source})`);
+          
+        } catch (searchError) {
+          console.error(`[Play Command] YouTube search failed:`, searchError);
           return interaction.editReply({
-            embeds: [utils.createErrorEmbed('No Tracks Found', `No tracks found for "${query}". Try a different search term or URL.`)]
+            embeds: [utils.createErrorEmbed('Search Failed', `Failed to search for "${query}". Please try again or use a direct URL.`)]
           });
         }
-
-        const foundTrack = searchResult.tracks[0];
-        console.log(`[Play Command] Found track: ${foundTrack.title} - ${foundTrack.author} (${foundTrack.source})`);
         
         // Now download the track using yt-dlp
         const downloadEmbed = utils.createInfoEmbed(
@@ -228,7 +223,7 @@ module.exports = {
         value: isLocalTrack ? '💾 Local Download' : `${utils.getSourceEmoji(track.source)} ${track.source.charAt(0).toUpperCase() + track.source.slice(1)}`,
         inline: true
       });
-
+      
       // Add queue position if not first
       if (queue.tracks.count > 0) {
         embed.addFields({
@@ -251,7 +246,7 @@ module.exports = {
       if (!queue.isPlaying()) {
         console.log(`[Play Command] Starting playback...`);
         try {
-          await queue.node.play();
+        await queue.node.play();
           console.log(`[Play Command] ✅ Playback started successfully`);
         } catch (playError) {
           console.error(`[Play Command] ❌ Playback failed:`, playError);
@@ -285,8 +280,8 @@ module.exports = {
       } else if (error.message.includes('permission')) {
         errorMessage = 'Permission denied. Make sure I have the necessary permissions to join your voice channel.';
       }
-
-      await interaction.editReply({
+      
+      await interaction.editReply({ 
         embeds: [utils.createErrorEmbed('Playback Error', errorMessage, 'Try using a different song or check if the URL is valid.')]
       });
     }

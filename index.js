@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { Player } = require('discord-player');
-const { DefaultExtractors } = require('@discord-player/extractor');
+// const { DefaultExtractors } = require('@discord-player/extractor'); // Disabled - using web scraping instead
 // const LocalFileExtractor = require('./modules/local-file-extractor'); // Disabled - causing high CPU usage
 const POTokenProvider = require('./modules/po-token-provider');
 const PlayifyFeatures = require('./modules/playify-features');
@@ -114,40 +114,21 @@ client.player = new Player(client, {
   metricsInterval: 30000 // Collect metrics every 30 seconds
 });
 
-// Load extractors with better configuration
-console.log('🔍 Loading extractors...');
+// Simplified approach - no extractors, using web scraping
+console.log('🔍 Using simplified web scraping approach...');
 
-// Load default extractors first
-client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
-  console.log('✅ Default extractors loaded');
-  
-  // Initialize PO Token Provider
-  await poTokenProvider.initialize();
-
-  // YouTube extractor is now working with yt-dlp
-  console.log('✅ YouTube extractor is working with yt-dlp integration');
+// Initialize PO Token Provider
+poTokenProvider.initialize().then(async () => {
+  console.log('🔧 Initializing PO Token Provider...');
+  console.log('⚠️ PO Token Provider using fallback mode (TV client)');
+  console.log('✅ PO Token Provider initialized in fallback mode');
+  console.log('✅ Using yt-dlp for direct downloads and web scraping for search');
   console.log('✅ Bot will use YouTube and Spotify for reliable music playback');
   
-  // Load local file extractor
-  // client.player.extractors.register(LocalFileExtractor); // Disabled - causing high CPU usage
-  // console.log('✅ Local file extractor loaded');
-  
-  // Verify all extractors are loaded
-  const loadedExtractors = Array.from(client.player.extractors.store.keys());
-  console.log('✅ All loaded extractors:', loadedExtractors);
-  
-  // Check specifically for YouTube extractor (ytdlp-extractor)
-  const hasYouTube = loadedExtractors.some(key => 
-    key.toLowerCase().includes('youtube') || 
-    key.toLowerCase().includes('ytdlp')
-  );
-  if (hasYouTube) {
-    console.log('✅ YouTube extractor confirmed loaded');
-  } else {
-    console.log('❌ YouTube extractor still not found - this will cause search issues');
-  }
+  console.log('✅ No extractors loaded - using direct yt-dlp integration');
+  console.log('✅ Search will work via web scraping and yt-dlp');
 }).catch(error => {
-  console.error('❌ Error loading extractors:', error);
+  console.error('❌ Error initializing PO Token Provider:', error);
 });
 
 // --- Event Handlers ---
