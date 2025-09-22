@@ -21,8 +21,6 @@ module.exports = {
     const ytdlp = new YtdlpIntegration();
     const query = interaction.options.getString('query');
     
-    await interaction.deferReply();
-    
     // Check cooldown
     const cooldown = utils.isOnCooldown(interaction.user.id, 'play');
     if (cooldown) {
