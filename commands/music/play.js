@@ -246,11 +246,12 @@ module.exports = {
       if (!queue.isPlaying()) {
         console.log(`[Play Command] Starting playback...`);
         try {
-        await queue.node.play();
+          await queue.node.play();
           console.log(`[Play Command] ✅ Playback started successfully`);
         } catch (playError) {
           console.error(`[Play Command] ❌ Playback failed:`, playError);
           throw playError;
+        }
         }
       } else {
         console.log(`[Play Command] Already playing, track added to queue`);
