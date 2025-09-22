@@ -1,31 +1,92 @@
 const { SlashCommandBuilder } = require('discord.js');
+const CommandUtils = require('../../modules/command-utils');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('volume')
-    .setDescription('Set the music volume (1-100)')
+    .setDescription('Set the music volume (0-100)')
     .addIntegerOption(option =>
       option
         .setName('amount')
-        .setDescription('Volume level (1-100)')
+        .setDescription('Volume level (0-100)')
+        .setMinValue(0)
+        .setMaxValue(100)
         .setRequired(true)
     ),
-  async execute(interaction) {
-    if (!interaction.deferred && !interaction.replied) {
-      await interaction.deferReply();
-    }
-
-    const queue = interaction.client.player.nodes.get(interaction.guild.id);
-    if (!queue || !queue.currentTrack) {
-      return interaction.editReply({ content: '⚠️ No music is currently playing.' });
-    }
-
+    
+  async execute(interaction, client) {
+    const utils = new CommandUtils();
     const amount = interaction.options.getInteger('amount');
-    if (amount < 1 || amount > 100) {
-      return interaction.editReply({ content: '⚠️ Volume must be between 1 and 100.' });
+    
+    // Check cooldown
+    const cooldown = utils.isOnCooldown(interaction.user.id, 'volume');
+    if (cooldown) {
+      return interaction.editReply({
+        embeds: [utils.createErrorEmbed('Cooldown', `Please wait ${cooldown} seconds before using this command again.`)]
+      });
     }
 
+    // Validate volume
+    const volumeValidation = utils.validateVolume(amount);
+    if (!volumeValidation.valid) {
+      return interaction.editReply({
+        embeds: [utils.createErrorEmbed('Invalid Volume', volumeValidation.error)]
+      });
+    }
+
+    // Validate queue
+    const queueValidation = utils.validateQueue(interaction, true);
+    if (!queueValidation.valid) {
+      return interaction.editReply({
+        embeds: [utils.createErrorEmbed('Queue Required', queueValidation.error)]
+      });
+    }
+
+    const queue = queueValidation.queue;
+    const oldVolume = queue.node.volume;
+    
+    // Set cooldown
+    utils.setCooldown(interaction.user.id, 'volume');
+
+    // Set new volume
     queue.node.setVolume(amount);
-    return interaction.editReply(`🔊 Volume set to **${amount}%**`);
+
+    const embed = utils.createSuccessEmbed(
+      'Volume Changed',
+      `Volume changed from **${oldVolume}%** to **${amount}%**`,
+      `Volume changed by ${interaction.user.tag}`
+    );
+
+    embed.setThumbnail(queue.currentTrack.thumbnail);
+    embed.addFields(
+      { name: '🎵 Current Track', value: queue.currentTrack.title, inline: true },
+      { name: '👤 Artist', value: queue.currentTrack.author, inline: true },
+      { name: '🔊 New Volume', value: `${amount}%`, inline: true }
+    );
+
+    // Add volume bar visualization
+    const volumeBar = utils.createProgressBar(amount, 100, 20);
+    embed.addFields({
+      name: '📊 Volume Level',
+      value: `${volumeBar} ${amount}%`,
+      inline: false
+    });
+
+    // Add volume level description
+    let volumeDescription = '';
+    if (amount === 0) volumeDescription = '🔇 Muted';
+    else if (amount <= 20) volumeDescription = '🔈 Very Quiet';
+    else if (amount <= 40) volumeDescription = '🔉 Quiet';
+    else if (amount <= 60) volumeDescription = '🔊 Normal';
+    else if (amount <= 80) volumeDescription = '📢 Loud';
+    else volumeDescription = '📣 Very Loud';
+
+    embed.addFields({
+      name: '📝 Volume Level',
+      value: volumeDescription,
+      inline: true
+    });
+
+    return interaction.editReply({ embeds: [embed] });
   },
 };

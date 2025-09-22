@@ -1,7 +1,8 @@
-const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
 const PlayifyFeatures = require('../../modules/playify-features');
 const LavaPlayerFeatures = require('../../modules/lavaplayer-features');
 const DopamineFeatures = require('../../modules/dopamine-features');
+const CommandUtils = require('../../modules/command-utils');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -14,8 +15,25 @@ module.exports = {
     ),
   
   async execute(interaction, client) {
+    const utils = new CommandUtils();
     const query = interaction.options.getString('query');
     
+    // Check cooldown
+    const cooldown = utils.isOnCooldown(interaction.user.id, 'play');
+    if (cooldown) {
+      return interaction.editReply({
+        embeds: [utils.createErrorEmbed('Cooldown', `Please wait ${cooldown} seconds before using this command again.`)]
+      });
+    }
+
+    // Validate voice channel
+    const voiceValidation = await utils.validateVoiceChannel(interaction);
+    if (!voiceValidation.valid) {
+      return interaction.editReply({
+        embeds: [utils.createErrorEmbed('Voice Channel Required', voiceValidation.error)]
+      });
+    }
+
     // Initialize features only once (reuse from client if available)
     const playify = client.playify || new PlayifyFeatures();
     const lavaPlayer = client.lavaPlayer || new LavaPlayerFeatures();
@@ -25,23 +43,9 @@ module.exports = {
     if (!client.playify) client.playify = playify;
     if (!client.lavaPlayer) client.lavaPlayer = lavaPlayer;
     if (!client.dopamine) client.dopamine = dopamine;
-    
-    // Check if user is in a voice channel
-    if (!interaction.member.voice.channel) {
-      return interaction.editReply({ 
-        content: '❌ You need to be in a voice channel to use this command!'
-      });
-    }
-    
-    // Check if bot has permission to join and speak
-    const permissions = interaction.member.voice.channel.permissionsFor(interaction.guild.members.me);
-    if (!permissions.has(['Connect', 'Speak'])) {
-      return interaction.editReply({ 
-        content: '❌ I need Connect and Speak permissions to join your voice channel!'
-      });
-    }
-    
-    // Interaction is already deferred by interactionCreate event
+
+    // Set cooldown
+    utils.setCooldown(interaction.user.id, 'play');
     
     let queue; // Declare queue outside try block for error handling
     
@@ -213,17 +217,24 @@ module.exports = {
       // Add track to queue
       queue.addTrack(track);
       
-      // Create enhanced embed using Playify features
-      const embed = playify.createNowPlayingEmbed(track, queue);
-      embed.setTitle('🎵 Track Added to Queue')
-        .setFooter({ text: `Requested by ${interaction.user.tag}` });
+      // Create enhanced embed using utils
+      const embed = utils.createTrackEmbed(track, queue, '🎵 Track Added to Queue');
       
-      // Add source information
+      // Add source information with emoji
       embed.addFields({
         name: '📡 Source',
-        value: track.source.charAt(0).toUpperCase() + track.source.slice(1),
+        value: `${utils.getSourceEmoji(track.source)} ${track.source.charAt(0).toUpperCase() + track.source.slice(1)}`,
         inline: true
       });
+
+      // Add queue position if not first
+      if (queue.tracks.count > 0) {
+        embed.addFields({
+          name: '📋 Queue Position',
+          value: `${queue.tracks.count + 1} tracks in queue`,
+          inline: true
+        });
+      }
       
       // Add validation warnings if any
       const trackValidation = lavaPlayer.validateTrack(track);
@@ -235,17 +246,14 @@ module.exports = {
         });
       }
       
-      // Add warning for YouTube tracks (due to blocking issues)
+      // Add source-specific warnings
       if (track.source === 'youtube') {
         embed.addFields({
           name: '⚠️ YouTube Note',
           value: 'This is a YouTube track. Due to bot detection, it may not play properly. Try searching for the same song on Spotify or SoundCloud.',
           inline: false
         });
-      }
-      
-      // Add warning for SoundCloud tracks
-      if (track.source === 'soundcloud') {
+      } else if (track.source === 'soundcloud') {
         embed.addFields({
           name: '⚠️ SoundCloud Note',
           value: 'This is a SoundCloud track. If it doesn\'t play properly, try searching for a different version.',
@@ -257,18 +265,34 @@ module.exports = {
       if (!queue.isPlaying()) {
         await queue.node.play();
       }
+
+      // Create control buttons
+      const controlButtons = utils.createMusicControlButtons(queue);
+      const queueButtons = utils.createQueueControlButtons(queue);
       
-      await interaction.editReply({ embeds: [embed] });
+      await interaction.editReply({ 
+        embeds: [embed],
+        components: [controlButtons, queueButtons]
+      });
       
     } catch (error) {
       console.error('Play command error:', error);
       console.error('Error details:', error.stack);
       
-      // Use Playify's enhanced error handling
-      const errorMessage = playify.handlePlaybackError(error, queue || null);
+      let errorMessage = 'An unexpected error occurred while playing the track.';
       
-      await interaction.editReply({ 
-        content: `❌ ${errorMessage}` 
+      if (error.message.includes('No tracks found')) {
+        errorMessage = 'No tracks found for your search! Try a different song name or URL.';
+      } else if (error.message.includes('timeout')) {
+        errorMessage = 'The search timed out. Please try again with a shorter query.';
+      } else if (error.message.includes('network') || error.message.includes('ENOTFOUND')) {
+        errorMessage = 'Network error occurred. Please check your internet connection and try again.';
+      } else if (error.message.includes('permission')) {
+        errorMessage = 'Permission denied. Make sure I have the necessary permissions to join your voice channel.';
+      }
+
+      await interaction.editReply({
+        embeds: [utils.createErrorEmbed('Playback Error', errorMessage, 'Try using a different song or check if the URL is valid.')]
       });
     }
   },

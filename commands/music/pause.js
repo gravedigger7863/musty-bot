@@ -1,25 +1,50 @@
 const { SlashCommandBuilder } = require('discord.js');
+const CommandUtils = require('../../modules/command-utils');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('pause')
     .setDescription('Toggle pause/resume playback'),
+    
   async execute(interaction, client) {
-    // Interaction is already deferred by interactionCreate event
-
-    const queue = client.player.nodes.get(interaction.guild.id);
-
-    if (!queue) {
-      return interaction.editReply({ content: "❌ No active queue in this server." });
+    const utils = new CommandUtils();
+    
+    // Check cooldown
+    const cooldown = utils.isOnCooldown(interaction.user.id, 'pause');
+    if (cooldown) {
+      return interaction.editReply({
+        embeds: [utils.createErrorEmbed('Cooldown', `Please wait ${cooldown} seconds before using this command again.`)]
+      });
     }
 
-    if (!queue.currentTrack) {
-      return interaction.editReply({ content: "❌ No track is currently playing." });
+    // Validate queue
+    const queueValidation = utils.validateQueue(interaction, true);
+    if (!queueValidation.valid) {
+      return interaction.editReply({
+        embeds: [utils.createErrorEmbed('Queue Required', queueValidation.error)]
+      });
     }
 
+    const queue = queueValidation.queue;
     const isPaused = queue.node.isPaused();
     queue.node.setPaused(!isPaused);
+
+    // Set cooldown
+    utils.setCooldown(interaction.user.id, 'pause');
     
-    return interaction.editReply(isPaused ? "▶️ Resumed playback!" : "⏸️ Paused playback!");
+    const embed = utils.createSuccessEmbed(
+      isPaused ? 'Resumed Playback' : 'Paused Playback',
+      `**${queue.currentTrack.title}** by ${queue.currentTrack.author}`,
+      `Track ${isPaused ? 'resumed' : 'paused'} by ${interaction.user.tag}`
+    );
+
+    embed.setThumbnail(queue.currentTrack.thumbnail);
+    embed.addFields(
+      { name: '🎵 Track', value: queue.currentTrack.title, inline: true },
+      { name: '👤 Artist', value: queue.currentTrack.author, inline: true },
+      { name: '⏱️ Duration', value: utils.formatDuration(queue.currentTrack.durationMS), inline: true }
+    );
+
+    return interaction.editReply({ embeds: [embed] });
   },
 };
