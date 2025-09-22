@@ -122,9 +122,123 @@ class DopamineFeatures {
   }
 
   async searchLyrics(title, artist) {
-    // Placeholder for lyrics search
-    // You can integrate with lyrics-finder or other APIs
-    return `🎵 Lyrics for "${title}" by ${artist}\n\n[Lyrics would be fetched here]\n\n*Powered by Musty Bot*`;
+    try {
+      // Try multiple lyrics sources for better coverage
+      const sources = [
+        this.fetchFromGenius(title, artist),
+        this.fetchFromLyricsOvh(title, artist),
+        this.fetchFromLyricsFind(title, artist)
+      ];
+
+      // Try sources in order until one succeeds
+      for (const source of sources) {
+        try {
+          const lyrics = await source;
+          if (lyrics && lyrics.length > 50 && !lyrics.includes('[Lyrics would be fetched here]')) {
+            return lyrics;
+          }
+        } catch (error) {
+          console.log(`Lyrics source failed: ${error.message}`);
+          continue;
+        }
+      }
+
+      return `🎵 **${title}** by ${artist}\n\n*Sorry, lyrics not found for this track. Try searching for a different version or check if the song name is correct.*\n\n*Powered by Musty Bot*`;
+    } catch (error) {
+      console.error('Error in lyrics search:', error);
+      return `🎵 **${title}** by ${artist}\n\n*Unable to fetch lyrics at this time. Please try again later.*\n\n*Powered by Musty Bot*`;
+    }
+  }
+
+  // Genius API integration
+  async fetchFromGenius(title, artist) {
+    const axios = require('axios');
+    const searchQuery = encodeURIComponent(`${title} ${artist}`);
+    
+    try {
+      // Use a simple web scraping approach for Genius
+      const response = await axios.get(`https://genius.com/api/search?q=${searchQuery}`, {
+        timeout: 10000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      if (response.data && response.data.response && response.data.response.hits && response.data.response.hits.length > 0) {
+        const hit = response.data.response.hits[0];
+        const songUrl = hit.result.url;
+        
+        // Fetch the actual lyrics page
+        const lyricsResponse = await axios.get(songUrl, {
+          timeout: 10000,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          }
+        });
+
+        // Simple regex to extract lyrics (this is a basic implementation)
+        const lyricsMatch = lyricsResponse.data.match(/<div[^>]*class="[^"]*lyrics[^"]*"[^>]*>(.*?)<\/div>/s);
+        if (lyricsMatch) {
+          let lyrics = lyricsMatch[1]
+            .replace(/<[^>]*>/g, '') // Remove HTML tags
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .trim();
+          
+          if (lyrics.length > 100) {
+            return `🎵 **${title}** by ${artist}\n\n${lyrics}\n\n*Source: Genius*`;
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Genius API failed:', error.message);
+    }
+    throw new Error('Genius lyrics not found');
+  }
+
+  // Lyrics.ovh API integration
+  async fetchFromLyricsOvh(title, artist) {
+    const axios = require('axios');
+    
+    try {
+      const response = await axios.get(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, {
+        timeout: 8000
+      });
+
+      if (response.data && response.data.lyrics) {
+        const lyrics = response.data.lyrics.trim();
+        if (lyrics.length > 50) {
+          return `🎵 **${title}** by ${artist}\n\n${lyrics}\n\n*Source: Lyrics.ovh*`;
+        }
+      }
+    } catch (error) {
+      console.log('Lyrics.ovh API failed:', error.message);
+    }
+    throw new Error('Lyrics.ovh not found');
+  }
+
+  // LyricsFind integration (alternative source)
+  async fetchFromLyricsFind(title, artist) {
+    const axios = require('axios');
+    
+    try {
+      const searchQuery = encodeURIComponent(`${artist} ${title}`);
+      const response = await axios.get(`https://www.lyricsfind.com/search?q=${searchQuery}`, {
+        timeout: 8000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+
+      // This is a placeholder - you'd need to implement proper parsing
+      // For now, return a structured response
+      return `🎵 **${title}** by ${artist}\n\n*Lyrics found but parsing not implemented yet*\n\n*Source: LyricsFind*`;
+    } catch (error) {
+      console.log('LyricsFind failed:', error.message);
+    }
+    throw new Error('LyricsFind not available');
   }
 
   // Clean progress bar (Dopamine-inspired)

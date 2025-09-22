@@ -9,6 +9,7 @@ const LavaPlayerFeatures = require('./modules/lavaplayer-features');
 const DopamineFeatures = require('./modules/dopamine-features');
 const CacheManager = require('./modules/cache-manager');
 const PerformanceMonitor = require('./modules/performance-monitor');
+const CobaltIntegration = require('./modules/cobalt-integration');
 const fs = require('fs');
 const path = require('path');
 const express = require('express');
@@ -49,6 +50,9 @@ const lavaPlayer = new LavaPlayerFeatures();
 // Initialize Dopamine Features
 const dopamine = new DopamineFeatures();
 
+// Initialize Cobalt Integration
+const cobalt = new CobaltIntegration();
+
 // Initialize Cache Manager
 const cacheManager = new CacheManager({
   maxSize: 100, // Reduced from 500 to save memory
@@ -62,6 +66,7 @@ const performanceMonitor = new PerformanceMonitor();
 // Store in client for global access
 client.cache = cacheManager;
 client.performance = performanceMonitor;
+client.cobalt = cobalt;
 
 // --- Discord Player Setup (Optimized) ---
 client.player = new Player(client, {
@@ -546,6 +551,9 @@ process.on('SIGINT', () => {
   if (performanceMonitor) {
     performanceMonitor.stopMonitoring();
   }
+  if (cobalt) {
+    cobalt.cleanupOldDownloads(0); // Clean all downloads
+  }
   
   // Log final performance report
   const finalReport = performanceMonitor.getReport();
@@ -568,6 +576,9 @@ process.on('SIGTERM', () => {
   }
   if (performanceMonitor) {
     performanceMonitor.stopMonitoring();
+  }
+  if (cobalt) {
+    cobalt.cleanupOldDownloads(0); // Clean all downloads
   }
   
   process.exit(0);
