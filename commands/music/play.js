@@ -3,6 +3,7 @@ const PlayifyFeatures = require('../../modules/playify-features');
 const LavaPlayerFeatures = require('../../modules/lavaplayer-features');
 const DopamineFeatures = require('../../modules/dopamine-features');
 const CommandUtils = require('../../modules/command-utils');
+const CobaltIntegration = require('../../modules/cobalt-integration');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -16,6 +17,7 @@ module.exports = {
   
   async execute(interaction, client) {
     const utils = new CommandUtils();
+    const cobalt = new CobaltIntegration();
     const query = interaction.options.getString('query');
     
     // Check cooldown
@@ -72,144 +74,123 @@ module.exports = {
       }
       
       let track;
-      
-         // Optimized search strategy - prioritize reliable sources
-         let searchResult = null;
-         const searchEngines = ['spotify', 'soundcloud']; // Skip YouTube entirely due to bot detection
-         
-         for (const engine of searchEngines) {
-           try {
-             console.log(`[Play Command] Trying ${engine} search...`);
-             searchResult = await client.player.search(query, {
-               requestedBy: interaction.user,
-               searchEngine: engine
-             });
-             
-             if (searchResult.hasTracks()) {
-               console.log(`[Play Command] ✅ Found ${searchResult.tracks.length} tracks from ${engine}`);
-               
-               // If we found Spotify tracks, use them immediately (most reliable)
-               if (engine === 'spotify') {
-                 break;
-               }
-               
-               // If we found SoundCloud tracks, try Spotify first before using them
-               if (engine === 'soundcloud') {
-                 try {
-                   console.log(`[Play Command] Found SoundCloud tracks, trying Spotify for better reliability...`);
-                   const spotifyResult = await client.player.search(query, {
-                     requestedBy: interaction.user,
-                     searchEngine: 'spotify'
-                   });
-                   
-                   if (spotifyResult.hasTracks()) {
-                     console.log(`[Play Command] ✅ Found ${spotifyResult.tracks.length} Spotify tracks - using these instead`);
-                     searchResult = spotifyResult;
-                     break;
-                   }
-                 } catch (spotifyError) {
-                   console.log(`[Play Command] Spotify fallback failed:`, spotifyError.message);
-                   // Continue with SoundCloud results
-                 }
-               }
-               
-               break; // Use the current search result
-             }
-           } catch (error) {
-             console.log(`[Play Command] ${engine} search failed:`, error.message);
-           }
-         }
-         
-         // If no tracks found from preferred sources, try YouTube as last resort
-         if (!searchResult || !searchResult.hasTracks()) {
-           try {
-             console.log(`[Play Command] Trying YouTube as last resort...`);
-             searchResult = await client.player.search(query, {
-               requestedBy: interaction.user,
-               searchEngine: 'youtube'
-             });
-             
-             if (searchResult.hasTracks()) {
-               console.log(`[Play Command] ⚠️ Found ${searchResult.tracks.length} YouTube tracks (may have playback issues)`);
-             }
-           } catch (error) {
-             console.log(`[Play Command] YouTube search failed:`, error.message);
-           }
-         }
-      
-         if (!searchResult.hasTracks()) {
-           return interaction.editReply({
-             content: '❌ No tracks found for your query! Try searching for a different song or check if the song name is correct.'
-           });
-         }
-      
-      // Use smart track selection (prioritize working sources)
-      const tracks = searchResult.tracks;
-      
-      // Find the best track - prioritize reliable sources
-      let bestTrack = null;
 
-      // First, try to find a Spotify track (most reliable)
-      bestTrack = tracks.find(t => t.source === 'spotify');
-
-      // If no Spotify track, try other sources (avoid SoundCloud due to streaming issues)
-      if (!bestTrack) {
-        bestTrack = tracks.find(t => t.source !== 'soundcloud' && t.source !== 'youtube');
-      }
-
-      // If no reliable sources, try SoundCloud (with warning)
-      if (!bestTrack) {
-        bestTrack = tracks.find(t => t.source === 'soundcloud');
-        if (bestTrack) {
-          console.log(`[Play Command] ⚠️ Only SoundCloud tracks available - may have streaming issues`);
-          
-          // Add a user warning for SoundCloud tracks
-          try {
-            await interaction.followUp({
-              content: '⚠️ **Warning:** This is a SoundCloud track. It may not stream properly due to restrictions. Try searching for the same song on Spotify for better results.',
-              ephemeral: true
-            });
-          } catch (followUpError) {
-            // Ignore follow-up errors
-          }
-        }
-      }
-
-      // If only YouTube tracks available, use the first one (with warning)
-      if (!bestTrack) {
-        bestTrack = tracks[0];
-        console.log(`[Play Command] ⚠️ Only YouTube tracks available - may have playback issues`);
+      // Check if query is a direct URL that Cobalt can handle
+      const isDirectUrl = cobalt.isSupportedUrl(query);
+      
+      if (isDirectUrl) {
+        // Direct URL - download with Cobalt.tools
+        console.log(`[Play Command] Direct URL detected, downloading with Cobalt.tools...`);
         
-        // Add a user warning for YouTube tracks
+        const downloadEmbed = utils.createInfoEmbed(
+          'Downloading Track',
+          `Downloading track from ${query}...\nThis may take a few moments.`,
+          '#ffaa00'
+        );
+        
+        await interaction.editReply({ embeds: [downloadEmbed] });
+
         try {
-          await interaction.followUp({
-            content: '⚠️ **Warning:** This is a YouTube track. Due to bot detection, it may not play properly. Try searching for the same song on Spotify or SoundCloud for better results.',
-            ephemeral: true
+          const localTrack = await cobalt.downloadAndPlay(
+            query, 
+            interaction.guildId, 
+            interaction.user, 
+            client.player
+          );
+          
+          track = localTrack;
+          console.log(`[Play Command] ✅ Successfully downloaded: ${track.title}`);
+          
+        } catch (downloadError) {
+          console.error(`[Play Command] Cobalt download failed:`, downloadError);
+          
+          // Fallback to regular search if download fails
+          console.log(`[Play Command] Falling back to regular search...`);
+          const searchResult = await client.player.search(query, {
+            requestedBy: interaction.user,
+            searchEngine: 'youtube'
           });
-        } catch (followUpError) {
-          // Ignore follow-up errors
+          
+          if (!searchResult.hasTracks()) {
+            return interaction.editReply({
+              embeds: [utils.createErrorEmbed('Download Failed', `Failed to download from ${query}. Please try a different URL or search term.`)]
+            });
+          }
+          
+          track = searchResult.tracks[0];
         }
-      }
-      
-      track = bestTrack;
-      
-      // LavaPlayer-inspired track validation
-      const validation = lavaPlayer.validateTrack(track);
-      if (!validation.isValid) {
-        // If track has critical issues, try to find a better one
-        if (validation.issues.includes('Invalid duration') || validation.issues.includes('Track too long')) {
-          const alternativeTrack = tracks.find(t => t !== track && lavaPlayer.validateTrack(t).isValid);
-          if (alternativeTrack) {
-            track = alternativeTrack;
+      } else {
+        // Search query - find track first, then download
+        console.log(`[Play Command] Search query detected, finding track first...`);
+        
+        const searchEmbed = utils.createInfoEmbed(
+          'Searching for Track',
+          `Searching for "${query}"...`,
+          '#0099ff'
+        );
+        
+        await interaction.editReply({ embeds: [searchEmbed] });
+
+        // Search for the track using extractors
+        let searchResult = null;
+        const searchEngines = ['spotify', 'soundcloud', 'youtube'];
+        
+        for (const engine of searchEngines) {
+          try {
+            console.log(`[Play Command] Trying ${engine} search...`);
+            searchResult = await client.player.search(query, {
+              requestedBy: interaction.user,
+              searchEngine: engine
+            });
+            
+            if (searchResult.hasTracks()) {
+              console.log(`[Play Command] ✅ Found ${searchResult.tracks.length} tracks from ${engine}`);
+              break;
+            }
+          } catch (error) {
+            console.log(`[Play Command] ${engine} search failed:`, error.message);
           }
         }
-      }
-      
-      // Additional SoundCloud-specific validation
-      if (track.source === 'soundcloud') {
-        if (track.raw && track.raw.streamable === false) {
-          return interaction.editReply({ 
-            content: '❌ This SoundCloud track is not available for streaming. Try a different track.' 
+        
+        if (!searchResult || !searchResult.hasTracks()) {
+          return interaction.editReply({
+            embeds: [utils.createErrorEmbed('No Tracks Found', `No tracks found for "${query}". Try a different search term or URL.`)]
+          });
+        }
+
+        const foundTrack = searchResult.tracks[0];
+        console.log(`[Play Command] Found track: ${foundTrack.title} - ${foundTrack.author} (${foundTrack.source})`);
+        
+        // Now download the track using Cobalt.tools
+        const downloadEmbed = utils.createInfoEmbed(
+          'Downloading Track',
+          `Downloading **${foundTrack.title}** by ${foundTrack.author}...\nThis may take a few moments.`,
+          '#ffaa00'
+        );
+        
+        await interaction.editReply({ embeds: [downloadEmbed] });
+
+        try {
+          const localTrack = await cobalt.downloadAndPlay(
+            foundTrack.url, 
+            interaction.guildId, 
+            interaction.user, 
+            client.player
+          );
+          
+          track = localTrack;
+          console.log(`[Play Command] ✅ Successfully downloaded: ${track.title}`);
+          
+        } catch (downloadError) {
+          console.error(`[Play Command] Cobalt download failed:`, downloadError);
+          
+          // Use the original track if download fails
+          track = foundTrack;
+          console.log(`[Play Command] Using original track as fallback`);
+          
+          await interaction.followUp({
+            content: '⚠️ **Note:** Download failed, using streaming instead. This may be less reliable.',
+            ephemeral: true
           });
         }
       }
@@ -220,10 +201,18 @@ module.exports = {
       // Create enhanced embed using utils
       const embed = utils.createTrackEmbed(track, queue, '🎵 Track Added to Queue');
       
+      // Add download/streaming status
+      const isLocalTrack = track.source === 'local' || track.isLocal;
+      embed.addFields({
+        name: '📡 Status',
+        value: isLocalTrack ? '💾 Downloaded & Ready' : '🌐 Streaming',
+        inline: true
+      });
+
       // Add source information with emoji
       embed.addFields({
         name: '📡 Source',
-        value: `${utils.getSourceEmoji(track.source)} ${track.source.charAt(0).toUpperCase() + track.source.slice(1)}`,
+        value: isLocalTrack ? '💾 Local Download' : `${utils.getSourceEmoji(track.source)} ${track.source.charAt(0).toUpperCase() + track.source.slice(1)}`,
         inline: true
       });
 
@@ -235,28 +224,12 @@ module.exports = {
           inline: true
         });
       }
-      
-      // Add validation warnings if any
-      const trackValidation = lavaPlayer.validateTrack(track);
-      if (!trackValidation.isValid && trackValidation.issues.length > 0) {
+
+      // Add download benefits if local
+      if (isLocalTrack) {
         embed.addFields({
-          name: '⚠️ Track Issues',
-          value: trackValidation.issues.join(', '),
-          inline: false
-        });
-      }
-      
-      // Add source-specific warnings
-      if (track.source === 'youtube') {
-        embed.addFields({
-          name: '⚠️ YouTube Note',
-          value: 'This is a YouTube track. Due to bot detection, it may not play properly. Try searching for the same song on Spotify or SoundCloud.',
-          inline: false
-        });
-      } else if (track.source === 'soundcloud') {
-        embed.addFields({
-          name: '⚠️ SoundCloud Note',
-          value: 'This is a SoundCloud track. If it doesn\'t play properly, try searching for a different version.',
+          name: '✅ Benefits',
+          value: '• Faster playback\n• No streaming issues\n• Better reliability',
           inline: false
         });
       }

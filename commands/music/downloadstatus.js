@@ -1,5 +1,6 @@
 const { SlashCommandBuilder } = require('discord.js');
 const CobaltIntegration = require('../../modules/cobalt-integration');
+const CommandUtils = require('../../modules/command-utils');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -7,6 +8,7 @@ module.exports = {
     .setDescription('Check download status and see recently downloaded files'),
 
   async execute(interaction) {
+    const utils = new CommandUtils();
     const cobalt = new CobaltIntegration();
 
     try {
@@ -22,12 +24,23 @@ module.exports = {
         inline: false
       });
 
+      // Add auto-download info
+      embed.addFields({
+        name: '🤖 Auto-Download Status',
+        value: 'The bot automatically downloads tracks when using `/play` for better reliability!',
+        inline: false
+      });
+
+      embed.setFooter({ 
+        text: 'Tracks are automatically downloaded and cached for faster playback' 
+      });
+
       await interaction.editReply({ embeds: [embed] });
 
     } catch (error) {
       console.error('Download status command error:', error);
       await interaction.editReply({
-        content: '❌ An error occurred while checking download status.'
+        embeds: [utils.createErrorEmbed('Error', 'An error occurred while checking download status.')]
       });
     }
   }
