@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { Player } = require('discord-player');
-// const { DefaultExtractors } = require('@discord-player/extractor'); // Disabled - using web scraping instead
+const { DefaultExtractors } = require('@discord-player/extractor'); // Re-enabled for streaming fallback
 // const LocalFileExtractor = require('./modules/local-file-extractor'); // Disabled - causing high CPU usage
 const POTokenProvider = require('./modules/po-token-provider');
 const PlayifyFeatures = require('./modules/playify-features');
@@ -114,21 +114,31 @@ client.player = new Player(client, {
   metricsInterval: 30000 // Collect metrics every 30 seconds
 });
 
-// Simplified approach - no extractors, using web scraping
-console.log('🔍 Using simplified web scraping approach...');
+// Hybrid approach - extractors for streaming fallback, web scraping for search
+console.log('🔍 Loading extractors for streaming fallback...');
 
-// Initialize PO Token Provider
-poTokenProvider.initialize().then(async () => {
+// Load essential extractors only (YouTube and Spotify)
+client.player.extractors.loadMulti([
+  DefaultExtractors.YouTubeExtractor,
+  DefaultExtractors.SpotifyExtractor
+]).then(async () => {
+  console.log('✅ Essential extractors loaded (YouTube, Spotify)');
+  
+  // Initialize PO Token Provider
+  await poTokenProvider.initialize();
   console.log('🔧 Initializing PO Token Provider...');
   console.log('⚠️ PO Token Provider using fallback mode (TV client)');
   console.log('✅ PO Token Provider initialized in fallback mode');
-  console.log('✅ Using yt-dlp for direct downloads and web scraping for search');
+  
+  console.log('✅ Hybrid approach: Web scraping for search + extractors for streaming fallback');
   console.log('✅ Bot will use YouTube and Spotify for reliable music playback');
   
-  console.log('✅ No extractors loaded - using direct yt-dlp integration');
-  console.log('✅ Search will work via web scraping and yt-dlp');
+  // Verify extractors are loaded
+  const loadedExtractors = Array.from(client.player.extractors.store.keys());
+  console.log('✅ Loaded extractors:', loadedExtractors);
+  
 }).catch(error => {
-  console.error('❌ Error initializing PO Token Provider:', error);
+  console.error('❌ Error loading extractors:', error);
 });
 
 // --- Event Handlers ---
