@@ -252,7 +252,6 @@ module.exports = {
           console.error(`[Play Command] ❌ Playback failed:`, playError);
           throw playError;
         }
-        }
       } else {
         console.log(`[Play Command] Already playing, track added to queue`);
       }
