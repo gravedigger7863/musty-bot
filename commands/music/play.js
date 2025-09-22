@@ -21,16 +21,15 @@ module.exports = {
     const ytdlp = new YtdlpIntegration();
     const query = interaction.options.getString('query');
     
-    try {
-      await interaction.deferReply();
-      
-      // Check cooldown
-      const cooldown = utils.isOnCooldown(interaction.user.id, 'play');
-      if (cooldown) {
-        return interaction.editReply({
-          embeds: [utils.createErrorEmbed('Cooldown', `Please wait ${cooldown} seconds before using this command again.`)]
-        });
-      }
+    await interaction.deferReply();
+    
+    // Check cooldown
+    const cooldown = utils.isOnCooldown(interaction.user.id, 'play');
+    if (cooldown) {
+      return interaction.editReply({
+        embeds: [utils.createErrorEmbed('Cooldown', `Please wait ${cooldown} seconds before using this command again.`)]
+      });
+    }
 
     // Validate voice channel
     const voiceValidation = await utils.validateVoiceChannel(interaction);
