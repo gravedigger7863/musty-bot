@@ -4,14 +4,17 @@ const path = require('path');
 
 class LocalFileExtractor extends BaseExtractor {
   constructor() {
-    super('local-file', ['local', 'file']);
+    super('local-file', ['local', 'file', 'mp3']);
   }
 
   async validate(query) {
     // Check if it's a local file path
     try {
-      if (typeof query === 'string' && (query.startsWith('/') || query.includes('downloads/'))) {
-        return fs.existsSync(query) && path.extname(query).toLowerCase() === '.mp3';
+      if (typeof query === 'string') {
+        // Check for absolute paths or relative paths to downloads folder
+        if (query.startsWith('/') || query.includes('downloads/') || query.endsWith('.mp3')) {
+          return fs.existsSync(query) && path.extname(query).toLowerCase() === '.mp3';
+        }
       }
       return false;
     } catch (error) {
@@ -28,9 +31,13 @@ class LocalFileExtractor extends BaseExtractor {
       const stats = fs.statSync(query);
       const filename = path.basename(query, '.mp3');
       
+      // Extract title from filename (remove guild ID and timestamp)
+      let title = filename.replace(/^\d+_\d+_/, '').replace(/\.mp3$/, '');
+      if (!title) title = 'Downloaded Track';
+      
       // Create a track object for the local file
       const track = {
-        title: filename,
+        title: title,
         description: 'Local downloaded track',
         author: 'Downloaded Track',
         url: query,
@@ -47,6 +54,8 @@ class LocalFileExtractor extends BaseExtractor {
           filename: filename
         }
       };
+
+      console.log(`[LocalFileExtractor] Created track for local file: ${title}`);
 
       return {
         tracks: [track]

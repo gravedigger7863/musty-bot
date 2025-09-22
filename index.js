@@ -3,7 +3,7 @@ require('dotenv').config();
 const { Client, GatewayIntentBits, Collection } = require('discord.js');
 const { Player } = require('discord-player');
 const { DefaultExtractors } = require('@discord-player/extractor');
-// const LocalFileExtractor = require('./modules/local-file-extractor'); // Disabled - causing loops
+const LocalFileExtractor = require('./modules/local-file-extractor');
 const POTokenProvider = require('./modules/po-token-provider');
 const PlayifyFeatures = require('./modules/playify-features');
 const LavaPlayerFeatures = require('./modules/lavaplayer-features');
@@ -129,8 +129,8 @@ client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
   console.log('✅ Bot will use Spotify and SoundCloud for reliable music playback');
   
   // Load local file extractor
-  // client.player.extractors.register(LocalFileExtractor); // Disabled - causing loops
-  // console.log('✅ Local file extractor loaded');
+  client.player.extractors.register(LocalFileExtractor);
+  console.log('✅ Local file extractor loaded');
   
   // Verify all extractors are loaded
   const loadedExtractors = Array.from(client.player.extractors.store.keys());

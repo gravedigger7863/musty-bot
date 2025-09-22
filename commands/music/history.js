@@ -17,9 +17,10 @@ module.exports = {
 
   async execute(interaction, client) {
     const utils = new CommandUtils();
-    const lavaPlayer = new LavaPlayerFeatures();
     
     try {
+      await interaction.deferReply();
+      
       // Check cooldown
       const cooldown = utils.isOnCooldown(interaction.user.id, 'history');
       if (cooldown) {
@@ -29,7 +30,10 @@ module.exports = {
       }
 
       const limit = interaction.options.getInteger('limit') || 10;
-      const history = lavaPlayer.getHistory(interaction.guildId, limit);
+      
+      // Get history from Discord Player
+      const queue = interaction.client.player.nodes.get(interaction.guildId);
+      const history = queue ? queue.history.tracks.toArray().slice(0, limit) : [];
       
       // Set cooldown
       utils.setCooldown(interaction.user.id, 'history');
@@ -50,10 +54,9 @@ module.exports = {
         .setTimestamp();
 
       const historyList = history.map((track, index) => {
-        const duration = utils.formatDuration(track.duration);
-        const timeAgo = utils.formatTimeAgo(track.timestamp);
+        const duration = track.duration || '0:00';
         const sourceEmoji = utils.getSourceEmoji(track.source);
-        return `${index + 1}. **${track.title}** - ${track.author}\n   ⏱️ ${duration} • ${sourceEmoji} ${track.source} • ${timeAgo}`;
+        return `${index + 1}. **${track.title}** - ${track.author}\n   ⏱️ ${duration} • ${sourceEmoji} ${track.source}`;
       }).join('\n\n');
 
       embed.setDescription(historyList);

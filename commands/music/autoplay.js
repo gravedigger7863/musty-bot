@@ -18,7 +18,6 @@ module.exports = {
     ),
 
   async execute(interaction) {
-    const playify = new PlayifyFeatures();
     const action = interaction.options.getString('action');
     
     try {
@@ -26,8 +25,14 @@ module.exports = {
 
       const queue = interaction.client.player.nodes.get(interaction.guildId);
       
+      if (!queue) {
+        return interaction.editReply({
+          content: '❌ No music is currently playing in this server.'
+        });
+      }
+      
       if (action === 'status') {
-        const isEnabled = playify.isAutoplayEnabled(interaction.guildId);
+        const isEnabled = queue.node.isAutoplay();
         
         const embed = new EmbedBuilder()
           .setColor(isEnabled ? '#00ff00' : '#ff0000')
@@ -42,12 +47,12 @@ module.exports = {
       }
 
       if (action === 'enable') {
-        playify.enableAutoplay(interaction.guildId);
+        queue.node.setAutoplay(true);
         
         const embed = new EmbedBuilder()
           .setColor('#00ff00')
           .setTitle('🔄 Autoplay Enabled')
-          .setDescription('Intelligent autoplay is now enabled! The bot will automatically add similar songs to the queue.')
+          .setDescription('Autoplay is now enabled! The bot will automatically add similar songs to the queue.')
           .addFields(
             { name: 'How it works', value: 'When a track ends, the bot will search for similar songs and add them to the queue.', inline: false }
           )
@@ -57,12 +62,12 @@ module.exports = {
       }
 
       if (action === 'disable') {
-        playify.disableAutoplay(interaction.guildId);
+        queue.node.setAutoplay(false);
         
         const embed = new EmbedBuilder()
           .setColor('#ff0000')
           .setTitle('🔄 Autoplay Disabled')
-          .setDescription('Intelligent autoplay has been disabled.')
+          .setDescription('Autoplay has been disabled.')
           .setTimestamp();
 
         return interaction.editReply({ embeds: [embed] });

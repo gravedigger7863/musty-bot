@@ -122,18 +122,18 @@ class YtdlpIntegration {
       const metadata = await this.getTrackMetadata(url);
       
       // Create a proper Track object for discord-player
-      // Use the original URL but store local file info in raw data
+      // Use the local file path for playback
       const localTrack = new Track(player, {
         title: metadata.title || this.extractTitleFromFilename(fileInfo.filename),
         description: metadata.description || 'Downloaded track',
         author: metadata.uploader || metadata.artist || 'Unknown Artist',
-        url: url, // Use original URL for Discord Player compatibility
+        url: fileInfo.filePath, // Use local file path for playback
         thumbnail: metadata.thumbnail || null,
         duration: metadata.duration_string || '0:00',
         durationMS: metadata.duration * 1000 || 0,
         views: metadata.view_count || 0,
         requestedBy: requestedBy,
-        source: 'youtube', // Keep original source for compatibility
+        source: 'local', // Mark as local source
         isLocal: true,
         raw: {
           ...metadata,
