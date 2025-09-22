@@ -2,6 +2,7 @@ const { EmbedBuilder } = require('discord.js');
 const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
+const { Track } = require('discord-player');
 
 class YtdlpIntegration {
   constructor() {
@@ -117,18 +118,29 @@ class YtdlpIntegration {
 
       const fileInfo = await this.downloadTrack(url, guildId, requestedBy);
       
-      // Create a local track object for discord-player
-      const localTrack = {
-        title: this.extractTitleFromFilename(fileInfo.filename),
-        author: 'Downloaded Track',
-        url: fileInfo.filePath,
-        duration: '0:00', // Will be determined by player
-        thumbnail: null,
-        source: 'local',
+      // Get track metadata using yt-dlp
+      const metadata = await this.getTrackMetadata(url);
+      
+      // Create a proper Track object for discord-player
+      const localTrack = new Track(player, {
+        title: metadata.title || this.extractTitleFromFilename(fileInfo.filename),
+        description: metadata.description || 'Downloaded track',
+        author: metadata.uploader || metadata.artist || 'Unknown Artist',
+        url: fileInfo.filePath, // Local file path
+        thumbnail: metadata.thumbnail || null,
+        duration: metadata.duration_string || '0:00',
+        durationMS: metadata.duration * 1000 || 0,
+        views: metadata.view_count || 0,
         requestedBy: requestedBy,
+        source: 'local',
         isLocal: true,
-        fileInfo: fileInfo
-      };
+        raw: {
+          ...metadata,
+          localPath: fileInfo.filePath,
+          downloadedAt: fileInfo.downloadedAt,
+          fileSize: fileInfo.size
+        }
+      });
 
       this.downloadQueue.delete(guildId);
       return localTrack;
@@ -137,6 +149,48 @@ class YtdlpIntegration {
       this.downloadQueue.delete(guildId);
       throw error;
     }
+  }
+
+  // Get track metadata using yt-dlp
+  async getTrackMetadata(url) {
+    return new Promise((resolve, reject) => {
+      const ytdlp = spawn('yt-dlp', [
+        '--dump-json',
+        '--no-playlist',
+        url
+      ]);
+
+      let stdout = '';
+      let stderr = '';
+
+      ytdlp.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      ytdlp.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      ytdlp.on('close', (code) => {
+        if (code === 0) {
+          try {
+            const metadata = JSON.parse(stdout);
+            resolve(metadata);
+          } catch (error) {
+            console.error('[YtDlp] Error parsing metadata JSON:', error);
+            resolve({}); // Return empty metadata if parsing fails
+          }
+        } else {
+          console.error(`[YtDlp] Metadata extraction failed with code ${code}:`, stderr);
+          resolve({}); // Return empty metadata if extraction fails
+        }
+      });
+
+      ytdlp.on('error', (error) => {
+        console.error('[YtDlp] Metadata extraction spawn error:', error);
+        resolve({}); // Return empty metadata if spawn fails
+      });
+    });
   }
 
   // Extract title from filename (basic implementation)

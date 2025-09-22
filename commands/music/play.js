@@ -198,6 +198,16 @@ module.exports = {
       // Add track to queue
       queue.addTrack(track);
       
+      // Debug logging
+      console.log(`[Play Command] Track added to queue:`, {
+        title: track.title,
+        author: track.author,
+        url: track.url,
+        source: track.source,
+        isLocal: track.isLocal,
+        duration: track.duration
+      });
+      
       // Create enhanced embed using utils
       const embed = utils.createTrackEmbed(track, queue, '🎵 Track Added to Queue');
       
@@ -236,7 +246,16 @@ module.exports = {
       
       // Start playing if not already playing
       if (!queue.isPlaying()) {
-        await queue.node.play();
+        console.log(`[Play Command] Starting playback...`);
+        try {
+          await queue.node.play();
+          console.log(`[Play Command] ✅ Playback started successfully`);
+        } catch (playError) {
+          console.error(`[Play Command] ❌ Playback failed:`, playError);
+          throw playError;
+        }
+      } else {
+        console.log(`[Play Command] Already playing, track added to queue`);
       }
 
       // Create control buttons
