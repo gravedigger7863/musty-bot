@@ -34,7 +34,8 @@ class YtdlpIntegration {
         '--no-playlist',
         '--no-warnings',
         '--quiet',
-        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        '--cookies-from-browser', 'firefox',
+        '--user-agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0',
         '--referer', 'https://www.youtube.com/',
         '--sleep-requests', '1',
         '--sleep-interval', '1',
@@ -171,7 +172,8 @@ class YtdlpIntegration {
       const ytdlp = spawn('yt-dlp', [
         '--dump-json',
         '--no-playlist',
-        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        '--cookies-from-browser', 'firefox',
+        '--user-agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0',
         '--referer', 'https://www.youtube.com/',
         url
       ]);
