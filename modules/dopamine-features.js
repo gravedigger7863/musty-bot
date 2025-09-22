@@ -125,6 +125,7 @@ class DopamineFeatures {
     try {
       // Try multiple lyrics sources for better coverage
       const sources = [
+        this.fetchFromLyricsCom(title, artist),
         this.fetchFromGenius(title, artist),
         this.fetchFromLyricsOvh(title, artist),
         this.fetchFromLyricsFind(title, artist)
@@ -150,6 +151,53 @@ class DopamineFeatures {
     }
   }
 
+  // Lyrics.com scraping (more reliable)
+  async fetchFromLyricsCom(title, artist) {
+    const axios = require('axios');
+    
+    try {
+      const searchQuery = encodeURIComponent(`${artist} ${title}`);
+      const response = await axios.get(`https://www.lyrics.com/lyrics/${searchQuery}`, {
+        timeout: 5000,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
+      });
+
+      // Parse lyrics from HTML
+      const html = response.data;
+      
+      // Look for common lyrics container patterns
+      const lyricsPatterns = [
+        /<div[^>]*id="lyric-body-text"[^>]*>(.*?)<\/div>/s,
+        /<pre[^>]*class="lyric-body"[^>]*>(.*?)<\/pre>/s,
+        /<div[^>]*class="lyric-body"[^>]*>(.*?)<\/div>/s,
+        /<div[^>]*class="lyrics"[^>]*>(.*?)<\/div>/s
+      ];
+
+      for (const pattern of lyricsPatterns) {
+        const match = html.match(pattern);
+        if (match) {
+          let lyrics = match[1]
+            .replace(/<[^>]*>/g, '') // Remove HTML tags
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&nbsp;/g, ' ')
+            .trim();
+
+          if (lyrics.length > 100) {
+            return `🎵 **${title}** by ${artist}\n\n${lyrics}\n\n*Source: Lyrics.com*`;
+          }
+        }
+      }
+    } catch (error) {
+      console.log('Lyrics.com failed:', error.message);
+    }
+    throw new Error('Lyrics.com not found');
+  }
+
   // Genius API integration
   async fetchFromGenius(title, artist) {
     const axios = require('axios');
@@ -158,9 +206,13 @@ class DopamineFeatures {
     try {
       // Use a simple web scraping approach for Genius
       const response = await axios.get(`https://genius.com/api/search?q=${searchQuery}`, {
-        timeout: 10000,
+        timeout: 5000,
         headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'application/json',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cache-Control': 'no-cache',
+          'Referer': 'https://genius.com/'
         }
       });
 
@@ -170,9 +222,11 @@ class DopamineFeatures {
         
         // Fetch the actual lyrics page
         const lyricsResponse = await axios.get(songUrl, {
-          timeout: 10000,
+          timeout: 5000,
           headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Referer': 'https://genius.com/'
           }
         });
 
@@ -204,7 +258,7 @@ class DopamineFeatures {
     
     try {
       const response = await axios.get(`https://api.lyrics.ovh/v1/${encodeURIComponent(artist)}/${encodeURIComponent(title)}`, {
-        timeout: 8000
+        timeout: 3000
       });
 
       if (response.data && response.data.lyrics) {
