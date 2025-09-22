@@ -3,7 +3,7 @@ const PlayifyFeatures = require('../../modules/playify-features');
 const LavaPlayerFeatures = require('../../modules/lavaplayer-features');
 const DopamineFeatures = require('../../modules/dopamine-features');
 const CommandUtils = require('../../modules/command-utils');
-const CobaltIntegration = require('../../modules/cobalt-integration');
+const YtdlpIntegration = require('../../modules/ytdlp-integration');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -17,7 +17,7 @@ module.exports = {
   
   async execute(interaction, client) {
     const utils = new CommandUtils();
-    const cobalt = new CobaltIntegration();
+    const ytdlp = new YtdlpIntegration();
     const query = interaction.options.getString('query');
     
     // Check cooldown
@@ -75,12 +75,12 @@ module.exports = {
       
       let track;
 
-      // Check if query is a direct URL that Cobalt can handle
-      const isDirectUrl = cobalt.isSupportedUrl(query);
+      // Check if query is a direct URL that yt-dlp can handle
+      const isDirectUrl = ytdlp.isSupportedUrl(query);
       
       if (isDirectUrl) {
-        // Direct URL - download with Cobalt.tools
-        console.log(`[Play Command] Direct URL detected, downloading with Cobalt.tools...`);
+        // Direct URL - download with yt-dlp
+        console.log(`[Play Command] Direct URL detected, downloading with yt-dlp...`);
         
         const downloadEmbed = utils.createInfoEmbed(
           'Downloading Track',
@@ -91,7 +91,7 @@ module.exports = {
         await interaction.editReply({ embeds: [downloadEmbed] });
 
         try {
-          const localTrack = await cobalt.downloadAndPlay(
+          const localTrack = await ytdlp.downloadAndPlay(
             query, 
             interaction.guildId, 
             interaction.user, 
@@ -102,7 +102,7 @@ module.exports = {
           console.log(`[Play Command] ✅ Successfully downloaded: ${track.title}`);
           
         } catch (downloadError) {
-          console.error(`[Play Command] Cobalt download failed:`, downloadError);
+          console.error(`[Play Command] yt-dlp download failed:`, downloadError);
           
           // Fallback to regular search if download fails
           console.log(`[Play Command] Falling back to regular search...`);
@@ -161,7 +161,7 @@ module.exports = {
         const foundTrack = searchResult.tracks[0];
         console.log(`[Play Command] Found track: ${foundTrack.title} - ${foundTrack.author} (${foundTrack.source})`);
         
-        // Now download the track using Cobalt.tools
+        // Now download the track using yt-dlp
         const downloadEmbed = utils.createInfoEmbed(
           'Downloading Track',
           `Downloading **${foundTrack.title}** by ${foundTrack.author}...\nThis may take a few moments.`,
@@ -171,7 +171,7 @@ module.exports = {
         await interaction.editReply({ embeds: [downloadEmbed] });
 
         try {
-          const localTrack = await cobalt.downloadAndPlay(
+          const localTrack = await ytdlp.downloadAndPlay(
             foundTrack.url, 
             interaction.guildId, 
             interaction.user, 
@@ -182,7 +182,7 @@ module.exports = {
           console.log(`[Play Command] ✅ Successfully downloaded: ${track.title}`);
           
         } catch (downloadError) {
-          console.error(`[Play Command] Cobalt download failed:`, downloadError);
+          console.error(`[Play Command] yt-dlp download failed:`, downloadError);
           
           // Use the original track if download fails
           track = foundTrack;

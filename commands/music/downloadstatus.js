@@ -1,5 +1,5 @@
 const { SlashCommandBuilder } = require('discord.js');
-const CobaltIntegration = require('../../modules/cobalt-integration');
+const YtdlpIntegration = require('../../modules/ytdlp-integration');
 const CommandUtils = require('../../modules/command-utils');
 
 module.exports = {
@@ -9,15 +9,15 @@ module.exports = {
 
   async execute(interaction) {
     const utils = new CommandUtils();
-    const cobalt = new CobaltIntegration();
+    const ytdlp = new YtdlpIntegration();
 
     try {
       await interaction.deferReply();
 
-      const embed = cobalt.createDownloadStatusEmbed(interaction.guildId);
+      const embed = ytdlp.createDownloadStatusEmbed(interaction.guildId);
       
       // Add global queue info
-      const queueInfo = cobalt.getQueueInfo();
+      const queueInfo = ytdlp.getQueueInfo();
       embed.addFields({
         name: 'Global Status',
         value: `Active Downloads: ${queueInfo.activeDownloads}\nTotal Downloaded Files: ${queueInfo.totalDownloadedFiles}`,
@@ -27,12 +27,12 @@ module.exports = {
       // Add auto-download info
       embed.addFields({
         name: '🤖 Auto-Download Status',
-        value: 'The bot automatically downloads tracks when using `/play` for better reliability!',
+        value: 'The bot automatically downloads tracks using yt-dlp when using `/play` for better reliability!',
         inline: false
       });
 
       embed.setFooter({ 
-        text: 'Tracks are automatically downloaded and cached for faster playback' 
+        text: 'Tracks are automatically downloaded with yt-dlp and cached for faster playback' 
       });
 
       await interaction.editReply({ embeds: [embed] });

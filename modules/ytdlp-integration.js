@@ -1,13 +1,12 @@
 const { EmbedBuilder } = require('discord.js');
-const axios = require('axios');
+const { spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-class CobaltIntegration {
+class YtdlpIntegration {
   constructor() {
     this.downloadQueue = new Map(); // Guild ID -> download queue
     this.downloadedFiles = new Map(); // Guild ID -> downloaded files
-    this.cobaltApiUrl = 'https://api.cobalt.tools/api/json';
     this.downloadsPath = path.join(__dirname, '..', 'downloads');
     
     // Ensure downloads directory exists
@@ -16,80 +15,97 @@ class CobaltIntegration {
     }
   }
 
-  // Download music using Cobalt.tools API
+  // Download music using yt-dlp
   async downloadTrack(url, guildId, requestedBy) {
     try {
-      const response = await axios.post(this.cobaltApiUrl, {
-        url: url,
-        vQuality: 'max',
-        vFormat: 'mp4',
-        aFormat: 'mp3',
-        isAudioOnly: true,
-        isNoTTWatermark: true,
-        isTTFullAudio: true
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        timeout: 60000 // 60 seconds timeout
+      const filename = this.generateFilename(guildId);
+      const filePath = path.join(this.downloadsPath, filename);
+      
+      console.log(`[YtDlp] Starting download from: ${url}`);
+      
+      const ytdlp = spawn('yt-dlp', [
+        '--extract-audio',
+        '--audio-format', 'mp3',
+        '--audio-quality', '192K',
+        '--output', filePath.replace('.mp3', '.%(ext)s'),
+        '--no-playlist',
+        '--no-warnings',
+        '--quiet',
+        url
+      ]);
+
+      return new Promise((resolve, reject) => {
+        let stderr = '';
+        
+        ytdlp.stderr.on('data', (data) => {
+          stderr += data.toString();
+        });
+
+        ytdlp.on('close', (code) => {
+          if (code === 0) {
+            // Find the actual downloaded file
+            const actualFilePath = this.findDownloadedFile(guildId);
+            if (actualFilePath && fs.existsSync(actualFilePath)) {
+              const fileInfo = {
+                filename: path.basename(actualFilePath),
+                filePath: actualFilePath,
+                originalUrl: url,
+                requestedBy,
+                downloadedAt: Date.now(),
+                size: fs.statSync(actualFilePath).size
+              };
+              
+              // Store file info
+              if (!this.downloadedFiles.has(guildId)) {
+                this.downloadedFiles.set(guildId, []);
+              }
+              this.downloadedFiles.get(guildId).push(fileInfo);
+              
+              console.log(`[YtDlp] ✅ Downloaded: ${fileInfo.filename} (${fileInfo.size} bytes)`);
+              resolve(fileInfo);
+            } else {
+              reject(new Error('Downloaded file not found'));
+            }
+          } else {
+            console.error(`[YtDlp] Download failed with code ${code}:`, stderr);
+            reject(new Error(`yt-dlp failed: ${stderr}`));
+          }
+        });
+
+        ytdlp.on('error', (error) => {
+          console.error(`[YtDlp] Spawn error:`, error);
+          reject(error);
+        });
       });
 
-      if (response.data && response.data.status === 'success' && response.data.url) {
-        const downloadUrl = response.data.url;
-        const filename = this.generateFilename(response.data.text || 'track', guildId);
-        const filePath = path.join(this.downloadsPath, filename);
-        
-        // Download the file
-        const fileResponse = await axios.get(downloadUrl, {
-          responseType: 'stream',
-          timeout: 300000 // 5 minutes for download
-        });
-
-        const writer = fs.createWriteStream(filePath);
-        fileResponse.data.pipe(writer);
-
-        return new Promise((resolve, reject) => {
-          writer.on('finish', () => {
-            // Store file info
-            if (!this.downloadedFiles.has(guildId)) {
-              this.downloadedFiles.set(guildId, []);
-            }
-            
-            const fileInfo = {
-              filename,
-              filePath,
-              originalUrl: url,
-              requestedBy,
-              downloadedAt: Date.now(),
-              size: fs.statSync(filePath).size
-            };
-            
-            this.downloadedFiles.get(guildId).push(fileInfo);
-            
-            console.log(`✅ Downloaded: ${filename} (${fileInfo.size} bytes)`);
-            resolve(fileInfo);
-          });
-          
-          writer.on('error', reject);
-        });
-      } else {
-        throw new Error('Cobalt API returned unsuccessful response');
-      }
     } catch (error) {
-      console.error('Cobalt download error:', error.message);
+      console.error('YtDlp download error:', error);
       throw error;
     }
   }
 
-  // Generate unique filename
-  generateFilename(title, guildId) {
-    const timestamp = Date.now();
-    const safeTitle = title.replace(/[^a-zA-Z0-9]/g, '_').substring(0, 50);
-    return `${guildId}_${safeTitle}_${timestamp}.mp3`;
+  // Find the actual downloaded file
+  findDownloadedFile(guildId) {
+    try {
+      const files = fs.readdirSync(this.downloadsPath);
+      const guildFile = files.find(file => file.startsWith(`${guildId}_`));
+      if (guildFile) {
+        return path.join(this.downloadsPath, guildFile);
+      }
+      return null;
+    } catch (error) {
+      console.error('Error finding downloaded file:', error);
+      return null;
+    }
   }
 
-  // Download and play locally
+  // Generate unique filename
+  generateFilename(guildId) {
+    const timestamp = Date.now();
+    return `${guildId}_${timestamp}.mp3`;
+  }
+
+  // Download and create local track object
   async downloadAndPlay(url, guildId, requestedBy, player) {
     try {
       // Check if already downloading
@@ -103,14 +119,15 @@ class CobaltIntegration {
       
       // Create a local track object for discord-player
       const localTrack = {
-        title: fileInfo.filename.replace('.mp3', ''),
-        author: 'Local Download',
+        title: this.extractTitleFromFilename(fileInfo.filename),
+        author: 'Downloaded Track',
         url: fileInfo.filePath,
         duration: '0:00', // Will be determined by player
         thumbnail: null,
         source: 'local',
         requestedBy: requestedBy,
-        isLocal: true
+        isLocal: true,
+        fileInfo: fileInfo
       };
 
       this.downloadQueue.delete(guildId);
@@ -120,6 +137,12 @@ class CobaltIntegration {
       this.downloadQueue.delete(guildId);
       throw error;
     }
+  }
+
+  // Extract title from filename (basic implementation)
+  extractTitleFromFilename(filename) {
+    // Remove guild ID and timestamp, keep the rest as title
+    return filename.replace(/^\d+_\d+\./, '').replace(/\.mp3$/, '') || 'Downloaded Track';
   }
 
   // Get download status
@@ -146,7 +169,7 @@ class CobaltIntegration {
           try {
             if (fs.existsSync(file.filePath)) {
               fs.unlinkSync(file.filePath);
-              console.log(`🗑️ Deleted old file: ${file.filename}`);
+              console.log(`[YtDlp] 🗑️ Deleted old file: ${file.filename}`);
             }
           } catch (error) {
             console.error(`Error deleting file ${file.filename}:`, error.message);
@@ -165,7 +188,7 @@ class CobaltIntegration {
     const status = this.getDownloadStatus(guildId);
     const embed = new EmbedBuilder()
       .setColor(status.isDownloading ? '#ffaa00' : '#00ff00')
-      .setTitle('📥 Download Status')
+      .setTitle('📥 Download Status (yt-dlp)')
       .setDescription(status.isDownloading ? 'Download in progress...' : 'No downloads in progress')
       .addFields(
         { name: 'Downloaded Files', value: status.downloadedCount.toString(), inline: true },
@@ -198,8 +221,9 @@ class CobaltIntegration {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
-  // Check if URL is supported by Cobalt
+  // Check if URL is supported by yt-dlp
   isSupportedUrl(url) {
+    // yt-dlp supports almost everything, but let's check for common patterns
     const supportedDomains = [
       'youtube.com',
       'youtu.be',
@@ -211,14 +235,17 @@ class CobaltIntegration {
       'instagram.com',
       'twitter.com',
       'x.com',
-      'twitch.tv'
+      'twitch.tv',
+      'vimeo.com',
+      'bandcamp.com',
+      'mixcloud.com'
     ];
     
     try {
       const urlObj = new URL(url);
       return supportedDomains.some(domain => 
         urlObj.hostname.includes(domain)
-      );
+      ) || true; // yt-dlp supports most URLs
     } catch {
       return false;
     }
@@ -237,12 +264,31 @@ class CobaltIntegration {
     };
   }
 
+  // Test yt-dlp installation
+  async testInstallation() {
+    return new Promise((resolve, reject) => {
+      const ytdlp = spawn('yt-dlp', ['--version']);
+      
+      ytdlp.on('close', (code) => {
+        if (code === 0) {
+          resolve(true);
+        } else {
+          reject(new Error('yt-dlp not working properly'));
+        }
+      });
+      
+      ytdlp.on('error', (error) => {
+        reject(error);
+      });
+    });
+  }
+
   // Cleanup resources
   cleanup(guildId) {
     this.downloadQueue.delete(guildId);
     this.downloadedFiles.delete(guildId);
-    console.log(`🧹 Cleaned up Cobalt integration for guild ${guildId}`);
+    console.log(`[YtDlp] 🧹 Cleaned up yt-dlp integration for guild ${guildId}`);
   }
 }
 
-module.exports = CobaltIntegration;
+module.exports = YtdlpIntegration;
