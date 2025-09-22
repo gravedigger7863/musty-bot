@@ -118,10 +118,7 @@ client.player = new Player(client, {
 console.log('🔍 Loading extractors for streaming fallback...');
 
 // Load essential extractors only (YouTube and Spotify)
-client.player.extractors.loadMulti([
-  DefaultExtractors.YouTubeExtractor,
-  DefaultExtractors.SpotifyExtractor
-]).then(async () => {
+client.player.extractors.loadMulti(DefaultExtractors).then(async () => {
   console.log('✅ Essential extractors loaded (YouTube, Spotify)');
   
   // Initialize PO Token Provider

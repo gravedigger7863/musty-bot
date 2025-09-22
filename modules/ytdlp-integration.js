@@ -34,14 +34,17 @@ class YtdlpIntegration {
         '--no-playlist',
         '--no-warnings',
         '--quiet',
-        '--user-agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0',
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         '--referer', 'https://www.youtube.com/',
-        '--sleep-requests', '2',
-        '--sleep-interval', '2',
-        '--max-sleep-interval', '5',
-        '--retries', '3',
-        '--fragment-retries', '3',
-        '--extractor-retries', '3',
+        '--sleep-requests', '3',
+        '--sleep-interval', '3',
+        '--max-sleep-interval', '8',
+        '--retries', '5',
+        '--fragment-retries', '5',
+        '--extractor-retries', '5',
+        '--socket-timeout', '30',
+        '--max-downloads', '1',
+        '--no-check-certificate',
         url
       ]);
 
@@ -174,10 +177,11 @@ class YtdlpIntegration {
       const ytdlp = spawn('yt-dlp', [
         '--dump-json',
         '--no-playlist',
-        '--user-agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0',
+        '--user-agent', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         '--referer', 'https://www.youtube.com/',
-        '--retries', '3',
-        '--extractor-retries', '3',
+        '--retries', '5',
+        '--extractor-retries', '5',
+        '--socket-timeout', '30',
         url
       ]);
 
