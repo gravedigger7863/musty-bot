@@ -97,17 +97,62 @@ module.exports = {
         });
         
         if (youtubeResults.length > 0) {
-          // Use Discord Player to create a proper track from the YouTube URL
+          console.log(`[Play Command] Attempting Discord Player conversion for: ${youtubeResults[0].url}`);
+          
+          // Method 1: Try Discord Player search with the YouTube URL
           try {
             const searchResult = await client.player.search(youtubeResults[0].url, {
               requestedBy: interaction.user
             });
             
+            console.log(`[Play Command] Discord Player search result:`, {
+              hasTracks: searchResult.hasTracks(),
+              tracksCount: searchResult.tracks.length,
+              searchEngine: searchResult.searchEngine
+            });
+            
             if (searchResult.hasTracks()) {
               track = searchResult.tracks[0];
-              console.log(`[Play Command] YouTube found via Discord Player: ${track.title} - ${track.author}`);
+              console.log(`[Play Command] ✅ YouTube found via Discord Player: ${track.title} - ${track.author}`);
+              console.log(`[Play Command] Track details:`, {
+                title: track.title,
+                author: track.author,
+                url: track.url,
+                duration: track.duration,
+                source: track.source
+              });
             } else {
-              // Fallback: create a basic track object
+              throw new Error('Discord Player search returned no tracks');
+            }
+          } catch (discordPlayerError) {
+            console.log(`[Play Command] ❌ Discord Player conversion failed:`, discordPlayerError.message);
+            
+            // Method 2: Try with different search engines
+            const searchEngines = ['youtube', 'youtube_music'];
+            let foundViaEngine = false;
+            
+            for (const engine of searchEngines) {
+              try {
+                console.log(`[Play Command] Trying ${engine} search engine...`);
+                const engineResult = await client.player.search(youtubeResults[0].url, {
+                  requestedBy: interaction.user,
+                  searchEngine: engine
+                });
+                
+                if (engineResult.hasTracks()) {
+                  track = engineResult.tracks[0];
+                  console.log(`[Play Command] ✅ Found via ${engine}: ${track.title} - ${track.author}`);
+                  foundViaEngine = true;
+                  break;
+                }
+              } catch (engineError) {
+                console.log(`[Play Command] ❌ ${engine} failed:`, engineError.message);
+              }
+            }
+            
+            // Method 3: If all Discord Player methods fail, create a basic track
+            if (!foundViaEngine) {
+              console.log(`[Play Command] All Discord Player methods failed, creating basic track object`);
               track = {
                 title: youtubeResults[0].title,
                 author: youtubeResults[0].author,
@@ -117,21 +162,8 @@ module.exports = {
                 source: 'youtube',
                 requestedBy: interaction.user
               };
-              console.log(`[Play Command] YouTube found (fallback): ${track.title} - ${track.author}`);
+              console.log(`[Play Command] Basic track created: ${track.title} - ${track.author}`);
             }
-          } catch (discordPlayerError) {
-            console.log(`[Play Command] Discord Player conversion failed, using fallback:`, discordPlayerError.message);
-            // Fallback: create a basic track object
-            track = {
-              title: youtubeResults[0].title,
-              author: youtubeResults[0].author,
-              url: youtubeResults[0].url,
-              duration: youtubeResults[0].duration,
-              thumbnail: youtubeResults[0].thumbnail,
-              source: 'youtube',
-              requestedBy: interaction.user
-            };
-            console.log(`[Play Command] YouTube found (fallback): ${track.title} - ${track.author}`);
           }
         }
       } catch (error) {
@@ -227,25 +259,83 @@ module.exports = {
       // Start playing if not already playing
       if (!queue.isPlaying()) {
         console.log(`[Play Command] Starting playback...`);
+        console.log(`[Play Command] Queue state:`, {
+          isPlaying: queue.isPlaying(),
+          isPaused: queue.isPaused(),
+          tracksCount: queue.tracks.count,
+          currentTrack: queue.currentTrack ? {
+            title: queue.currentTrack.title,
+            author: queue.currentTrack.author,
+            url: queue.currentTrack.url
+          } : null
+        });
+        
         try {
+          console.log(`[Play Command] Calling queue.node.play()...`);
           await queue.node.play();
           console.log(`[Play Command] ✅ Playback started successfully`);
+          
+          // Wait a moment and check if it's actually playing
+          setTimeout(() => {
+            console.log(`[Play Command] Post-playback check:`, {
+              isPlaying: queue.isPlaying(),
+              isPaused: queue.isPaused(),
+              currentTrack: queue.currentTrack ? queue.currentTrack.title : 'None'
+            });
+          }, 2000);
+          
         } catch (playError) {
           console.error(`[Play Command] ❌ Playback failed:`, playError);
+          console.error(`[Play Command] Error details:`, {
+            name: playError.name,
+            message: playError.message,
+            stack: playError.stack
+          });
           
-          // Try to get more details about the error
-          if (playError.message && playError.message.includes('AbortError')) {
-            console.log(`[Play Command] AbortError detected - trying to reconnect...`);
-            try {
-              // Try to reconnect and play again
-              await queue.connect(interaction.member.voice.channel);
-              await queue.node.play();
-              console.log(`[Play Command] ✅ Reconnected and playback started`);
-            } catch (reconnectError) {
-              console.error(`[Play Command] ❌ Reconnection failed:`, reconnectError);
-              throw playError;
+          // Try multiple recovery methods
+          const recoveryMethods = [
+            {
+              name: 'Reconnect and retry',
+              action: async () => {
+                console.log(`[Play Command] Trying reconnect method...`);
+                await queue.connect(interaction.member.voice.channel);
+                await queue.node.play();
+              }
+            },
+            {
+              name: 'Skip and retry',
+              action: async () => {
+                console.log(`[Play Command] Trying skip and retry method...`);
+                queue.skip();
+                await queue.node.play();
+              }
+            },
+            {
+              name: 'Clear queue and retry',
+              action: async () => {
+                console.log(`[Play Command] Trying clear queue method...`);
+                queue.tracks.clear();
+                queue.addTrack(track);
+                await queue.node.play();
+              }
             }
-          } else {
+          ];
+          
+          let recoverySuccess = false;
+          for (const method of recoveryMethods) {
+            try {
+              console.log(`[Play Command] Attempting recovery: ${method.name}`);
+              await method.action();
+              console.log(`[Play Command] ✅ Recovery successful: ${method.name}`);
+              recoverySuccess = true;
+              break;
+            } catch (recoveryError) {
+              console.log(`[Play Command] ❌ Recovery failed: ${method.name}`, recoveryError.message);
+            }
+          }
+          
+          if (!recoverySuccess) {
+            console.error(`[Play Command] ❌ All recovery methods failed`);
             throw playError;
           }
         }

@@ -100,7 +100,22 @@ client.player.events.on('playerFinish', (queue, track) => {
 
 client.player.events.on('playerError', (queue, error) => {
   console.error(`❌ Player error in ${queue.guild.name}:`, error.message);
-  console.error(`❌ Error details:`, error);
+  console.error(`❌ Error details:`, {
+    name: error.name,
+    message: error.message,
+    stack: error.stack,
+    code: error.code
+  });
+  console.error(`❌ Queue state during error:`, {
+    isPlaying: queue.isPlaying(),
+    isPaused: queue.isPaused(),
+    tracksCount: queue.tracks.count,
+    currentTrack: queue.currentTrack ? {
+      title: queue.currentTrack.title,
+      url: queue.currentTrack.url,
+      source: queue.currentTrack.source
+    } : null
+  });
   
   const channel = client.channels.cache.get(queue.metadata.channel.id);
   if (channel) {
@@ -110,6 +125,10 @@ client.player.events.on('playerError', (queue, error) => {
       errorMessage = `❌ Connection timeout. Please try again.`;
     } else if (error.message && error.message.includes('ENOTFOUND')) {
       errorMessage = `❌ Network error. Please try again.`;
+    } else if (error.message && error.message.includes('No video')) {
+      errorMessage = `❌ Video not available. Try a different track.`;
+    } else if (error.message && error.message.includes('Private video')) {
+      errorMessage = `❌ Video is private. Try a different track.`;
     }
     
     channel.send(errorMessage).catch(console.error);
