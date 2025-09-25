@@ -304,6 +304,71 @@ module.exports = {
         });
         
         try {
+          // For local files, use direct voice streaming instead of Discord Player
+          if (track.source === 'local' && track.localFilePath) {
+            console.log(`[Play Command] Using direct voice streaming for local file...`);
+            console.log(`[Play Command] Local file path: ${track.localFilePath}`);
+            
+            const { createAudioPlayer, createAudioResource, AudioPlayerStatus, VoiceConnectionStatus, entersState } = require('@discordjs/voice');
+            const fs = require('fs');
+            
+            // Check if file exists
+            if (!fs.existsSync(track.localFilePath)) {
+              throw new Error(`Local file not found: ${track.localFilePath}`);
+            }
+            
+            // Create audio resource from local file
+            const audioResource = createAudioResource(track.localFilePath);
+            const audioPlayer = createAudioPlayer();
+            
+            // Set up event handlers
+            audioPlayer.on(AudioPlayerStatus.Playing, () => {
+              console.log(`[Play Command] ✅ Audio is now playing!`);
+              console.log(`[Play Command] 🎵 Now playing: ${track.title} by ${track.author}`);
+            });
+            
+            audioPlayer.on(AudioPlayerStatus.Idle, () => {
+              console.log(`[Play Command] 🏁 Audio finished playing`);
+              // Clean up local file
+              if (track.localFilePath) {
+                fs.unlink(track.localFilePath, (err) => {
+                  if (err) console.error(`[Play Command] ❌ Cleanup failed:`, err.message);
+                  else console.log(`[Play Command] ✅ Cleaned up local file: ${track.localFilePath}`);
+                });
+              }
+            });
+            
+            audioPlayer.on('error', (error) => {
+              console.error(`[Play Command] ❌ Audio player error:`, error);
+            });
+            
+            // Connect audio player to voice connection
+            const connection = queue.dispatcher.voiceConnection;
+            connection.subscribe(audioPlayer);
+            
+            // Start playing
+            audioPlayer.play(audioResource);
+            
+            console.log(`[Play Command] ✅ Direct voice streaming started for: ${track.title}`);
+            
+            // Send success message
+            const successEmbed = new EmbedBuilder()
+              .setColor('#00ff00')
+              .setTitle('🎵 Now Playing')
+              .setDescription(`**${track.title}** by ${track.author}`)
+              .addFields(
+                { name: '📡 Source', value: 'Local MP3', inline: true },
+                { name: '⏱️ Duration', value: track.duration || 'Unknown', inline: true }
+              )
+              .setThumbnail(track.thumbnail)
+              .setTimestamp();
+            
+            await interaction.editReply({ embeds: [successEmbed] });
+            return;
+          }
+          
+          // For non-local files, use Discord Player
+          console.log(`[Play Command] Using Discord Player for: ${track.source}`);
           console.log(`[Play Command] Calling queue.node.play()...`);
           console.log(`[Play Command] Track URL: ${track.url}`);
           console.log(`[Play Command] Track source: ${track.source}`);
