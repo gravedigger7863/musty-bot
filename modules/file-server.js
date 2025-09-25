@@ -7,7 +7,7 @@ class FileServer {
     this.app = express();
     this.port = 3001;
     this.server = null;
-    this.baseUrl = `http://localhost:${this.port}`;
+    this.baseUrl = `http://94.130.97.149:${this.port}`; // Use VPS external IP
   }
 
   start() {
