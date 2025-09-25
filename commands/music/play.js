@@ -1,4 +1,4 @@
-const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const CommandUtils = require('../../modules/command-utils');
 
 module.exports = {
@@ -82,77 +82,74 @@ module.exports = {
       
       await interaction.editReply({ embeds: [searchEmbed] });
 
-      // Try multiple search methods for better reliability
+      // Try YouTube first (should work most of the time)
       let searchResult = null;
       let track = null;
+      let allTracks = [];
 
-      // Method 1: Try Discord Player search with YouTube
+      // Method 1: Try YouTube search (primary)
       try {
-        console.log(`[Play Command] Trying Discord Player search...`);
+        console.log(`[Play Command] Trying YouTube search...`);
         searchResult = await client.player.search(query, {
           requestedBy: interaction.user,
           searchEngine: 'youtube'
         });
         
-        console.log(`[Play Command] Search result:`, {
+        console.log(`[Play Command] YouTube search result:`, {
           hasTracks: searchResult.hasTracks(),
-          tracksCount: searchResult.tracks.length,
-          playlist: searchResult.playlist ? searchResult.playlist.title : 'None'
+          tracksCount: searchResult.tracks.length
         });
         
         if (searchResult.hasTracks()) {
           track = searchResult.tracks[0];
-          console.log(`[Play Command] Discord Player found: ${track.title} - ${track.author}`);
-        } else {
-          console.log(`[Play Command] Discord Player search returned no tracks`);
+          console.log(`[Play Command] YouTube found: ${track.title} - ${track.author}`);
         }
       } catch (error) {
-        console.log(`[Play Command] Discord Player search failed:`, error.message);
-        console.log(`[Play Command] Error details:`, error);
+        console.log(`[Play Command] YouTube search failed:`, error.message);
       }
 
-      // Method 2: If Discord Player fails, try with different search engines
+      // Method 2: If YouTube fails, try SoundCloud with multiple options
       if (!track) {
         try {
-          console.log(`[Play Command] Trying alternative search engines...`);
-          const searchEngines = ['youtube', 'soundcloud', 'spotify'];
+          console.log(`[Play Command] Trying SoundCloud search...`);
+          searchResult = await client.player.search(query, {
+            requestedBy: interaction.user,
+            searchEngine: 'soundcloud'
+          });
           
-          for (const engine of searchEngines) {
-            try {
-              searchResult = await client.player.search(query, {
-                requestedBy: interaction.user,
-                searchEngine: engine
-              });
-              
-              if (searchResult.hasTracks()) {
-                track = searchResult.tracks[0];
-                console.log(`[Play Command] ${engine} found: ${track.title} - ${track.author}`);
-                break;
-              }
-            } catch (engineError) {
-              console.log(`[Play Command] ${engine} search failed:`, engineError.message);
+          if (searchResult.hasTracks()) {
+            allTracks = searchResult.tracks.slice(0, 10); // Get first 10 results
+            console.log(`[Play Command] SoundCloud found ${allTracks.length} tracks`);
+            
+            // If only 1 track, use it directly
+            if (allTracks.length === 1) {
+              track = allTracks[0];
+              console.log(`[Play Command] Using single SoundCloud track: ${track.title}`);
+            } else {
+              // Show selection menu for multiple tracks
+              return await this.showTrackSelection(interaction, allTracks, queue);
             }
           }
         } catch (error) {
-          console.log(`[Play Command] Alternative search failed:`, error.message);
+          console.log(`[Play Command] SoundCloud search failed:`, error.message);
         }
       }
 
-      // Method 3: If all else fails, try direct YouTube URL search
+      // Method 3: If both fail, try Spotify
       if (!track) {
         try {
-          console.log(`[Play Command] Trying direct YouTube URL search...`);
-          const youtubeQuery = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
-          searchResult = await client.player.search(youtubeQuery, {
-            requestedBy: interaction.user
+          console.log(`[Play Command] Trying Spotify search...`);
+          searchResult = await client.player.search(query, {
+            requestedBy: interaction.user,
+            searchEngine: 'spotify'
           });
           
           if (searchResult.hasTracks()) {
             track = searchResult.tracks[0];
-            console.log(`[Play Command] Direct URL search found: ${track.title} - ${track.author}`);
+            console.log(`[Play Command] Spotify found: ${track.title} - ${track.author}`);
           }
         } catch (error) {
-          console.log(`[Play Command] Direct URL search failed:`, error.message);
+          console.log(`[Play Command] Spotify search failed:`, error.message);
         }
       }
 
@@ -262,4 +259,43 @@ module.exports = {
       await interaction.editReply({ embeds: [errorEmbed] });
     }
   },
+
+  // Method to show track selection for SoundCloud results
+  async showTrackSelection(interaction, tracks, queue) {
+    const embed = new EmbedBuilder()
+      .setColor('#ff8800')
+      .setTitle('🎵 Multiple Tracks Found')
+      .setDescription(`Found ${tracks.length} tracks on SoundCloud. Please select one:`)
+      .setTimestamp();
+
+    // Create selection menu
+    const selectMenu = new StringSelectMenuBuilder()
+      .setCustomId('track_selection')
+      .setPlaceholder('Choose a track to play...')
+      .setMinValues(1)
+      .setMaxValues(1);
+
+    // Add options for each track (max 25 due to Discord limit)
+    tracks.slice(0, 25).forEach((track, index) => {
+      const title = track.title.length > 100 ? track.title.substring(0, 97) + '...' : track.title;
+      const author = track.author.length > 50 ? track.author.substring(0, 47) + '...' : track.author;
+      
+      selectMenu.addOptions({
+        label: `${index + 1}. ${title}`,
+        description: `by ${author} • ${track.duration || 'Unknown duration'}`,
+        value: index.toString()
+      });
+    });
+
+    const row = new ActionRowBuilder().addComponents(selectMenu);
+
+    // Store tracks in interaction for later use
+    interaction.tracks = tracks;
+    interaction.queue = queue;
+
+    await interaction.editReply({ 
+      embeds: [embed], 
+      components: [row] 
+    });
+  }
 };

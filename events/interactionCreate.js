@@ -1,3 +1,4 @@
+const { EmbedBuilder } = require('discord.js');
 const processedInteractions = new Set();
 const interactionTimestamps = new Map();
 
@@ -81,6 +82,56 @@ module.exports = {
           } catch (replyError) {
             console.error(`[Interaction] Failed to send error response: ${interactionId}`, replyError.message);
           }
+        }
+      }
+      // Handle track selection menu
+      else if (interaction.isStringSelectMenu() && interaction.customId === 'track_selection') {
+        try {
+          const selectedIndex = parseInt(interaction.values[0]);
+          const tracks = interaction.tracks;
+          const queue = interaction.queue;
+          
+          if (!tracks || !queue || selectedIndex >= tracks.length) {
+            await interaction.reply({ content: '❌ Invalid selection. Please try again.', ephemeral: true });
+            return;
+          }
+          
+          const selectedTrack = tracks[selectedIndex];
+          console.log(`[Track Selection] Selected: ${selectedTrack.title} - ${selectedTrack.author}`);
+          
+          // Add track to queue
+          queue.addTrack(selectedTrack);
+          
+          // Create success embed
+          const embed = new EmbedBuilder()
+            .setColor('#00ff00')
+            .setTitle('🎵 Track Added to Queue')
+            .setDescription(`**${selectedTrack.title}** by ${selectedTrack.author}`)
+            .addFields(
+              { name: '📡 Source', value: selectedTrack.source.charAt(0).toUpperCase() + selectedTrack.source.slice(1), inline: true },
+              { name: '⏱️ Duration', value: selectedTrack.duration || 'Unknown', inline: true }
+            )
+            .setThumbnail(selectedTrack.thumbnail)
+            .setTimestamp();
+          
+          // Start playing if not already playing
+          if (!queue.isPlaying()) {
+            try {
+              await queue.node.play();
+              console.log(`[Track Selection] ✅ Playback started successfully`);
+            } catch (playError) {
+              console.error(`[Track Selection] ❌ Playback failed:`, playError);
+            }
+          }
+          
+          await interaction.update({ 
+            embeds: [embed],
+            components: [] // Remove the selection menu
+          });
+          
+        } catch (error) {
+          console.error('Track selection error:', error);
+          await interaction.reply({ content: '❌ Error processing selection. Please try again.', ephemeral: true });
         }
       }
       // Handle button interactions
