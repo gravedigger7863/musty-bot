@@ -154,19 +154,20 @@ module.exports = {
                   console.log(`[Play Command] ❌ HTTP URL not accessible: ${testError.message}`);
                 }
                 
-                // Create a track object for the local file
+                // Try using the original YouTube URL instead of HTTP server
+                console.log(`[Play Command] Testing with original YouTube URL instead of HTTP server...`);
                 track = {
                   title: youtubeResults[0].title,
                   author: youtubeResults[0].author,
-                  url: httpUrl,
+                  url: youtubeResults[0].url, // Use original YouTube URL
                   duration: youtubeResults[0].duration,
                   thumbnail: youtubeResults[0].thumbnail,
-                  source: 'local',
+                  source: 'youtube',
                   requestedBy: interaction.user,
                   localFilePath: localFilePath // Store path for cleanup
                 };
-                console.log(`[Play Command] ✅ Local MP3 track created: ${track.title}`);
-                console.log(`[Play Command] HTTP URL: ${httpUrl}`);
+                console.log(`[Play Command] ✅ YouTube track with local backup created: ${track.title}`);
+                console.log(`[Play Command] Using YouTube URL: ${youtubeResults[0].url}`);
               }
             }
           } else {
@@ -313,7 +314,13 @@ module.exports = {
             currentTrack: queue.currentTrack ? queue.currentTrack.title : 'None'
           });
           
-          const playResult = await queue.node.play();
+          // Add timeout to play call
+          const playPromise = queue.node.play();
+          const timeoutPromise = new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Play timeout after 10 seconds')), 10000)
+          );
+          
+          const playResult = await Promise.race([playPromise, timeoutPromise]);
           console.log(`[Play Command] ✅ Playback started successfully`);
           console.log(`[Play Command] Play result:`, playResult);
           
@@ -376,6 +383,11 @@ module.exports = {
             name: playError.name,
             message: playError.message,
             stack: playError.stack
+          });
+          console.error(`[Play Command] Track that failed:`, {
+            title: track.title,
+            url: track.url,
+            source: track.source
           });
           
           // Try multiple recovery methods
