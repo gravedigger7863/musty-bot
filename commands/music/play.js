@@ -15,6 +15,9 @@ module.exports = {
     const query = interaction.options.getString('query');
     const utils = new CommandUtils();
     
+    // Defer the reply first
+    await interaction.deferReply();
+    
     // Check cooldown
     const cooldown = utils.isOnCooldown(interaction.user.id, 'play');
     if (cooldown) {
