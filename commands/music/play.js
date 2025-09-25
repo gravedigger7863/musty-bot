@@ -317,18 +317,39 @@ module.exports = {
               throw new Error(`Local file not found: ${track.localFilePath}`);
             }
             
-            // Create audio resource from local file
-            const audioResource = createAudioResource(track.localFilePath);
+            // Check file size and properties
+            const stats = fs.statSync(track.localFilePath);
+            console.log(`[Play Command] File stats:`, {
+              size: stats.size,
+              isFile: stats.isFile(),
+              path: track.localFilePath
+            });
+            
+            if (stats.size < 1000) {
+              throw new Error(`File too small (${stats.size} bytes), likely corrupted`);
+            }
+            
+            // Create audio resource from local file with proper options
+            const audioResource = createAudioResource(track.localFilePath, {
+              inputType: 'file',
+              inlineVolume: false
+            });
             const audioPlayer = createAudioPlayer();
             
             // Set up event handlers
             audioPlayer.on(AudioPlayerStatus.Playing, () => {
               console.log(`[Play Command] ✅ Audio is now playing!`);
               console.log(`[Play Command] 🎵 Now playing: ${track.title} by ${track.author}`);
+              console.log(`[Play Command] Audio player state:`, audioPlayer.state);
+            });
+            
+            audioPlayer.on(AudioPlayerStatus.Paused, () => {
+              console.log(`[Play Command] ⏸️ Audio paused`);
             });
             
             audioPlayer.on(AudioPlayerStatus.Idle, () => {
-              console.log(`[Play Command] 🏁 Audio finished playing`);
+              console.log(`[Play Command] 🏁 Audio finished playing (Idle state)`);
+              console.log(`[Play Command] Audio player state:`, audioPlayer.state);
               // Clean up local file
               if (track.localFilePath) {
                 fs.unlink(track.localFilePath, (err) => {
@@ -340,16 +361,27 @@ module.exports = {
             
             audioPlayer.on('error', (error) => {
               console.error(`[Play Command] ❌ Audio player error:`, error);
+              console.error(`[Play Command] Error details:`, {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+              });
+            });
+            
+            audioPlayer.on('stateChange', (oldState, newState) => {
+              console.log(`[Play Command] Audio player state changed: ${oldState.status} -> ${newState.status}`);
             });
             
             // Connect audio player to voice connection
             const connection = queue.dispatcher.voiceConnection;
             connection.subscribe(audioPlayer);
             
-            // Start playing
-            audioPlayer.play(audioResource);
-            
-            console.log(`[Play Command] ✅ Direct voice streaming started for: ${track.title}`);
+            // Start playing with a small delay
+            setTimeout(() => {
+              console.log(`[Play Command] Starting audio playback...`);
+              audioPlayer.play(audioResource);
+              console.log(`[Play Command] ✅ Direct voice streaming started for: ${track.title}`);
+            }, 1000);
             
             // Send success message
             const successEmbed = new EmbedBuilder()
