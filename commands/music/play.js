@@ -85,74 +85,57 @@ module.exports = {
       let track = null;
       let allTracks = [];
 
-      // Method 1: Try YouTube search using yt-dlp (primary)
+      // Method 1: Try Discord Player search first (most reliable)
       try {
-        console.log(`[Play Command] Trying YouTube search with yt-dlp...`);
-        const youtubeSearch = new YouTubeSearchSimple();
-        const youtubeResults = await youtubeSearch.search(query, 5);
-        
-        console.log(`[Play Command] YouTube search result:`, {
-          found: youtubeResults.length,
-          results: youtubeResults.map(r => r.title)
+        console.log(`[Play Command] Trying Discord Player search first...`);
+        searchResult = await client.player.search(query, {
+          requestedBy: interaction.user
         });
         
-        if (youtubeResults.length > 0) {
-          console.log(`[Play Command] Attempting Discord Player conversion for: ${youtubeResults[0].url}`);
+        console.log(`[Play Command] Discord Player search result:`, {
+          hasTracks: searchResult.hasTracks(),
+          tracksCount: searchResult.tracks.length,
+          searchEngine: searchResult.searchEngine
+        });
+        
+        if (searchResult.hasTracks()) {
+          track = searchResult.tracks[0];
+          console.log(`[Play Command] ✅ Found via Discord Player: ${track.title} - ${track.author}`);
+        }
+      } catch (error) {
+        console.log(`[Play Command] Discord Player search failed:`, error.message);
+      }
+
+      // Method 2: If Discord Player fails, try YouTube search using yt-dlp
+      if (!track) {
+        try {
+          console.log(`[Play Command] Trying YouTube search with yt-dlp...`);
+          const youtubeSearch = new YouTubeSearchSimple();
+          const youtubeResults = await youtubeSearch.search(query, 5);
           
-          // Method 1: Try Discord Player search with the YouTube URL
-          try {
-            const searchResult = await client.player.search(youtubeResults[0].url, {
-              requestedBy: interaction.user
-            });
-            
-            console.log(`[Play Command] Discord Player search result:`, {
-              hasTracks: searchResult.hasTracks(),
-              tracksCount: searchResult.tracks.length,
-              searchEngine: searchResult.searchEngine
-            });
-            
-            if (searchResult.hasTracks()) {
-              track = searchResult.tracks[0];
-              console.log(`[Play Command] ✅ YouTube found via Discord Player: ${track.title} - ${track.author}`);
-              console.log(`[Play Command] Track details:`, {
-                title: track.title,
-                author: track.author,
-                url: track.url,
-                duration: track.duration,
-                source: track.source
+          console.log(`[Play Command] YouTube search result:`, {
+            found: youtubeResults.length,
+            results: youtubeResults.map(r => r.title)
+          });
+          
+          if (youtubeResults.length > 0) {
+            // Try to use the YouTube URL with Discord Player
+            try {
+              console.log(`[Play Command] Attempting Discord Player conversion for: ${youtubeResults[0].url}`);
+              const youtubeSearchResult = await client.player.search(youtubeResults[0].url, {
+                requestedBy: interaction.user
               });
-            } else {
-              throw new Error('Discord Player search returned no tracks');
-            }
-          } catch (discordPlayerError) {
-            console.log(`[Play Command] ❌ Discord Player conversion failed:`, discordPlayerError.message);
-            
-            // Method 2: Try with different search engines
-            const searchEngines = ['youtube', 'youtube_music'];
-            let foundViaEngine = false;
-            
-            for (const engine of searchEngines) {
-              try {
-                console.log(`[Play Command] Trying ${engine} search engine...`);
-                const engineResult = await client.player.search(youtubeResults[0].url, {
-                  requestedBy: interaction.user,
-                  searchEngine: engine
-                });
-                
-                if (engineResult.hasTracks()) {
-                  track = engineResult.tracks[0];
-                  console.log(`[Play Command] ✅ Found via ${engine}: ${track.title} - ${track.author}`);
-                  foundViaEngine = true;
-                  break;
-                }
-              } catch (engineError) {
-                console.log(`[Play Command] ❌ ${engine} failed:`, engineError.message);
+              
+              if (youtubeSearchResult.hasTracks()) {
+                track = youtubeSearchResult.tracks[0];
+                console.log(`[Play Command] ✅ YouTube URL converted via Discord Player: ${track.title} - ${track.author}`);
+              } else {
+                throw new Error('Discord Player could not convert YouTube URL');
               }
-            }
-            
-            // Method 3: If all Discord Player methods fail, create a basic track
-            if (!foundViaEngine) {
-              console.log(`[Play Command] All Discord Player methods failed, creating basic track object`);
+            } catch (conversionError) {
+              console.log(`[Play Command] YouTube URL conversion failed:`, conversionError.message);
+              
+              // Create a basic track and let Discord Player handle it
               track = {
                 title: youtubeResults[0].title,
                 author: youtubeResults[0].author,
@@ -162,12 +145,12 @@ module.exports = {
                 source: 'youtube',
                 requestedBy: interaction.user
               };
-              console.log(`[Play Command] Basic track created: ${track.title} - ${track.author}`);
+              console.log(`[Play Command] Basic YouTube track created: ${track.title} - ${track.author}`);
             }
           }
+        } catch (error) {
+          console.log(`[Play Command] YouTube search failed:`, error.message);
         }
-      } catch (error) {
-        console.log(`[Play Command] YouTube search failed:`, error.message);
       }
 
       // Method 2: If YouTube fails, try SoundCloud with multiple options
