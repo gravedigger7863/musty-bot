@@ -1,9 +1,9 @@
 @echo off
-echo 🍪 Firefox Cookie Exporter for yt-dlp
-echo =====================================
+echo 🍪 Simple Firefox Cookie Exporter
+echo =================================
 
-echo 📤 Exporting cookies from Firefox...
-yt-dlp --cookies-from-browser firefox --cookies cookies.txt --print cookies https://www.youtube.com/watch?v=dQw4w9WgXcQ
+echo 📤 Extracting cookies from Firefox...
+yt-dlp --cookies-from-browser firefox --cookies cookies.txt --print cookies https://www.youtube.com
 
 if exist cookies.txt (
     echo ✅ Cookies exported successfully!
@@ -28,4 +28,6 @@ if exist cookies.txt (
     echo ⚠️  Note: This is a basic file. For best results, use a real browser session.
 )
 
-pause
+echo.
+echo Press any key to continue...
+pause > nul

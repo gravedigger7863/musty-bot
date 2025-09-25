@@ -13,7 +13,8 @@ function exportFirefoxCookies() {
     const ytdlp = spawn('yt-dlp', [
       '--cookies-from-browser', 'firefox',
       '--cookies', 'cookies.txt',
-      '--print', 'cookies'
+      '--print', 'cookies',
+      'https://www.youtube.com/watch?v=dQw4w9WgXcQ' // Dummy URL just to extract cookies
     ]);
     
     let output = '';
