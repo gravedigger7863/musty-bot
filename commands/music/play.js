@@ -334,7 +334,13 @@ module.exports = {
               inputType: 'file',
               inlineVolume: false
             });
-            const audioPlayer = createAudioPlayer();
+            const audioPlayer = createAudioPlayer({
+              behaviors: {
+                noSubscriber: 'pause', // Only pause when no subscribers, not autopause
+                maxMissedFrames: 5,
+                maxMissedFramesInterval: 5000
+              }
+            });
             
             // Set up event handlers
             audioPlayer.on(AudioPlayerStatus.Playing, () => {
@@ -347,42 +353,55 @@ module.exports = {
               console.log(`[Play Command] ⏸️ Audio paused`);
             });
             
-            // Track restart attempts to prevent infinite loops
-            let restartAttempts = 0;
-            const maxRestartAttempts = 3;
+            // Check if there are people in the voice channel
+            const voiceChannel = interaction.member.voice.channel;
+            const membersInChannel = voiceChannel.members.filter(member => !member.user.bot).size;
+            console.log(`[Play Command] People in voice channel: ${membersInChannel}`);
             
-            audioPlayer.on(AudioPlayerStatus.AutoPaused, () => {
-              console.log(`[Play Command] ⏸️ Audio autopaused (attempt ${restartAttempts + 1}/${maxRestartAttempts})`);
+            // Only set up autopaused handling if there are people in the channel
+            if (membersInChannel > 0) {
+              console.log(`[Play Command] ✅ People detected in voice channel - audio should not autopause`);
               
-              // Only try to restart if we haven't exceeded max attempts
-              if (restartAttempts < maxRestartAttempts) {
-                restartAttempts++;
+              // Track restart attempts to prevent infinite loops
+              let restartAttempts = 0;
+              const maxRestartAttempts = 2; // Reduced attempts since people are present
+              
+              audioPlayer.on(AudioPlayerStatus.AutoPaused, () => {
+                console.log(`[Play Command] ⚠️ Audio autopaused despite ${membersInChannel} people in channel!`);
+                console.log(`[Play Command] This should not happen - attempting immediate restart...`);
                 
-                // Try to resume after a delay
-                setTimeout(() => {
-                  if (audioPlayer.state.status === AudioPlayerStatus.AutoPaused) {
-                    console.log(`[Play Command] 🔄 Attempting to restart audio...`);
-                    try {
-                      // Stop current playback
-                      audioPlayer.stop();
-                      
-                      // Create new audio resource and restart
-                      const newAudioResource = createAudioResource(track.localFilePath, {
-                        inputType: 'file',
-                        inlineVolume: false
-                      });
-                      
-                      audioPlayer.play(newAudioResource);
-                      console.log(`[Play Command] ✅ Audio restarted successfully`);
-                    } catch (error) {
-                      console.error(`[Play Command] ❌ Restart failed:`, error.message);
+                // Only try to restart if we haven't exceeded max attempts
+                if (restartAttempts < maxRestartAttempts) {
+                  restartAttempts++;
+                  
+                  // Try to resume immediately since people are present
+                  setTimeout(() => {
+                    if (audioPlayer.state.status === AudioPlayerStatus.AutoPaused) {
+                      console.log(`[Play Command] 🔄 Immediate restart attempt ${restartAttempts}/${maxRestartAttempts}...`);
+                      try {
+                        // Stop current playback
+                        audioPlayer.stop();
+                        
+                        // Create new audio resource and restart
+                        const newAudioResource = createAudioResource(track.localFilePath, {
+                          inputType: 'file',
+                          inlineVolume: false
+                        });
+                        
+                        audioPlayer.play(newAudioResource);
+                        console.log(`[Play Command] ✅ Audio restarted successfully`);
+                      } catch (error) {
+                        console.error(`[Play Command] ❌ Restart failed:`, error.message);
+                      }
                     }
-                  }
-                }, 2000);
-              } else {
-                console.log(`[Play Command] ⏸️ Max restart attempts reached. Audio will resume when someone joins the voice channel.`);
-              }
-            });
+                  }, 500); // Much faster restart since people are present
+                } else {
+                  console.log(`[Play Command] ⚠️ Max restart attempts reached despite people being present!`);
+                }
+              });
+            } else {
+              console.log(`[Play Command] ⚠️ No people detected in voice channel - autopausing is expected`);
+            }
             
             audioPlayer.on(AudioPlayerStatus.Idle, () => {
               console.log(`[Play Command] 🏁 Audio finished playing (Idle state)`);
