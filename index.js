@@ -134,7 +134,7 @@ client.player.events.on('playerError', (queue, error) => {
   });
   console.error(`❌ Queue state during error:`, {
     isPlaying: queue.isPlaying(),
-    isPaused: queue.isPaused(),
+    isPaused: queue.node.isPaused ? queue.node.isPaused() : 'N/A',
     tracksCount: queue.tracks.count,
     currentTrack: queue.currentTrack ? {
       title: queue.currentTrack.title,

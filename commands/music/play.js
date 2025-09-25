@@ -154,20 +154,20 @@ module.exports = {
                   console.log(`[Play Command] ❌ HTTP URL not accessible: ${testError.message}`);
                 }
                 
-                // Try using the original YouTube URL instead of HTTP server
-                console.log(`[Play Command] Testing with original YouTube URL instead of HTTP server...`);
+                // Use the local MP3 file via HTTP server instead of YouTube URL
+                console.log(`[Play Command] Using local MP3 file via HTTP server...`);
                 track = {
                   title: youtubeResults[0].title,
                   author: youtubeResults[0].author,
-                  url: youtubeResults[0].url, // Use original YouTube URL
+                  url: httpUrl, // Use HTTP URL for local file
                   duration: youtubeResults[0].duration,
                   thumbnail: youtubeResults[0].thumbnail,
-                  source: 'youtube',
+                  source: 'local',
                   requestedBy: interaction.user,
                   localFilePath: localFilePath // Store path for cleanup
                 };
-                console.log(`[Play Command] ✅ YouTube track with local backup created: ${track.title}`);
-                console.log(`[Play Command] Using YouTube URL: ${youtubeResults[0].url}`);
+                console.log(`[Play Command] ✅ Local MP3 track created: ${track.title}`);
+                console.log(`[Play Command] Using HTTP URL: ${httpUrl}`);
               }
             }
           } else {
