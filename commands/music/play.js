@@ -383,8 +383,23 @@ module.exports = {
               console.log(`[Play Command] Audio player state changed: ${oldState.status} -> ${newState.status}`);
             });
             
-            // Connect audio player to voice connection
-            const connection = queue.dispatcher.voiceConnection;
+            // Get voice connection directly from the member's voice channel
+            const { getVoiceConnection } = require('@discordjs/voice');
+            const connection = getVoiceConnection(interaction.guild.id);
+            
+            if (!connection) {
+              console.log(`[Play Command] ❌ No voice connection found, creating new one...`);
+              const { joinVoiceChannel } = require('@discordjs/voice');
+              const newConnection = joinVoiceChannel({
+                channelId: interaction.member.voice.channel.id,
+                guildId: interaction.guild.id,
+                adapterCreator: interaction.guild.voiceAdapterCreator,
+              });
+              
+              console.log(`[Play Command] ✅ Created new voice connection`);
+              connection = newConnection;
+            }
+            
             console.log(`[Play Command] Voice connection state:`, connection.state);
             console.log(`[Play Command] Voice connection status:`, connection.state.status);
             
@@ -392,7 +407,7 @@ module.exports = {
             if (connection.state.status !== VoiceConnectionStatus.Ready) {
               console.log(`[Play Command] ⚠️ Voice connection not ready, waiting...`);
               try {
-                await entersState(connection, VoiceConnectionStatus.Ready, 5000);
+                await entersState(connection, VoiceConnectionStatus.Ready, 10000);
                 console.log(`[Play Command] ✅ Voice connection ready`);
               } catch (error) {
                 console.error(`[Play Command] ❌ Voice connection timeout:`, error.message);
