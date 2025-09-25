@@ -1,6 +1,7 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const CommandUtils = require('../../modules/command-utils');
 const YouTubeSearchSimple = require('../../modules/youtube-search-simple');
+const CnvMP3Converter = require('../../modules/cnvmp3-converter');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -271,7 +272,7 @@ module.exports = {
           }, 2000);
           
           // Check again after 5 seconds
-          setTimeout(() => {
+          setTimeout(async () => {
             console.log(`[Play Command] Post-playback check (5s):`, {
               isPlaying: queue.isPlaying(),
               isPaused: queue.isPaused(),
@@ -280,6 +281,9 @@ module.exports = {
             
             if (!queue.isPlaying() && !queue.isPaused()) {
               console.log(`[Play Command] ⚠️ WARNING: Track was added but playback never started!`);
+              
+              // Try CnvMP3 conversion as fallback
+              await this.tryCnvMP3Fallback(queue, track, interaction);
             }
           }, 5000);
           
@@ -433,5 +437,56 @@ module.exports = {
       embeds: [embed], 
       components: [row] 
     });
+  },
+
+  async tryCnvMP3Fallback(queue, track, interaction) {
+    try {
+      console.log(`[Play Command] Trying CnvMP3 fallback for: ${track.url}`);
+      
+      const converter = new CnvMP3Converter();
+      
+      // Check if the URL is supported by CnvMP3
+      if (!converter.isSupported(track.url)) {
+        console.log(`[Play Command] URL not supported by CnvMP3: ${track.url}`);
+        return;
+      }
+
+      // Convert to MP3
+      const conversionResult = await converter.convertToMP3(track.url, '128kb/s');
+      
+      if (conversionResult.success) {
+        console.log(`[Play Command] ✅ CnvMP3 conversion successful: ${conversionResult.downloadUrl}`);
+        
+        // Create a new track with the converted URL
+        const convertedTrack = {
+          ...track,
+          url: conversionResult.downloadUrl,
+          source: 'mp3',
+          title: `${track.title} (Converted)`
+        };
+
+        // Replace the current track in the queue
+        queue.tracks.clear();
+        queue.addTrack(convertedTrack);
+        
+        // Try to play the converted track
+        try {
+          await queue.node.play();
+          console.log(`[Play Command] ✅ Converted track playback started`);
+          
+          // Notify the user
+          const channel = interaction.channel;
+          if (channel) {
+            await channel.send(`🔄 **Track converted and playing!** The original track couldn't be played, so I converted it to MP3 format.`);
+          }
+        } catch (playError) {
+          console.error(`[Play Command] ❌ Converted track playback failed:`, playError.message);
+        }
+      } else {
+        console.log(`[Play Command] ❌ CnvMP3 conversion failed: ${conversionResult.error}`);
+      }
+    } catch (error) {
+      console.error(`[Play Command] ❌ CnvMP3 fallback error:`, error.message);
+    }
   }
 };
