@@ -3,6 +3,8 @@ const CommandUtils = require('../../modules/command-utils');
 const YouTubeSearchSimple = require('../../modules/youtube-search-simple');
 const CnvMP3Converter = require('../../modules/cnvmp3-converter');
 const FileServer = require('../../modules/file-server');
+const path = require('path');
+const fs = require('fs');
 
 module.exports = {
   data: new SlashCommandBuilder()
