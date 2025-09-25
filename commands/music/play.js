@@ -87,97 +87,41 @@ module.exports = {
       let track = null;
       let allTracks = [];
 
-      // Method 1: Try CnvMP3 conversion first (most reliable)
+      // Method 1: Try yt-dlp conversion first (most reliable)
       try {
-        console.log(`[Play Command] Trying CnvMP3 conversion first...`);
-        const converter = new CnvMP3Converter();
+        console.log(`[Play Command] Trying yt-dlp conversion first...`);
         
         // First, try to find a YouTube URL using yt-dlp
         const youtubeSearch = new YouTubeSearchSimple();
         const youtubeResults = await youtubeSearch.search(query, 1);
         
-        if (youtubeResults.length > 0 && converter.isSupported(youtubeResults[0].url)) {
+        if (youtubeResults.length > 0) {
           console.log(`[Play Command] Found YouTube URL: ${youtubeResults[0].url}`);
           
-          // Convert to MP3
-          const conversionResult = await converter.convertToMP3(youtubeResults[0].url, '128kb/s');
+          // Convert to MP3 using yt-dlp directly (bypassing cookies)
+          const localFilePath = await this.convertWithYtdlpDirect(youtubeResults[0].url, youtubeResults[0].title);
           
-          if (conversionResult.success) {
-            console.log(`[Play Command] ✅ CnvMP3 conversion successful: ${conversionResult.downloadUrl}`);
+          if (localFilePath) {
+            console.log(`[Play Command] ✅ yt-dlp conversion successful: ${localFilePath}`);
             
-            // Download the MP3 file to local storage
-            const localFilePath = await this.downloadMP3File(conversionResult.downloadUrl, youtubeResults[0].title);
-            
-            if (localFilePath) {
-              // Try using yt-dlp to convert the file to a more compatible format
-              try {
-                const ytdlpPath = await this.convertWithYtdlp(youtubeResults[0].url, localFilePath);
-                if (ytdlpPath) {
-                  console.log(`[Play Command] ✅ yt-dlp conversion successful: ${ytdlpPath}`);
-                  
-                  // Create a track object using the original YouTube URL (let Discord Player handle it)
-                  track = {
-                    title: youtubeResults[0].title,
-                    author: youtubeResults[0].author,
-                    url: youtubeResults[0].url, // Use original YouTube URL
-                    duration: youtubeResults[0].duration,
-                    thumbnail: youtubeResults[0].thumbnail,
-                    source: 'youtube',
-                    requestedBy: interaction.user,
-                    localFilePath: ytdlpPath // Store path for cleanup
-                  };
-                  console.log(`[Play Command] ✅ YouTube track with local backup created: ${track.title}`);
-                } else {
-                  throw new Error('yt-dlp conversion failed');
-                }
-              } catch (ytdlpError) {
-                console.log(`[Play Command] yt-dlp conversion failed, using HTTP server:`, ytdlpError.message);
-                
-                // Fallback to HTTP server
-                const fileServer = client.fileServer || new FileServer();
-                if (!client.fileServer) {
-                  client.fileServer = fileServer;
-                  await fileServer.start();
-                }
-                
-                // Create HTTP URL for the file
-                const httpUrl = fileServer.getFileUrl(localFilePath);
-                console.log(`[Play Command] File server base URL: ${fileServer.baseUrl}`);
-                console.log(`[Play Command] Generated HTTP URL: ${httpUrl}`);
-                
-                // Test if the URL is accessible
-                try {
-                  const axios = require('axios');
-                  const testResponse = await axios.head(httpUrl, { timeout: 5000 });
-                  console.log(`[Play Command] ✅ HTTP URL is accessible: ${testResponse.status}`);
-                } catch (testError) {
-                  console.log(`[Play Command] ❌ HTTP URL not accessible: ${testError.message}`);
-                }
-                
-                // Use the local MP3 file via HTTP server instead of YouTube URL
-                console.log(`[Play Command] Using local MP3 file via HTTP server...`);
-                track = {
-                  title: youtubeResults[0].title,
-                  author: youtubeResults[0].author,
-                  url: httpUrl, // Use HTTP URL for local file
-                  duration: youtubeResults[0].duration,
-                  thumbnail: youtubeResults[0].thumbnail,
-                  source: 'local',
-                  requestedBy: interaction.user,
-                  localFilePath: localFilePath // Store path for cleanup
-                };
-                console.log(`[Play Command] ✅ Local MP3 track created: ${track.title}`);
-                console.log(`[Play Command] Using HTTP URL: ${httpUrl}`);
-              }
-            }
-          } else {
-            console.log(`[Play Command] ❌ CnvMP3 conversion failed: ${conversionResult.error}`);
+            // Create a local track object
+            track = {
+              title: youtubeResults[0].title,
+              author: youtubeResults[0].author || 'Unknown',
+              url: localFilePath,
+              duration: youtubeResults[0].duration || '3:00',
+              thumbnail: youtubeResults[0].thumbnail,
+              source: 'local',
+              requestedBy: interaction.user,
+              localFilePath: localFilePath
+            };
+            console.log(`[Play Command] ✅ Local MP3 track created: ${track.title}`);
           }
         } else {
-          console.log(`[Play Command] No supported YouTube URL found for CnvMP3`);
+          console.log(`[Play Command] No YouTube URL found for yt-dlp`);
         }
       } catch (error) {
-        console.log(`[Play Command] CnvMP3 conversion failed:`, error.message);
+        console.log(`[Play Command] yt-dlp conversion failed:`, error.message);
       }
 
       // Method 2: If CnvMP3 fails, try Discord Player as fallback
@@ -945,5 +889,55 @@ module.exports = {
     } catch (error) {
       console.error(`[Play Command] ❌ CnvMP3 fallback error:`, error.message);
     }
+  },
+
+  async convertWithYtdlpDirect(youtubeUrl, title) {
+    return new Promise((resolve) => {
+      const { spawn } = require('child_process');
+      const timestamp = Date.now();
+      const filename = `${title.replace(/[^a-zA-Z0-9\s]/g, '')}_${timestamp}.mp3`;
+      const outputPath = path.join(__dirname, '..', '..', 'temp', filename);
+      
+      console.log(`[Play Command] Converting with yt-dlp (direct): ${youtubeUrl} -> ${outputPath}`);
+      
+      const ytdlp = spawn('yt-dlp', [
+        '--no-cookies',
+        '--no-check-certificate',
+        '--extract-audio',
+        '--audio-format', 'mp3',
+        '--audio-quality', '128K',
+        '--output', outputPath,
+        '--no-playlist',
+        '--max-filesize', '50M',
+        youtubeUrl
+      ]);
+      
+      let stderr = '';
+      ytdlp.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      ytdlp.on('close', (code) => {
+        if (code === 0) {
+          // Check if file was created and has content
+          try {
+            const stats = fs.statSync(outputPath);
+            if (stats.size > 1000) { // File should be at least 1KB
+              console.log(`[Play Command] ✅ yt-dlp direct conversion successful: ${outputPath} (${stats.size} bytes)`);
+              resolve(outputPath);
+            } else {
+              console.log(`[Play Command] ❌ yt-dlp output file too small: ${stats.size} bytes`);
+              resolve(null);
+            }
+          } catch (accessError) {
+            console.log(`[Play Command] ❌ yt-dlp output file not found:`, accessError.message);
+            resolve(null);
+          }
+        } else {
+          console.log(`[Play Command] ❌ yt-dlp direct conversion failed with code ${code}: ${stderr}`);
+          resolve(null);
+        }
+      });
+    });
   }
 };
