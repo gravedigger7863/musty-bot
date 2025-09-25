@@ -384,20 +384,18 @@ module.exports = {
             });
             
             // Get voice connection directly from the member's voice channel
-            const { getVoiceConnection } = require('@discordjs/voice');
-            const connection = getVoiceConnection(interaction.guild.id);
+            const { getVoiceConnection, joinVoiceChannel } = require('@discordjs/voice');
+            let connection = getVoiceConnection(interaction.guild.id);
             
             if (!connection) {
               console.log(`[Play Command] ❌ No voice connection found, creating new one...`);
-              const { joinVoiceChannel } = require('@discordjs/voice');
-              const newConnection = joinVoiceChannel({
+              connection = joinVoiceChannel({
                 channelId: interaction.member.voice.channel.id,
                 guildId: interaction.guild.id,
                 adapterCreator: interaction.guild.voiceAdapterCreator,
               });
               
               console.log(`[Play Command] ✅ Created new voice connection`);
-              connection = newConnection;
             }
             
             console.log(`[Play Command] Voice connection state:`, connection.state);
