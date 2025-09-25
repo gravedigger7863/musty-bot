@@ -23,6 +23,8 @@ class FileServer {
 
         this.server = this.app.listen(this.port, '0.0.0.0', () => {
           console.log(`[FileServer] ✅ Started on port ${this.port}`);
+          console.log(`[FileServer] Base URL: ${this.baseUrl}`);
+          console.log(`[FileServer] Accessible at: http://94.130.97.149:${this.port}`);
           resolve();
         });
 
@@ -30,7 +32,7 @@ class FileServer {
           if (error.code === 'EADDRINUSE') {
             console.log(`[FileServer] Port ${this.port} already in use, trying ${this.port + 1}`);
             this.port++;
-            this.baseUrl = `http://localhost:${this.port}`;
+            this.baseUrl = `http://94.130.97.149:${this.port}`;
             this.start().then(resolve).catch(reject);
           } else {
             reject(error);

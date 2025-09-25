@@ -142,6 +142,7 @@ module.exports = {
                 
                 // Create HTTP URL for the file
                 const httpUrl = fileServer.getFileUrl(localFilePath);
+                console.log(`[Play Command] File server base URL: ${fileServer.baseUrl}`);
                 
                 // Create a track object for the local file
                 track = {
