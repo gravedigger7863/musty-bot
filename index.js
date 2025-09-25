@@ -87,6 +87,17 @@ client.on('ready', () => {
 
 client.player.events.on('playerStart', (queue, track) => {
   console.log(`🎵 Started playing: ${track.title} by ${track.author}`);
+  console.log(`🎵 Track details:`, {
+    url: track.url,
+    source: track.source,
+    duration: track.duration,
+    thumbnail: track.thumbnail
+  });
+  console.log(`🎵 Queue state:`, {
+    isPlaying: queue.isPlaying(),
+    isPaused: queue.isPaused(),
+    tracksCount: queue.tracks.count
+  });
   
   const channel = client.channels.cache.get(queue.metadata.channel.id);
   if (channel) {

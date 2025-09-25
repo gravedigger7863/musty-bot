@@ -59,8 +59,8 @@ module.exports = {
       // Connect to voice channel
       if (!queue.connection) {
         try {
-          await queue.connect(interaction.member.voice.channel);
-          console.log(`[Play Command] ✅ Connected to voice channel successfully`);
+        await queue.connect(interaction.member.voice.channel);
+        console.log(`[Play Command] ✅ Connected to voice channel successfully`);
         } catch (connectionError) {
           console.error(`[Play Command] ❌ Voice connection failed:`, connectionError);
           return interaction.editReply({
@@ -71,14 +71,14 @@ module.exports = {
       
       // Search for track using Discord Player
       console.log(`[Play Command] Searching for: "${query}"`);
-      
-      const searchEmbed = utils.createInfoEmbed(
-        'Searching for Track',
-        `Searching for "${query}"...`,
-        '#0099ff'
-      );
-      
-      await interaction.editReply({ embeds: [searchEmbed] });
+        
+        const searchEmbed = utils.createInfoEmbed(
+          'Searching for Track',
+          `Searching for "${query}"...`,
+          '#0099ff'
+        );
+        
+        await interaction.editReply({ embeds: [searchEmbed] });
 
       // Try YouTube first (should work most of the time)
       let searchResult = null;
@@ -101,6 +101,9 @@ module.exports = {
         if (searchResult.hasTracks()) {
           track = searchResult.tracks[0];
           console.log(`[Play Command] ✅ Found via Discord Player: ${track.title} - ${track.author}`);
+          console.log(`[Play Command] Track URL: ${track.url}`);
+          console.log(`[Play Command] Track source: ${track.source}`);
+          console.log(`[Play Command] Track duration: ${track.duration}`);
         }
       } catch (error) {
         console.log(`[Play Command] Discord Player search failed:`, error.message);
@@ -229,7 +232,7 @@ module.exports = {
         )
         .setThumbnail(track.thumbnail)
         .setTimestamp();
-
+      
       // Add queue position if not first
       if (queue.tracks.count > 0) {
         embed.addFields({
@@ -260,12 +263,25 @@ module.exports = {
           
           // Wait a moment and check if it's actually playing
           setTimeout(() => {
-            console.log(`[Play Command] Post-playback check:`, {
+            console.log(`[Play Command] Post-playback check (2s):`, {
               isPlaying: queue.isPlaying(),
               isPaused: queue.isPaused(),
               currentTrack: queue.currentTrack ? queue.currentTrack.title : 'None'
             });
           }, 2000);
+          
+          // Check again after 5 seconds
+          setTimeout(() => {
+            console.log(`[Play Command] Post-playback check (5s):`, {
+              isPlaying: queue.isPlaying(),
+              isPaused: queue.isPaused(),
+              currentTrack: queue.currentTrack ? queue.currentTrack.title : 'None'
+            });
+            
+            if (!queue.isPlaying() && !queue.isPaused()) {
+              console.log(`[Play Command] ⚠️ WARNING: Track was added but playback never started!`);
+            }
+          }, 5000);
           
         } catch (playError) {
           console.error(`[Play Command] ❌ Playback failed:`, playError);
@@ -319,7 +335,7 @@ module.exports = {
           
           if (!recoverySuccess) {
             console.error(`[Play Command] ❌ All recovery methods failed`);
-            throw playError;
+          throw playError;
           }
         }
       } else {
