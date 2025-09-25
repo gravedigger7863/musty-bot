@@ -349,13 +349,41 @@ module.exports = {
             
             audioPlayer.on(AudioPlayerStatus.AutoPaused, () => {
               console.log(`[Play Command] ⏸️ Audio autopaused - trying to resume...`);
-              // Try to resume after a short delay
+              
+              // Try to resume immediately
               setTimeout(() => {
                 if (audioPlayer.state.status === AudioPlayerStatus.AutoPaused) {
-                  console.log(`[Play Command] 🔄 Attempting to resume from autopaused state...`);
-                  audioPlayer.unpause();
+                  console.log(`[Play Command] 🔄 Attempting to unpause...`);
+                  try {
+                    audioPlayer.unpause();
+                    console.log(`[Play Command] ✅ Unpause command sent`);
+                  } catch (error) {
+                    console.error(`[Play Command] ❌ Unpause failed:`, error.message);
+                  }
                 }
-              }, 2000);
+              }, 1000);
+              
+              // If still autopaused after 3 seconds, try restarting the audio resource
+              setTimeout(() => {
+                if (audioPlayer.state.status === AudioPlayerStatus.AutoPaused) {
+                  console.log(`[Play Command] 🔄 Restarting audio resource...`);
+                  try {
+                    // Stop current playback
+                    audioPlayer.stop();
+                    
+                    // Create new audio resource and restart
+                    const newAudioResource = createAudioResource(track.localFilePath, {
+                      inputType: 'file',
+                      inlineVolume: false
+                    });
+                    
+                    audioPlayer.play(newAudioResource);
+                    console.log(`[Play Command] ✅ Audio resource restarted`);
+                  } catch (error) {
+                    console.error(`[Play Command] ❌ Restart failed:`, error.message);
+                  }
+                }
+              }, 3000);
             });
             
             audioPlayer.on(AudioPlayerStatus.Idle, () => {
