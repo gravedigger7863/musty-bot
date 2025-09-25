@@ -2,6 +2,7 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 const CommandUtils = require('../../modules/command-utils');
 const YouTubeSearchSimple = require('../../modules/youtube-search-simple');
 const CnvMP3Converter = require('../../modules/cnvmp3-converter');
+const FileServer = require('../../modules/file-server');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -108,11 +109,21 @@ module.exports = {
             const localFilePath = await this.downloadMP3File(conversionResult.downloadUrl, youtubeResults[0].title);
             
             if (localFilePath) {
+              // Get the file server instance from the client
+              const fileServer = client.fileServer || new FileServer();
+              if (!client.fileServer) {
+                client.fileServer = fileServer;
+                await fileServer.start();
+              }
+              
+              // Create HTTP URL for the file
+              const httpUrl = fileServer.getFileUrl(localFilePath);
+              
               // Create a track object for the local file
               track = {
                 title: youtubeResults[0].title,
                 author: youtubeResults[0].author,
-                url: `file://${localFilePath}`,
+                url: httpUrl,
                 duration: youtubeResults[0].duration,
                 thumbnail: youtubeResults[0].thumbnail,
                 source: 'local',
@@ -120,6 +131,7 @@ module.exports = {
                 localFilePath: localFilePath // Store path for cleanup
               };
               console.log(`[Play Command] ✅ Local MP3 track created: ${track.title}`);
+              console.log(`[Play Command] HTTP URL: ${httpUrl}`);
             }
           } else {
             console.log(`[Play Command] ❌ CnvMP3 conversion failed: ${conversionResult.error}`);
@@ -279,8 +291,27 @@ module.exports = {
             if (!queue.isPlaying() && !queue.isPaused()) {
               console.log(`[Play Command] ⚠️ WARNING: Track was added but playback never started!`);
               
-              // Try CnvMP3 conversion as fallback
-              await this.tryCnvMP3Fallback(queue, track, interaction);
+              // For local files, try a different approach
+              if (track.source === 'local' && track.localFilePath) {
+                console.log(`[Play Command] Trying to play local file directly...`);
+                try {
+                  // Try using the local file path directly
+                  const localTrack = {
+                    ...track,
+                    url: track.localFilePath // Use direct path instead of file://
+                  };
+                  
+                  queue.tracks.clear();
+                  queue.addTrack(localTrack);
+                  await queue.node.play();
+                  console.log(`[Play Command] ✅ Local file playback started`);
+                } catch (localError) {
+                  console.error(`[Play Command] ❌ Local file playback failed:`, localError.message);
+                }
+              } else {
+                // Try CnvMP3 conversion as fallback
+                await this.tryCnvMP3Fallback(queue, track, interaction);
+              }
             }
           }, 5000);
           
@@ -429,8 +460,8 @@ module.exports = {
       client.trackSelections = new Map();
     }
     client.trackSelections.set(interaction.id, { tracks, queue });
-
-    await interaction.editReply({ 
+      
+      await interaction.editReply({ 
       embeds: [embed], 
       components: [row] 
     });
