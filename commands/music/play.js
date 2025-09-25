@@ -294,7 +294,7 @@ module.exports = {
         console.log(`[Play Command] Starting playback...`);
         console.log(`[Play Command] Queue state:`, {
           isPlaying: queue.isPlaying(),
-          isPaused: queue.isPaused(),
+          isPaused: queue.node.isPaused ? queue.node.isPaused() : 'N/A',
           tracksCount: queue.tracks.count,
           currentTrack: queue.currentTrack ? {
             title: queue.currentTrack.title,
@@ -309,7 +309,7 @@ module.exports = {
           console.log(`[Play Command] Track source: ${track.source}`);
           console.log(`[Play Command] Queue state before play:`, {
             isPlaying: queue.isPlaying(),
-            isPaused: queue.isPaused(),
+            isPaused: queue.node.isPaused ? queue.node.isPaused() : 'N/A',
             tracksCount: queue.tracks.count,
             currentTrack: queue.currentTrack ? queue.currentTrack.title : 'None'
           });
@@ -328,7 +328,7 @@ module.exports = {
           setTimeout(() => {
             console.log(`[Play Command] Immediate post-play check:`, {
               isPlaying: queue.isPlaying(),
-              isPaused: queue.isPaused(),
+              isPaused: queue.node.isPaused ? queue.node.isPaused() : 'N/A',
               currentTrack: queue.currentTrack ? queue.currentTrack.title : 'None'
             });
           }, 100);
@@ -337,7 +337,7 @@ module.exports = {
           setTimeout(() => {
             console.log(`[Play Command] Post-playback check (2s):`, {
               isPlaying: queue.isPlaying(),
-              isPaused: queue.isPaused(),
+              isPaused: queue.node.isPaused ? queue.node.isPaused() : 'N/A',
               currentTrack: queue.currentTrack ? queue.currentTrack.title : 'None'
             });
           }, 2000);
@@ -346,11 +346,11 @@ module.exports = {
           setTimeout(async () => {
             console.log(`[Play Command] Post-playback check (5s):`, {
               isPlaying: queue.isPlaying(),
-              isPaused: queue.isPaused(),
+              isPaused: queue.node.isPaused ? queue.node.isPaused() : 'N/A',
               currentTrack: queue.currentTrack ? queue.currentTrack.title : 'None'
             });
             
-            if (!queue.isPlaying() && !queue.isPaused()) {
+            if (!queue.isPlaying() && !(queue.node.isPaused && queue.node.isPaused())) {
               console.log(`[Play Command] ⚠️ WARNING: Track was added but playback never started!`);
               
               // For local files, try a different approach
