@@ -143,6 +143,16 @@ module.exports = {
                 // Create HTTP URL for the file
                 const httpUrl = fileServer.getFileUrl(localFilePath);
                 console.log(`[Play Command] File server base URL: ${fileServer.baseUrl}`);
+                console.log(`[Play Command] Generated HTTP URL: ${httpUrl}`);
+                
+                // Test if the URL is accessible
+                try {
+                  const axios = require('axios');
+                  const testResponse = await axios.head(httpUrl, { timeout: 5000 });
+                  console.log(`[Play Command] ✅ HTTP URL is accessible: ${testResponse.status}`);
+                } catch (testError) {
+                  console.log(`[Play Command] ❌ HTTP URL not accessible: ${testError.message}`);
+                }
                 
                 // Create a track object for the local file
                 track = {
@@ -296,9 +306,25 @@ module.exports = {
           console.log(`[Play Command] Calling queue.node.play()...`);
           console.log(`[Play Command] Track URL: ${track.url}`);
           console.log(`[Play Command] Track source: ${track.source}`);
+          console.log(`[Play Command] Queue state before play:`, {
+            isPlaying: queue.isPlaying(),
+            isPaused: queue.isPaused(),
+            tracksCount: queue.tracks.count,
+            currentTrack: queue.currentTrack ? queue.currentTrack.title : 'None'
+          });
           
-          await queue.node.play();
+          const playResult = await queue.node.play();
           console.log(`[Play Command] ✅ Playback started successfully`);
+          console.log(`[Play Command] Play result:`, playResult);
+          
+          // Immediate check
+          setTimeout(() => {
+            console.log(`[Play Command] Immediate post-play check:`, {
+              isPlaying: queue.isPlaying(),
+              isPaused: queue.isPaused(),
+              currentTrack: queue.currentTrack ? queue.currentTrack.title : 'None'
+            });
+          }, 100);
           
           // Wait a moment and check if it's actually playing
           setTimeout(() => {

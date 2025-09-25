@@ -98,6 +98,7 @@ client.player.events.on('playerStart', (queue, track) => {
     isPaused: queue.isPaused(),
     tracksCount: queue.tracks.count
   });
+  console.log(`🎵 PlayerStart event fired! Audio should be playing now.`);
   
   const channel = client.channels.cache.get(queue.metadata.channel.id);
   if (channel) {
