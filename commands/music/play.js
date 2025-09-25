@@ -375,14 +375,6 @@ module.exports = {
               }
             });
             
-            // Reset restart attempts when someone joins the voice channel
-            connection.on('stateChange', (oldState, newState) => {
-              if (newState.status === VoiceConnectionStatus.Ready) {
-                console.log(`[Play Command] ✅ Voice connection ready - resetting restart attempts`);
-                restartAttempts = 0;
-              }
-            });
-            
             audioPlayer.on(AudioPlayerStatus.Idle, () => {
               console.log(`[Play Command] 🏁 Audio finished playing (Idle state)`);
               console.log(`[Play Command] Audio player state:`, audioPlayer.state);
@@ -439,6 +431,8 @@ module.exports = {
               console.log(`[Play Command] Voice connection state changed: ${oldState.status} -> ${newState.status}`);
               if (newState.status === VoiceConnectionStatus.Ready) {
                 console.log(`[Play Command] ✅ Voice connection is now ready!`);
+                // Reset restart attempts when connection is ready
+                restartAttempts = 0;
               } else if (newState.status === VoiceConnectionStatus.Disconnected) {
                 console.log(`[Play Command] ❌ Voice connection disconnected`);
               }
