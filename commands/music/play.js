@@ -48,18 +48,27 @@ module.exports = {
           client: interaction.guild.members.me,
           requestedBy: interaction.user
         },
-        selfDeaf: true,
-        volume: 80,
+        selfDeaf: false,
+        volume: 50,
         leaveOnEmpty: true,
-        leaveOnEmptyCooldown: 300000,
+        leaveOnEmptyCooldown: 30000,
         leaveOnEnd: true,
-        leaveOnEndCooldown: 300000,
+        leaveOnEndCooldown: 30000,
+        bufferingTimeout: 15000,
+        connectionTimeout: 15000
       });
       
       // Connect to voice channel
       if (!queue.connection) {
-        await queue.connect(interaction.member.voice.channel);
-        console.log(`[Play Command] ✅ Connected to voice channel successfully`);
+        try {
+          await queue.connect(interaction.member.voice.channel);
+          console.log(`[Play Command] ✅ Connected to voice channel successfully`);
+        } catch (connectionError) {
+          console.error(`[Play Command] ❌ Voice connection failed:`, connectionError);
+          return interaction.editReply({
+            embeds: [utils.createErrorEmbed('Voice Connection Failed', 'Could not connect to voice channel. Please try again.')]
+          });
+        }
       }
       
       // Search for track using Discord Player

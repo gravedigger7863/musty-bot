@@ -31,16 +31,16 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// --- Discord Player Setup (Simplified & Working) ---
+// --- Discord Player Setup (Fixed for Voice Issues) ---
 client.player = new Player(client, {
   ytdlOptions: {
     quality: 'highestaudio',
     highWaterMark: 1 << 25,
     filter: 'audioonly',
     format: 'bestaudio[ext=webm]/bestaudio[ext=m4a]/bestaudio[ext=mp3]/bestaudio',
-    timeout: 60000,
+    timeout: 30000,
     requestOptions: {
-      timeout: 60000,
+      timeout: 30000,
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       }
@@ -53,9 +53,15 @@ client.player = new Player(client, {
   leaveOnEmpty: true,
   leaveOnEnd: true,
   leaveOnStop: true,
-  bufferingTimeout: 30000,
-  connectionTimeout: 30000,
-  volume: 50
+  bufferingTimeout: 15000,
+  connectionTimeout: 15000,
+  volume: 50,
+  // Add these to fix voice connection issues
+  useLegacyFFmpeg: false,
+  skipFFmpeg: false,
+  // Reduce timeouts to prevent hanging
+  maxMemoryUsage: 50 * 1024 * 1024, // 50MB
+  maxQueueSize: 50
 });
 
 // Load extractors for reliable music playback
@@ -94,10 +100,19 @@ client.player.events.on('playerFinish', (queue, track) => {
 
 client.player.events.on('playerError', (queue, error) => {
   console.error(`❌ Player error in ${queue.guild.name}:`, error.message);
+  console.error(`❌ Error details:`, error);
   
   const channel = client.channels.cache.get(queue.metadata.channel.id);
   if (channel) {
-    channel.send(`❌ Track playback failed. Try a different track.`).catch(console.error);
+    let errorMessage = `❌ Track playback failed. Try a different track.`;
+    
+    if (error.message && error.message.includes('AbortError')) {
+      errorMessage = `❌ Connection timeout. Please try again.`;
+    } else if (error.message && error.message.includes('ENOTFOUND')) {
+      errorMessage = `❌ Network error. Please try again.`;
+    }
+    
+    channel.send(errorMessage).catch(console.error);
   }
 });
 
