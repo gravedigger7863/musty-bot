@@ -329,6 +329,62 @@ module.exports = {
               throw new Error(`File too small (${stats.size} bytes), likely corrupted`);
             }
             
+            // Check if the file is actually a valid MP3 by reading the first few bytes
+            const fileBuffer = fs.readFileSync(track.localFilePath, { start: 0, end: 10 });
+            const fileHeader = fileBuffer.toString('hex');
+            console.log(`[Play Command] File header (first 10 bytes): ${fileHeader}`);
+            
+            // Check for MP3 header (ID3 tag or MP3 frame sync)
+            if (!fileHeader.startsWith('494433') && !fileHeader.startsWith('fffb') && !fileHeader.startsWith('fff3')) {
+              console.log(`[Play Command] ⚠️ File doesn't appear to be a valid MP3 - header: ${fileHeader}`);
+            } else {
+              console.log(`[Play Command] ✅ File appears to be a valid MP3`);
+            }
+            
+            // Test the file with FFmpeg to see if it's actually playable
+            try {
+              const { spawn } = require('child_process');
+              const ffprobe = spawn('ffprobe', [
+                '-v', 'quiet',
+                '-print_format', 'json',
+                '-show_format',
+                '-show_streams',
+                track.localFilePath
+              ]);
+              
+              let ffprobeOutput = '';
+              ffprobe.stdout.on('data', (data) => {
+                ffprobeOutput += data.toString();
+              });
+              
+              ffprobe.on('close', (code) => {
+                if (code === 0) {
+                  try {
+                    const probeData = JSON.parse(ffprobeOutput);
+                    const duration = probeData.format?.duration;
+                    const audioStream = probeData.streams?.find(s => s.codec_type === 'audio');
+                    
+                    console.log(`[Play Command] FFprobe analysis:`, {
+                      duration: duration ? `${duration}s` : 'Unknown',
+                      codec: audioStream?.codec_name || 'Unknown',
+                      sampleRate: audioStream?.sample_rate || 'Unknown',
+                      channels: audioStream?.channels || 'Unknown'
+                    });
+                    
+                    if (!duration || duration < 1) {
+                      console.log(`[Play Command] ⚠️ File has no duration or very short duration - likely corrupted`);
+                    }
+                  } catch (parseError) {
+                    console.log(`[Play Command] ⚠️ Could not parse FFprobe output:`, parseError.message);
+                  }
+                } else {
+                  console.log(`[Play Command] ⚠️ FFprobe failed with code ${code} - file may be corrupted`);
+                }
+              });
+            } catch (ffprobeError) {
+              console.log(`[Play Command] ⚠️ Could not run FFprobe:`, ffprobeError.message);
+            }
+            
             // Create audio resource from local file with proper options
             const audioResource = createAudioResource(track.localFilePath, {
               inputType: 'file',
