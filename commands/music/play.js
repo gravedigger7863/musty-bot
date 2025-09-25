@@ -89,41 +89,21 @@ module.exports = {
       let track = null;
       let allTracks = [];
 
-      // Method 1: Try yt-dlp conversion first (most reliable)
+      // Method 1: Try Discord Player directly (bypass yt-dlp entirely)
       try {
-        console.log(`[Play Command] Trying yt-dlp conversion first...`);
+        console.log(`[Play Command] Trying Discord Player search first...`);
         
-        // First, try to find a YouTube URL using yt-dlp
-        const youtubeSearch = new YouTubeSearchSimple();
-        const youtubeResults = await youtubeSearch.search(query, 1);
+        searchResult = await client.player.search(query, {
+          requestedBy: interaction.user,
+          searchEngine: 'youtube'
+        });
         
-        if (youtubeResults.length > 0) {
-          console.log(`[Play Command] Found YouTube URL: ${youtubeResults[0].url}`);
-          
-          // Convert to MP3 using yt-dlp directly (bypassing cookies)
-          const localFilePath = await this.convertWithYtdlpDirect(youtubeResults[0].url, youtubeResults[0].title);
-          
-          if (localFilePath) {
-            console.log(`[Play Command] ✅ yt-dlp conversion successful: ${localFilePath}`);
-            
-            // Create a local track object
-            track = {
-              title: youtubeResults[0].title,
-              author: youtubeResults[0].author || 'Unknown',
-              url: localFilePath,
-              duration: youtubeResults[0].duration || '3:00',
-              thumbnail: youtubeResults[0].thumbnail,
-              source: 'local',
-              requestedBy: interaction.user,
-              localFilePath: localFilePath
-            };
-            console.log(`[Play Command] ✅ Local MP3 track created: ${track.title}`);
-          }
-        } else {
-          console.log(`[Play Command] No YouTube URL found for yt-dlp`);
+        if (searchResult.hasTracks()) {
+          track = searchResult.tracks[0];
+          console.log(`[Play Command] ✅ Discord Player found: ${track.title} - ${track.author}`);
         }
       } catch (error) {
-        console.log(`[Play Command] yt-dlp conversion failed:`, error.message);
+        console.log(`[Play Command] Discord Player search failed:`, error.message);
       }
 
       // Method 2: If CnvMP3 fails, try Discord Player as fallback
@@ -914,14 +894,16 @@ module.exports = {
         '--audio-quality', '128K',
         '--output', outputPath,
         '--no-playlist',
-        '--max-filesize', '50M'
+        '--max-filesize', '50M',
+        '--extractor-args', 'youtube:player_client=android,web',
+        '--no-check-certificate'
       ];
       
       if (hasCookies) {
         ytdlpArgs.push('--cookies', cookiesPath);
         console.log(`[Play Command] Using cookies file: ${cookiesPath}`);
       } else {
-        console.log(`[Play Command] No cookies file found, trying without cookies...`);
+        console.log(`[Play Command] No cookies file found, using alternative extractor...`);
       }
       
       ytdlpArgs.push(youtubeUrl);
