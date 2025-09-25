@@ -401,26 +401,23 @@ module.exports = {
             console.log(`[Play Command] Voice connection state:`, connection.state);
             console.log(`[Play Command] Voice connection status:`, connection.state.status);
             
-            // Check if connection is ready
-            if (connection.state.status !== VoiceConnectionStatus.Ready) {
-              console.log(`[Play Command] ⚠️ Voice connection not ready, waiting...`);
-              try {
-                await entersState(connection, VoiceConnectionStatus.Ready, 10000);
-                console.log(`[Play Command] ✅ Voice connection ready`);
-              } catch (error) {
-                console.error(`[Play Command] ❌ Voice connection timeout:`, error.message);
-                throw new Error('Voice connection not ready');
-              }
-            }
-            
+            // Subscribe the audio player to the connection
             connection.subscribe(audioPlayer);
             
-            // Start playing with a small delay
-            setTimeout(() => {
-              console.log(`[Play Command] Starting audio playback...`);
-              audioPlayer.play(audioResource);
-              console.log(`[Play Command] ✅ Direct voice streaming started for: ${track.title}`);
-            }, 1000);
+            // Start playing immediately - let Discord handle the connection state
+            console.log(`[Play Command] Starting audio playback...`);
+            audioPlayer.play(audioResource);
+            console.log(`[Play Command] ✅ Direct voice streaming started for: ${track.title}`);
+            
+            // Monitor connection state changes
+            connection.on('stateChange', (oldState, newState) => {
+              console.log(`[Play Command] Voice connection state changed: ${oldState.status} -> ${newState.status}`);
+              if (newState.status === VoiceConnectionStatus.Ready) {
+                console.log(`[Play Command] ✅ Voice connection is now ready!`);
+              } else if (newState.status === VoiceConnectionStatus.Disconnected) {
+                console.log(`[Play Command] ❌ Voice connection disconnected`);
+              }
+            });
             
             // Send success message
             const successEmbed = new EmbedBuilder()
