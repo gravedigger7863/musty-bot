@@ -361,12 +361,21 @@ module.exports = {
                 // Try to resume after a delay
                 setTimeout(() => {
                   if (audioPlayer.state.status === AudioPlayerStatus.AutoPaused) {
-                    console.log(`[Play Command] 🔄 Attempting to resume...`);
+                    console.log(`[Play Command] 🔄 Attempting to restart audio...`);
                     try {
-                      audioPlayer.unpause();
-                      console.log(`[Play Command] ✅ Resume command sent`);
+                      // Stop current playback
+                      audioPlayer.stop();
+                      
+                      // Create new audio resource and restart
+                      const newAudioResource = createAudioResource(track.localFilePath, {
+                        inputType: 'file',
+                        inlineVolume: false
+                      });
+                      
+                      audioPlayer.play(newAudioResource);
+                      console.log(`[Play Command] ✅ Audio restarted successfully`);
                     } catch (error) {
-                      console.error(`[Play Command] ❌ Resume failed:`, error.message);
+                      console.error(`[Play Command] ❌ Restart failed:`, error.message);
                     }
                   }
                 }, 2000);
