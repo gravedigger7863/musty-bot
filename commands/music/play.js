@@ -70,20 +70,87 @@ module.exports = {
       
       await interaction.editReply({ embeds: [searchEmbed] });
 
-      // Use Discord Player's built-in search
-      const searchResult = await client.player.search(query, {
-        requestedBy: interaction.user,
-        searchEngine: 'youtube' // Use YouTube as primary source
-      });
+      // Try multiple search methods for better reliability
+      let searchResult = null;
+      let track = null;
 
-      if (!searchResult.hasTracks()) {
+      // Method 1: Try Discord Player search with YouTube
+      try {
+        console.log(`[Play Command] Trying Discord Player search...`);
+        searchResult = await client.player.search(query, {
+          requestedBy: interaction.user,
+          searchEngine: 'youtube'
+        });
+        
+        console.log(`[Play Command] Search result:`, {
+          hasTracks: searchResult.hasTracks(),
+          tracksCount: searchResult.tracks.length,
+          playlist: searchResult.playlist ? searchResult.playlist.title : 'None'
+        });
+        
+        if (searchResult.hasTracks()) {
+          track = searchResult.tracks[0];
+          console.log(`[Play Command] Discord Player found: ${track.title} - ${track.author}`);
+        } else {
+          console.log(`[Play Command] Discord Player search returned no tracks`);
+        }
+      } catch (error) {
+        console.log(`[Play Command] Discord Player search failed:`, error.message);
+        console.log(`[Play Command] Error details:`, error);
+      }
+
+      // Method 2: If Discord Player fails, try with different search engines
+      if (!track) {
+        try {
+          console.log(`[Play Command] Trying alternative search engines...`);
+          const searchEngines = ['youtube', 'soundcloud', 'spotify'];
+          
+          for (const engine of searchEngines) {
+            try {
+              searchResult = await client.player.search(query, {
+                requestedBy: interaction.user,
+                searchEngine: engine
+              });
+              
+              if (searchResult.hasTracks()) {
+                track = searchResult.tracks[0];
+                console.log(`[Play Command] ${engine} found: ${track.title} - ${track.author}`);
+                break;
+              }
+            } catch (engineError) {
+              console.log(`[Play Command] ${engine} search failed:`, engineError.message);
+            }
+          }
+        } catch (error) {
+          console.log(`[Play Command] Alternative search failed:`, error.message);
+        }
+      }
+
+      // Method 3: If all else fails, try direct YouTube URL search
+      if (!track) {
+        try {
+          console.log(`[Play Command] Trying direct YouTube URL search...`);
+          const youtubeQuery = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+          searchResult = await client.player.search(youtubeQuery, {
+            requestedBy: interaction.user
+          });
+          
+          if (searchResult.hasTracks()) {
+            track = searchResult.tracks[0];
+            console.log(`[Play Command] Direct URL search found: ${track.title} - ${track.author}`);
+          }
+        } catch (error) {
+          console.log(`[Play Command] Direct URL search failed:`, error.message);
+        }
+      }
+
+      if (!track) {
         return interaction.editReply({
           embeds: [utils.createErrorEmbed('No Tracks Found', `No tracks found for "${query}". Try a different search term or URL.`)]
         });
       }
 
-      const track = searchResult.tracks[0];
-      console.log(`[Play Command] Found track: ${track.title} - ${track.author} (${track.source})`);
+      console.log(`[Play Command] Final track: ${track.title} - ${track.author} (${track.source})`);
       
       // Add track to queue
       queue.addTrack(track);
