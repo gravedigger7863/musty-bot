@@ -86,74 +86,71 @@ module.exports = {
       let track = null;
       let allTracks = [];
 
-      // Method 1: Try Discord Player search first (most reliable)
+      // Method 1: Try CnvMP3 conversion first (most reliable)
       try {
-        console.log(`[Play Command] Trying Discord Player search first...`);
-        searchResult = await client.player.search(query, {
-          requestedBy: interaction.user
-        });
+        console.log(`[Play Command] Trying CnvMP3 conversion first...`);
+        const converter = new CnvMP3Converter();
         
-        console.log(`[Play Command] Discord Player search result:`, {
-          hasTracks: searchResult.hasTracks(),
-          tracksCount: searchResult.tracks.length,
-          searchEngine: searchResult.searchEngine
-        });
+        // First, try to find a YouTube URL using yt-dlp
+        const youtubeSearch = new YouTubeSearchSimple();
+        const youtubeResults = await youtubeSearch.search(query, 1);
         
-        if (searchResult.hasTracks()) {
-          track = searchResult.tracks[0];
-          console.log(`[Play Command] ✅ Found via Discord Player: ${track.title} - ${track.author}`);
-          console.log(`[Play Command] Track URL: ${track.url}`);
-          console.log(`[Play Command] Track source: ${track.source}`);
-          console.log(`[Play Command] Track duration: ${track.duration}`);
-        }
-      } catch (error) {
-        console.log(`[Play Command] Discord Player search failed:`, error.message);
-      }
-
-      // Method 2: If Discord Player fails, try YouTube search using yt-dlp
-      if (!track) {
-        try {
-          console.log(`[Play Command] Trying YouTube search with yt-dlp...`);
-          const youtubeSearch = new YouTubeSearchSimple();
-          const youtubeResults = await youtubeSearch.search(query, 5);
+        if (youtubeResults.length > 0 && converter.isSupported(youtubeResults[0].url)) {
+          console.log(`[Play Command] Found YouTube URL: ${youtubeResults[0].url}`);
           
-          console.log(`[Play Command] YouTube search result:`, {
-            found: youtubeResults.length,
-            results: youtubeResults.map(r => r.title)
-          });
+          // Convert to MP3
+          const conversionResult = await converter.convertToMP3(youtubeResults[0].url, '128kb/s');
           
-          if (youtubeResults.length > 0) {
-            // Try to use the YouTube URL with Discord Player
-            try {
-              console.log(`[Play Command] Attempting Discord Player conversion for: ${youtubeResults[0].url}`);
-              const youtubeSearchResult = await client.player.search(youtubeResults[0].url, {
-                requestedBy: interaction.user
-              });
-              
-              if (youtubeSearchResult.hasTracks()) {
-                track = youtubeSearchResult.tracks[0];
-                console.log(`[Play Command] ✅ YouTube URL converted via Discord Player: ${track.title} - ${track.author}`);
-              } else {
-                throw new Error('Discord Player could not convert YouTube URL');
-              }
-            } catch (conversionError) {
-              console.log(`[Play Command] YouTube URL conversion failed:`, conversionError.message);
-              
-              // Create a basic track and let Discord Player handle it
+          if (conversionResult.success) {
+            console.log(`[Play Command] ✅ CnvMP3 conversion successful: ${conversionResult.downloadUrl}`);
+            
+            // Download the MP3 file to local storage
+            const localFilePath = await this.downloadMP3File(conversionResult.downloadUrl, youtubeResults[0].title);
+            
+            if (localFilePath) {
+              // Create a track object for the local file
               track = {
                 title: youtubeResults[0].title,
                 author: youtubeResults[0].author,
-                url: youtubeResults[0].url,
+                url: `file://${localFilePath}`,
                 duration: youtubeResults[0].duration,
                 thumbnail: youtubeResults[0].thumbnail,
-                source: 'youtube',
-                requestedBy: interaction.user
+                source: 'local',
+                requestedBy: interaction.user,
+                localFilePath: localFilePath // Store path for cleanup
               };
-              console.log(`[Play Command] Basic YouTube track created: ${track.title} - ${track.author}`);
+              console.log(`[Play Command] ✅ Local MP3 track created: ${track.title}`);
             }
+          } else {
+            console.log(`[Play Command] ❌ CnvMP3 conversion failed: ${conversionResult.error}`);
+          }
+        } else {
+          console.log(`[Play Command] No supported YouTube URL found for CnvMP3`);
+        }
+      } catch (error) {
+        console.log(`[Play Command] CnvMP3 conversion failed:`, error.message);
+      }
+
+      // Method 2: If CnvMP3 fails, try Discord Player as fallback
+      if (!track) {
+        try {
+          console.log(`[Play Command] Trying Discord Player search as fallback...`);
+          searchResult = await client.player.search(query, {
+            requestedBy: interaction.user
+          });
+          
+          console.log(`[Play Command] Discord Player search result:`, {
+            hasTracks: searchResult.hasTracks(),
+            tracksCount: searchResult.tracks.length,
+            searchEngine: searchResult.searchEngine
+          });
+          
+          if (searchResult.hasTracks()) {
+            track = searchResult.tracks[0];
+            console.log(`[Play Command] ✅ Found via Discord Player: ${track.title} - ${track.author}`);
           }
         } catch (error) {
-          console.log(`[Play Command] YouTube search failed:`, error.message);
+          console.log(`[Play Command] Discord Player search failed:`, error.message);
         }
       }
 
@@ -439,6 +436,62 @@ module.exports = {
     });
   },
 
+  async downloadMP3File(downloadUrl, title) {
+    try {
+      const fs = require('fs').promises;
+      const path = require('path');
+      const axios = require('axios');
+      
+      // Create temp directory if it doesn't exist
+      const tempDir = path.join(__dirname, '../../temp');
+      await fs.mkdir(tempDir, { recursive: true });
+      
+      // Generate safe filename
+      const safeTitle = title.replace(/[^a-zA-Z0-9\s]/g, '').substring(0, 50);
+      const timestamp = Date.now();
+      const filename = `${safeTitle}_${timestamp}.mp3`;
+      const filePath = path.join(tempDir, filename);
+      
+      console.log(`[Play Command] Downloading MP3 to: ${filePath}`);
+      
+      // Download the file
+      const response = await axios({
+        method: 'GET',
+        url: downloadUrl,
+        responseType: 'stream',
+        timeout: 60000 // 60 seconds timeout
+      });
+      
+      // Write to file
+      const writer = require('fs').createWriteStream(filePath);
+      response.data.pipe(writer);
+      
+      return new Promise((resolve, reject) => {
+        writer.on('finish', () => {
+          console.log(`[Play Command] ✅ MP3 downloaded successfully: ${filePath}`);
+          resolve(filePath);
+        });
+        writer.on('error', (error) => {
+          console.error(`[Play Command] ❌ Download failed:`, error.message);
+          reject(error);
+        });
+      });
+    } catch (error) {
+      console.error(`[Play Command] ❌ MP3 download error:`, error.message);
+      return null;
+    }
+  },
+
+  async cleanupLocalFile(filePath) {
+    try {
+      const fs = require('fs').promises;
+      await fs.unlink(filePath);
+      console.log(`[Play Command] ✅ Cleaned up local file: ${filePath}`);
+    } catch (error) {
+      console.error(`[Play Command] ❌ Cleanup failed:`, error.message);
+    }
+  },
+
   async tryCnvMP3Fallback(queue, track, interaction) {
     try {
       console.log(`[Play Command] Trying CnvMP3 fallback for: ${track.url}`);
@@ -457,30 +510,36 @@ module.exports = {
       if (conversionResult.success) {
         console.log(`[Play Command] ✅ CnvMP3 conversion successful: ${conversionResult.downloadUrl}`);
         
-        // Create a new track with the converted URL
-        const convertedTrack = {
-          ...track,
-          url: conversionResult.downloadUrl,
-          source: 'mp3',
-          title: `${track.title} (Converted)`
-        };
-
-        // Replace the current track in the queue
-        queue.tracks.clear();
-        queue.addTrack(convertedTrack);
+        // Download the MP3 file to local storage
+        const localFilePath = await this.downloadMP3File(conversionResult.downloadUrl, track.title);
         
-        // Try to play the converted track
-        try {
-          await queue.node.play();
-          console.log(`[Play Command] ✅ Converted track playback started`);
+        if (localFilePath) {
+          // Create a new track with the local file
+          const convertedTrack = {
+            ...track,
+            url: `file://${localFilePath}`,
+            source: 'local',
+            title: `${track.title} (Converted)`,
+            localFilePath: localFilePath
+          };
+
+          // Replace the current track in the queue
+          queue.tracks.clear();
+          queue.addTrack(convertedTrack);
           
-          // Notify the user
-          const channel = interaction.channel;
-          if (channel) {
-            await channel.send(`🔄 **Track converted and playing!** The original track couldn't be played, so I converted it to MP3 format.`);
+          // Try to play the converted track
+          try {
+            await queue.node.play();
+            console.log(`[Play Command] ✅ Converted track playback started`);
+            
+            // Notify the user
+            const channel = interaction.channel;
+            if (channel) {
+              await channel.send(`🔄 **Track converted and playing!** The original track couldn't be played, so I converted it to MP3 format.`);
+            }
+          } catch (playError) {
+            console.error(`[Play Command] ❌ Converted track playback failed:`, playError.message);
           }
-        } catch (playError) {
-          console.error(`[Play Command] ❌ Converted track playback failed:`, playError.message);
         }
       } else {
         console.log(`[Play Command] ❌ CnvMP3 conversion failed: ${conversionResult.error}`);

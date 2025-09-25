@@ -107,6 +107,16 @@ client.player.events.on('playerStart', (queue, track) => {
 
 client.player.events.on('playerFinish', (queue, track) => {
   console.log(`🏁 Track finished: ${track.title}`);
+  
+  // Clean up local files if they exist
+  if (track.localFilePath) {
+    const fs = require('fs').promises;
+    fs.unlink(track.localFilePath).then(() => {
+      console.log(`🗑️ Cleaned up local file: ${track.localFilePath}`);
+    }).catch(error => {
+      console.error(`❌ Failed to clean up local file:`, error.message);
+    });
+  }
 });
 
 client.player.events.on('playerError', (queue, error) => {
