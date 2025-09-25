@@ -347,43 +347,40 @@ module.exports = {
               console.log(`[Play Command] ⏸️ Audio paused`);
             });
             
+            // Track restart attempts to prevent infinite loops
+            let restartAttempts = 0;
+            const maxRestartAttempts = 3;
+            
             audioPlayer.on(AudioPlayerStatus.AutoPaused, () => {
-              console.log(`[Play Command] ⏸️ Audio autopaused - trying to resume...`);
+              console.log(`[Play Command] ⏸️ Audio autopaused (attempt ${restartAttempts + 1}/${maxRestartAttempts})`);
               
-              // Try to resume immediately
-              setTimeout(() => {
-                if (audioPlayer.state.status === AudioPlayerStatus.AutoPaused) {
-                  console.log(`[Play Command] 🔄 Attempting to unpause...`);
-                  try {
-                    audioPlayer.unpause();
-                    console.log(`[Play Command] ✅ Unpause command sent`);
-                  } catch (error) {
-                    console.error(`[Play Command] ❌ Unpause failed:`, error.message);
+              // Only try to restart if we haven't exceeded max attempts
+              if (restartAttempts < maxRestartAttempts) {
+                restartAttempts++;
+                
+                // Try to resume after a delay
+                setTimeout(() => {
+                  if (audioPlayer.state.status === AudioPlayerStatus.AutoPaused) {
+                    console.log(`[Play Command] 🔄 Attempting to resume...`);
+                    try {
+                      audioPlayer.unpause();
+                      console.log(`[Play Command] ✅ Resume command sent`);
+                    } catch (error) {
+                      console.error(`[Play Command] ❌ Resume failed:`, error.message);
+                    }
                   }
-                }
-              }, 1000);
-              
-              // If still autopaused after 3 seconds, try restarting the audio resource
-              setTimeout(() => {
-                if (audioPlayer.state.status === AudioPlayerStatus.AutoPaused) {
-                  console.log(`[Play Command] 🔄 Restarting audio resource...`);
-                  try {
-                    // Stop current playback
-                    audioPlayer.stop();
-                    
-                    // Create new audio resource and restart
-                    const newAudioResource = createAudioResource(track.localFilePath, {
-                      inputType: 'file',
-                      inlineVolume: false
-                    });
-                    
-                    audioPlayer.play(newAudioResource);
-                    console.log(`[Play Command] ✅ Audio resource restarted`);
-                  } catch (error) {
-                    console.error(`[Play Command] ❌ Restart failed:`, error.message);
-                  }
-                }
-              }, 3000);
+                }, 2000);
+              } else {
+                console.log(`[Play Command] ⏸️ Max restart attempts reached. Audio will resume when someone joins the voice channel.`);
+              }
+            });
+            
+            // Reset restart attempts when someone joins the voice channel
+            connection.on('stateChange', (oldState, newState) => {
+              if (newState.status === VoiceConnectionStatus.Ready) {
+                console.log(`[Play Command] ✅ Voice connection ready - resetting restart attempts`);
+                restartAttempts = 0;
+              }
             });
             
             audioPlayer.on(AudioPlayerStatus.Idle, () => {
