@@ -1,70 +1,97 @@
-# Musty Bot 2025 🎵
+# Musty Bot 2025
 
-A modern Discord music bot built with Discord.js v14 and Discord Player v7, featuring multi-source music support and robust error handling.
+A simple, reliable Discord music bot that actually works.
 
 ## Features
 
-- **Multi-Source Music Support**: YouTube, SoundCloud, Spotify, Deezer, and local files
-- **Queue Management**: Full queue control with skip, pause, resume, and stop functionality
-- **Voice Channel Integration**: Automatic voice channel management with smart leave/join
-- **Error Handling**: Comprehensive error handling with user-friendly messages
-- **Health Monitoring**: Built-in health check endpoints for monitoring
-- **Graceful Shutdown**: Proper cleanup on bot restart/shutdown
+- 🎵 **Music Playback**: YouTube, SoundCloud, Spotify support
+- 🎛️ **Basic Controls**: Play, pause, skip, stop, queue
+- ⚡ **Simple & Reliable**: No complex features that break
+- 🔧 **Easy Deployment**: One-click deployment to VPS
 
-## Commands
+## Quick Start
 
-### Music Commands
-- `/play [query]` - Play music from various sources
-- `/queue` - Show the current music queue
-- `/pause` - Pause/resume playback
-- `/skip` - Skip the current song
-- `/stop` - Stop music and clear queue
-- `/nowplaying` - Show currently playing track with progress bar
-- `/volume [1-100]` - Set volume level
-- `/autoplay` - Toggle autoplay for related tracks
-
-### Admin Commands
-- `/purge [amount]` - Delete messages (admin only)
-- `/status` - Show bot status and statistics
-
-### Fun Commands
-- `/ping` - Check bot latency
-- `/wordle` - Play Wordle game
-
-## Setup
-
-1. Clone the repository
-2. Install dependencies: `npm install`
-3. Create a `.env` file with required variables:
+1. **Clone and setup**
+   ```bash
+   git clone https://github.com/yourusername/musty-bot.git
+   cd musty-bot
+   npm install
    ```
-   DISCORD_TOKEN=your_bot_token
-   CLIENT_ID=your_application_id
+
+2. **Configure environment**
+   ```bash
+   cp .env.example .env
+   # Edit .env with your bot token
    ```
-4. Deploy commands: `npm run deploy`
-5. Start the bot: `npm start`
+
+3. **Deploy commands**
+   ```bash
+   npm run deploy
+   ```
+
+4. **Start the bot**
+   ```bash
+   npm start
+   ```
 
 ## Environment Variables
 
-- `DISCORD_TOKEN` - Your Discord bot token (required)
-- `CLIENT_ID` - Your Discord application ID (required)
-- `PORT` - Port for uptime server (optional, defaults to 3000)
+```env
+DISCORD_TOKEN=your_bot_token_here
+CLIENT_ID=your_client_id_here
+PORT=3000
+```
 
-## Health Monitoring
+## Commands
 
-The bot includes health check endpoints:
-- `GET /` - Bot status and statistics
-- `GET /health` - Simple health check
+- `/play <song>` - Play a song
+- `/pause` - Pause current track
+- `/resume` - Resume paused track
+- `/skip` - Skip to next track
+- `/stop` - Stop and clear queue
+- `/queue` - Show current queue
+- `/nowplaying` - Show current track
+- `/volume <level>` - Set volume (0-100)
 
-## Deployment
+## VPS Deployment
 
-The bot is configured for deployment on VPS with PM2. Use the included deployment scripts:
-- `trigger-deployment.js` - Trigger deployment to VPS
-- `check-deployment.js` - Check deployment status
+1. **Commit and push your changes**
+   ```bash
+   git add .
+   git commit -m "Update bot"
+   git push origin main
+   ```
 
-## Version
+2. **SSH into your VPS**
+   ```bash
+   ssh user@94.130.97.149
+   ```
 
-Current version: 2.0.0
+3. **Deploy**
+   ```bash
+   cd /path/to/musty-bot
+   ./deploy-simple.sh
+   ```
 
-## License
+## What's Fixed
 
-ISC
+- ✅ Removed complex, buggy modules
+- ✅ Simplified Discord Player configuration
+- ✅ Fixed playback errors
+- ✅ Clean, working codebase
+- ✅ Reliable music streaming
+
+## Troubleshooting
+
+**Bot not playing music?**
+- Check bot permissions in Discord
+- Ensure bot has "Connect" and "Speak" permissions
+- Try a different song
+
+**Deployment issues?**
+- Make sure PM2 is installed: `npm install -g pm2`
+- Check logs: `pm2 logs musty-bot`
+
+---
+
+**Musty Bot 2025** - Simple music that works! 🎵
