@@ -97,19 +97,42 @@ module.exports = {
         });
         
         if (youtubeResults.length > 0) {
-          // Convert to Discord Player track format
-          const youtubeTrack = {
-            title: youtubeResults[0].title,
-            author: youtubeResults[0].author,
-            url: youtubeResults[0].url,
-            duration: youtubeResults[0].duration,
-            thumbnail: youtubeResults[0].thumbnail,
-            source: 'youtube',
-            requestedBy: interaction.user
-          };
-          
-          track = youtubeTrack;
-          console.log(`[Play Command] YouTube found: ${track.title} - ${track.author}`);
+          // Use Discord Player to create a proper track from the YouTube URL
+          try {
+            const searchResult = await client.player.search(youtubeResults[0].url, {
+              requestedBy: interaction.user
+            });
+            
+            if (searchResult.hasTracks()) {
+              track = searchResult.tracks[0];
+              console.log(`[Play Command] YouTube found via Discord Player: ${track.title} - ${track.author}`);
+            } else {
+              // Fallback: create a basic track object
+              track = {
+                title: youtubeResults[0].title,
+                author: youtubeResults[0].author,
+                url: youtubeResults[0].url,
+                duration: youtubeResults[0].duration,
+                thumbnail: youtubeResults[0].thumbnail,
+                source: 'youtube',
+                requestedBy: interaction.user
+              };
+              console.log(`[Play Command] YouTube found (fallback): ${track.title} - ${track.author}`);
+            }
+          } catch (discordPlayerError) {
+            console.log(`[Play Command] Discord Player conversion failed, using fallback:`, discordPlayerError.message);
+            // Fallback: create a basic track object
+            track = {
+              title: youtubeResults[0].title,
+              author: youtubeResults[0].author,
+              url: youtubeResults[0].url,
+              duration: youtubeResults[0].duration,
+              thumbnail: youtubeResults[0].thumbnail,
+              source: 'youtube',
+              requestedBy: interaction.user
+            };
+            console.log(`[Play Command] YouTube found (fallback): ${track.title} - ${track.author}`);
+          }
         }
       } catch (error) {
         console.log(`[Play Command] YouTube search failed:`, error.message);
@@ -209,7 +232,22 @@ module.exports = {
           console.log(`[Play Command] ✅ Playback started successfully`);
         } catch (playError) {
           console.error(`[Play Command] ❌ Playback failed:`, playError);
-          throw playError;
+          
+          // Try to get more details about the error
+          if (playError.message && playError.message.includes('AbortError')) {
+            console.log(`[Play Command] AbortError detected - trying to reconnect...`);
+            try {
+              // Try to reconnect and play again
+              await queue.connect(interaction.member.voice.channel);
+              await queue.node.play();
+              console.log(`[Play Command] ✅ Reconnected and playback started`);
+            } catch (reconnectError) {
+              console.error(`[Play Command] ❌ Reconnection failed:`, reconnectError);
+              throw playError;
+            }
+          } else {
+            throw playError;
+          }
         }
       } else {
         console.log(`[Play Command] Already playing, track added to queue`);
