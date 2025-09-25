@@ -336,9 +336,9 @@ module.exports = {
             });
             const audioPlayer = createAudioPlayer({
               behaviors: {
-                noSubscriber: 'pause', // Only pause when no subscribers, not autopause
-                maxMissedFrames: 5,
-                maxMissedFramesInterval: 5000
+                noSubscriber: 'play', // Keep playing even when no subscribers detected
+                maxMissedFrames: 10,
+                maxMissedFramesInterval: 10000
               }
             });
             
