@@ -347,6 +347,17 @@ module.exports = {
               console.log(`[Play Command] ⏸️ Audio paused`);
             });
             
+            audioPlayer.on(AudioPlayerStatus.AutoPaused, () => {
+              console.log(`[Play Command] ⏸️ Audio autopaused - trying to resume...`);
+              // Try to resume after a short delay
+              setTimeout(() => {
+                if (audioPlayer.state.status === AudioPlayerStatus.AutoPaused) {
+                  console.log(`[Play Command] 🔄 Attempting to resume from autopaused state...`);
+                  audioPlayer.unpause();
+                }
+              }, 2000);
+            });
+            
             audioPlayer.on(AudioPlayerStatus.Idle, () => {
               console.log(`[Play Command] 🏁 Audio finished playing (Idle state)`);
               console.log(`[Play Command] Audio player state:`, audioPlayer.state);
@@ -374,6 +385,21 @@ module.exports = {
             
             // Connect audio player to voice connection
             const connection = queue.dispatcher.voiceConnection;
+            console.log(`[Play Command] Voice connection state:`, connection.state);
+            console.log(`[Play Command] Voice connection status:`, connection.state.status);
+            
+            // Check if connection is ready
+            if (connection.state.status !== VoiceConnectionStatus.Ready) {
+              console.log(`[Play Command] ⚠️ Voice connection not ready, waiting...`);
+              try {
+                await entersState(connection, VoiceConnectionStatus.Ready, 5000);
+                console.log(`[Play Command] ✅ Voice connection ready`);
+              } catch (error) {
+                console.error(`[Play Command] ❌ Voice connection timeout:`, error.message);
+                throw new Error('Voice connection not ready');
+              }
+            }
+            
             connection.subscribe(audioPlayer);
             
             // Start playing with a small delay
