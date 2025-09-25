@@ -1,5 +1,6 @@
 const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, StringSelectMenuBuilder } = require('discord.js');
 const CommandUtils = require('../../modules/command-utils');
+const YouTubeSearchSimple = require('../../modules/youtube-search-simple');
 
 module.exports = {
   data: new SlashCommandBuilder()
@@ -87,21 +88,30 @@ module.exports = {
       let track = null;
       let allTracks = [];
 
-      // Method 1: Try YouTube search (primary)
+      // Method 1: Try YouTube search using yt-dlp (primary)
       try {
-        console.log(`[Play Command] Trying YouTube search...`);
-        searchResult = await client.player.search(query, {
-          requestedBy: interaction.user,
-          searchEngine: 'youtube'
-        });
+        console.log(`[Play Command] Trying YouTube search with yt-dlp...`);
+        const youtubeSearch = new YouTubeSearchSimple();
+        const youtubeResults = await youtubeSearch.search(query, 5);
         
         console.log(`[Play Command] YouTube search result:`, {
-          hasTracks: searchResult.hasTracks(),
-          tracksCount: searchResult.tracks.length
+          found: youtubeResults.length,
+          results: youtubeResults.map(r => r.title)
         });
         
-        if (searchResult.hasTracks()) {
-          track = searchResult.tracks[0];
+        if (youtubeResults.length > 0) {
+          // Convert to Discord Player track format
+          const youtubeTrack = {
+            title: youtubeResults[0].title,
+            author: youtubeResults[0].author,
+            url: youtubeResults[0].url,
+            duration: youtubeResults[0].duration,
+            thumbnail: youtubeResults[0].thumbnail,
+            source: 'youtube',
+            requestedBy: interaction.user
+          };
+          
+          track = youtubeTrack;
           console.log(`[Play Command] YouTube found: ${track.title} - ${track.author}`);
         }
       } catch (error) {
@@ -127,7 +137,7 @@ module.exports = {
               console.log(`[Play Command] Using single SoundCloud track: ${track.title}`);
             } else {
               // Show selection menu for multiple tracks
-              return await this.showTrackSelection(interaction, allTracks, queue);
+              return await this.showTrackSelection(interaction, allTracks, queue, client);
             }
           }
         } catch (error) {
@@ -261,7 +271,7 @@ module.exports = {
   },
 
   // Method to show track selection for SoundCloud results
-  async showTrackSelection(interaction, tracks, queue) {
+  async showTrackSelection(interaction, tracks, queue, client) {
     const embed = new EmbedBuilder()
       .setColor('#ff8800')
       .setTitle('🎵 Multiple Tracks Found')
@@ -289,9 +299,11 @@ module.exports = {
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
 
-    // Store tracks in interaction for later use
-    interaction.tracks = tracks;
-    interaction.queue = queue;
+    // Store tracks and queue in client for later use
+    if (!client.trackSelections) {
+      client.trackSelections = new Map();
+    }
+    client.trackSelections.set(interaction.id, { tracks, queue });
 
     await interaction.editReply({ 
       embeds: [embed], 

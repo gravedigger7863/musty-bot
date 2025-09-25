@@ -88,11 +88,18 @@ module.exports = {
       else if (interaction.isStringSelectMenu() && interaction.customId === 'track_selection') {
         try {
           const selectedIndex = parseInt(interaction.values[0]);
-          const tracks = interaction.tracks;
-          const queue = interaction.queue;
+          
+          // Get tracks and queue from client storage
+          const selectionData = client.trackSelections?.get(interaction.message.interaction?.id);
+          if (!selectionData) {
+            await interaction.reply({ content: '❌ Selection expired. Please search again.', flags: 64 });
+            return;
+          }
+          
+          const { tracks, queue } = selectionData;
           
           if (!tracks || !queue || selectedIndex >= tracks.length) {
-            await interaction.reply({ content: '❌ Invalid selection. Please try again.', ephemeral: true });
+            await interaction.reply({ content: '❌ Invalid selection. Please try again.', flags: 64 });
             return;
           }
           
@@ -129,9 +136,12 @@ module.exports = {
             components: [] // Remove the selection menu
           });
           
+          // Clean up stored data
+          client.trackSelections?.delete(interaction.message.interaction?.id);
+          
         } catch (error) {
           console.error('Track selection error:', error);
-          await interaction.reply({ content: '❌ Error processing selection. Please try again.', ephemeral: true });
+          await interaction.reply({ content: '❌ Error processing selection. Please try again.', flags: 64 });
         }
       }
       // Handle button interactions
