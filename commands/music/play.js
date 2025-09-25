@@ -902,17 +902,31 @@ module.exports = {
       
       console.log(`[Play Command] Converting with yt-dlp (direct): ${youtubeUrl} -> ${outputPath}`);
       
-      const ytdlp = spawn('yt-dlp', [
-        '--no-cookies',
-        '--no-check-certificate',
+      // Try with Chrome cookies first, fallback to Firefox if Chrome not available
+      // Try with cookies file first, fallback to no-cookies if not available
+      const cookiesPath = path.join(__dirname, '..', '..', 'cookies.txt');
+      const hasCookies = fs.existsSync(cookiesPath);
+      
+      const ytdlpArgs = [
+        '--user-agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0',
         '--extract-audio',
         '--audio-format', 'mp3',
         '--audio-quality', '128K',
         '--output', outputPath,
         '--no-playlist',
-        '--max-filesize', '50M',
-        youtubeUrl
-      ]);
+        '--max-filesize', '50M'
+      ];
+      
+      if (hasCookies) {
+        ytdlpArgs.push('--cookies', cookiesPath);
+        console.log(`[Play Command] Using cookies file: ${cookiesPath}`);
+      } else {
+        console.log(`[Play Command] No cookies file found, trying without cookies...`);
+      }
+      
+      ytdlpArgs.push(youtubeUrl);
+      
+      const ytdlp = spawn('yt-dlp', ytdlpArgs);
       
       let stderr = '';
       ytdlp.stderr.on('data', (data) => {
@@ -937,6 +951,60 @@ module.exports = {
           }
         } else {
           console.log(`[Play Command] ❌ yt-dlp direct conversion failed with code ${code}: ${stderr}`);
+          
+          // If Chrome failed, try Firefox as fallback
+          if (stderr.includes('chrome') || stderr.includes('cookies')) {
+            console.log(`[Play Command] Trying Firefox cookies as fallback...`);
+            this.tryYtdlpWithFirefox(youtubeUrl, outputPath).then(resolve).catch(() => resolve(null));
+          } else {
+            resolve(null);
+          }
+        }
+      });
+    });
+  },
+
+  async tryYtdlpWithFirefox(youtubeUrl, outputPath) {
+    return new Promise((resolve) => {
+      const { spawn } = require('child_process');
+      
+      console.log(`[Play Command] Trying yt-dlp with Firefox cookies: ${youtubeUrl} -> ${outputPath}`);
+      
+      const ytdlp = spawn('yt-dlp', [
+        '--cookies-from-browser', 'firefox',
+        '--user-agent', 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0',
+        '--extract-audio',
+        '--audio-format', 'mp3',
+        '--audio-quality', '128K',
+        '--output', outputPath,
+        '--no-playlist',
+        '--max-filesize', '50M',
+        youtubeUrl
+      ]);
+      
+      let stderr = '';
+      ytdlp.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+      
+      ytdlp.on('close', (code) => {
+        if (code === 0) {
+          // Check if file was created and has content
+          try {
+            const stats = fs.statSync(outputPath);
+            if (stats.size > 1000) { // File should be at least 1KB
+              console.log(`[Play Command] ✅ yt-dlp Firefox conversion successful: ${outputPath} (${stats.size} bytes)`);
+              resolve(outputPath);
+            } else {
+              console.log(`[Play Command] ❌ yt-dlp Firefox output file too small: ${stats.size} bytes`);
+              resolve(null);
+            }
+          } catch (accessError) {
+            console.log(`[Play Command] ❌ yt-dlp Firefox output file not found:`, accessError.message);
+            resolve(null);
+          }
+        } else {
+          console.log(`[Play Command] ❌ yt-dlp Firefox conversion failed with code ${code}: ${stderr}`);
           resolve(null);
         }
       });
